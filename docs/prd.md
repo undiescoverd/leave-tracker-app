@@ -15,6 +15,7 @@ The Dark Horse Agency, a London-based talent agency, currently lacks a formal sy
 | Date | Version | Description | Author |
 | :--- | :--- | :--- | :--- |
 | 2025-08-23 | 1.0 | Initial PRD draft. | John |
+| 2025-08-25 | 1.1 | Completed Chunk 1.1: Security & Environment Setup. Added environment validation, route protection middleware, secure secret generation, and type-safe environment variables. | Ian |
 
 ---
 
@@ -83,17 +84,35 @@ A clean, corporate-friendly aesthetic with a touch of modern minimalism to refle
 
 **Epic Goal**: Establish the foundational infrastructure of the project, including the database, authentication, and a basic user management system, while delivering the core functionality to allow users to log in and view their data.
 
-### Story 1.1: Project Setup & Database
+### Story 1.1: Project Setup & Database ✅ COMPLETED
 **As a** developer,
 **I want** to set up the project and database,
 **so that** I have a working foundation for the application.
 
 ### Acceptance Criteria
-1.  The project scaffolding is complete with Next.js, TypeScript, and Tailwind.
-2.  Prisma is installed and configured to connect to the Vercel Postgres database.
-3.  The core `User` data model is defined in the Prisma schema with `id`, `email`, and `role`.
-4.  The initial database migration is created and applied.
-5.  The project runs successfully locally.
+1.  ✅ The project scaffolding is complete with Next.js, TypeScript, and Tailwind.
+2.  ✅ Prisma is installed and configured to connect to the Vercel Postgres database.
+3.  ✅ The core `User` data model is defined in the Prisma schema with `id`, `email`, and `role`.
+4.  ✅ The initial database migration is created and applied.
+5.  ✅ The project runs successfully locally.
+6.  ✅ Environment validation with Zod schema implemented.
+7.  ✅ Route protection middleware with role-based access control.
+8.  ✅ Secure secret generation and management.
+9.  ✅ Type-safe environment variables with full TypeScript support.
+
+### Story 1.1.5: Security & Environment Setup ✅ COMPLETED
+**As a** developer,
+**I want** to implement comprehensive security features and environment management,
+**so that** the application is secure and properly configured.
+
+### Acceptance Criteria
+1.  ✅ Environment variables are validated using Zod schema at startup.
+2.  ✅ Route protection middleware automatically protects all non-public routes.
+3.  ✅ Role-based access control prevents unauthorized access to admin routes.
+4.  ✅ Secure secret generation script creates cryptographically secure secrets.
+5.  ✅ Type-safe environment variables provide full TypeScript support.
+6.  ✅ Authentication configuration uses validated environment variables.
+7.  ✅ Documentation includes security features and setup guide.
 
 ### Story 1.2: User Authentication & Registration
 **As a** user,
