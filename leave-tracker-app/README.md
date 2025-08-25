@@ -100,6 +100,27 @@ Run both seeding and testing in sequence:
 npm run test:setup
 ```
 
+## 🔧 Troubleshooting
+
+### Database Issues
+If you encounter database migration or enum type issues:
+
+```bash
+# Reset database and apply schema
+npx prisma db push --force-reset
+
+# Generate Prisma client
+npx prisma generate
+
+# Seed the database
+npm run db:seed
+```
+
+### Common Issues
+- **"type Role does not exist"**: Run `npx prisma db push --force-reset`
+- **Migration conflicts**: Remove migrations folder and use `db push` instead
+- **Connection issues**: Verify your `DATABASE_URL` in `.env.local`
+
 ## 🔐 Security Features
 
 - **Route Protection**: Middleware automatically protects all routes except public ones
