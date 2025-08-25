@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { prisma } from "./prisma";
 import bcrypt from "bcryptjs";
+import { env } from "./env";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -71,6 +72,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   pages: {
     signIn: "/login",
   },
-  secret: process.env.NEXTAUTH_SECRET,
-  debug: process.env.NODE_ENV === "development",
+  secret: env.NEXTAUTH_SECRET,
+  debug: env.NODE_ENV === "development",
 });
