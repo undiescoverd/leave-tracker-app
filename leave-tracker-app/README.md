@@ -50,7 +50,55 @@ This is a [Next.js](https://nextjs.org) project for managing employee leave requ
    npm run dev
    ```
 
+7. **Seed the database with test users (optional):**
+   ```bash
+   npm run db:seed
+   ```
+
+8. **Run authentication tests (optional):**
+   ```bash
+   npm run test:auth
+   ```
+
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+## 🧪 Testing & Development
+
+### Database Seeding
+The application includes a seeding script that creates test users for development:
+
+```bash
+npm run db:seed
+```
+
+This creates the following users:
+- **Senay Taormina** (Admin) - senay.taormina@tdhagency.com
+- **Ian Vincent** (Admin) - ian.vincent@tdhagency.com  
+- **Sup Dhanasunthorn** (User) - sup.dhanasunthorn@tdhagency.com
+- **Luis Drake** (User) - luis.drake@tdhagency.com
+
+**Default password for all users**: `Password123!`
+
+### Authentication Testing
+Run comprehensive authentication tests:
+
+```bash
+npm run test:auth
+```
+
+This tests:
+- Database connection
+- User authentication
+- Role-based access control
+- API endpoints
+- Route protection
+
+### Complete Setup & Test
+Run both seeding and testing in sequence:
+
+```bash
+npm run test:setup
+```
 
 ## 🔐 Security Features
 

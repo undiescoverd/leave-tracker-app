@@ -7,7 +7,10 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
-    "generate-secret": "node scripts/generate-secret.js"
+    "generate-secret": "node scripts/generate-secret.js",
+    "db:seed": "npx tsx prisma/seed.ts",
+    "test:auth": "npx tsx scripts/test-auth.ts",
+    "test:setup": "npm run db:seed && npm run test:auth"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.10.0",
@@ -30,6 +33,7 @@
     "eslint-config-next": "15.5.0",
     "prisma": "^6.14.0",
     "tailwindcss": "^4",
+    "tsx": "^4.19.2",
     "typescript": "^5"
   }
 }
