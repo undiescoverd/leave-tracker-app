@@ -21,6 +21,16 @@ export default function LeaveRequestForm({ onSuccess }: LeaveRequestFormProps) {
     e.preventDefault();
     setIsSubmitting(true);
 
+    // Client-side validation
+    const startDate = new Date(formData.startDate);
+    const endDate = new Date(formData.endDate);
+    
+    if (endDate < startDate) {
+      showError("End date must be after or equal to start date");
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       const response = await fetch("/api/leave/request", {
         method: "POST",
@@ -28,24 +38,29 @@ export default function LeaveRequestForm({ onSuccess }: LeaveRequestFormProps) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          startDate: new Date(formData.startDate).toISOString(),
-          endDate: new Date(formData.endDate).toISOString(),
-          comments: formData.comments,
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+          reason: formData.comments,
         }),
       });
 
       const result = await response.json();
 
       if (response.ok) {
-        showSuccess(`Leave request submitted successfully! Working days: ${result.workingDays}`);
-        if (result.conflictWarning) {
-          showError(result.conflictWarning);
-        }
+        const message = `Leave request submitted successfully! ${result.data.leaveDays} days requested. ${result.data.remainingBalance} days will remain.`;
+        showSuccess(message);
         setFormData({ startDate: "", endDate: "", comments: "" });
         setIsOpen(false);
         onSuccess?.();
       } else {
-        showError(`Error: ${result.error}`);
+        // Handle structured error response
+        if (result.error && result.error.message) {
+          showError(`Error: ${result.error.message}`);
+        } else if (result.error) {
+          showError(`Error: ${result.error}`);
+        } else {
+          showError("Failed to submit leave request");
+        }
       }
     } catch (error) {
       showError("Failed to submit leave request");
