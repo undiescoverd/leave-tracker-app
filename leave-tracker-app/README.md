@@ -2,6 +2,28 @@
 
 This is a [Next.js](https://nextjs.org) project for managing employee leave requests at TDH Agency.
 
+## 📊 Current Status
+
+**Progress:** 4/7 Steps Complete (57%)  
+**Last Updated:** August 26, 2025  
+**Current Phase:** Leave Request CRUD Implementation
+
+### ✅ Completed Features
+- **Authentication & Authorization** - NextAuth.js with role-based access
+- **Database Integration** - PostgreSQL with Prisma ORM
+- **API Standards** - Standardized responses and error handling
+- **Leave Request CRUD** - POST and GET endpoints with business logic
+- **Business Logic** - Leave calculations, balance checking, conflict detection
+- **Security** - Environment validation and route protection
+
+### 🔄 In Progress
+- **Frontend Integration** - Enhanced form with API integration
+- **User Experience** - Improved loading states and error handling
+
+### 📋 Pending
+- **Leave Requests List Page** - User's leave history with filtering
+- **Leave Balance Widget** - Visual balance display on dashboard
+
 ## 🚀 Getting Started
 
 ### Prerequisites
