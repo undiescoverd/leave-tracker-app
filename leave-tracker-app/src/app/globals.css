@@ -24,3 +24,59 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Ensure input fields have dark text and good contrast */
+input, textarea, select {
+  color: #171717 !important;
+  background-color: #ffffff !important;
+}
+
+input::placeholder, textarea::placeholder {
+  color: #6b7280 !important;
+}
+
+/* Focus states for better visibility */
+input:focus, textarea:focus, select:focus {
+  outline: 2px solid #0ea5e9 !important;
+  outline-offset: 2px !important;
+}
+
+/* Ensure headings have good contrast and visibility */
+h1, h2, h3, h4, h5, h6 {
+  color: #111827 !important;
+  font-weight: 600 !important;
+}
+
+/* Specific heading styles for better hierarchy */
+h1 {
+  color: #0f172a !important;
+  font-weight: 700 !important;
+}
+
+h2 {
+  color: #1e293b !important;
+  font-weight: 600 !important;
+}
+
+h3 {
+  color: #334155 !important;
+  font-weight: 600 !important;
+}
+
+/* Ensure all text has good contrast */
+p, span, div {
+  color: #374151 !important;
+}
+
+/* Make sure gray text is darker for better readability */
+.text-gray-500 {
+  color: #6b7280 !important;
+}
+
+.text-gray-600 {
+  color: #4b5563 !important;
+}
+
+.text-gray-700 {
+  color: #374151 !important;
+}
