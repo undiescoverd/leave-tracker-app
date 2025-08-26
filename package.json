@@ -9,10 +9,21 @@
     "lint": "next lint",
     "generate-secret": "node scripts/generate-secret.js",
     "db:seed": "tsx prisma/seed.ts",
-    "test:auth": "tsx scripts/test-auth.ts",
+    "test:auth": "npx tsx test-scripts/test-authentication.ts",
     "test:setup": "npm run db:seed && npm run test:auth",
     "diagnose": "tsx scripts/diagnose-api.ts",
-    "fix:server": "bash fix-server.sh"
+    "fix:server": "bash fix-server.sh",
+    "test:api": "npx tsx test-scripts/test-api-endpoints.ts",
+    "test:leave": "npx tsx test-scripts/test-leave-crud.ts",
+    "fix:types": "npx tsc --noEmit",
+    "clean": "rm -rf .next node_modules .next-lock",
+    "clean:install": "npm run clean && npm install",
+    "dev:clean": "./kill-port.sh && rm -rf .next && next dev --port 3000",
+    "dev:force": "./kill-port.sh && PORT=3000 next dev --port 3000",
+    "start:dev": "./start-dev.sh",
+    "kill:port": "./kill-port.sh",
+    "clean:cache": "rm -rf .next",
+    "fix:500": "rm -rf .next && npm run dev"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.10.0",
