@@ -3,7 +3,7 @@
 // Test script for the approval system
 // Run with: npx tsx scripts/test-approval-system.ts
 
-const API_BASE = "http://localhost:3000/api";
+const APPROVAL_API_BASE = "http://localhost:3000/api";
 
 async function testApprovalSystem() {
   console.log("🚀 Testing Approval System...\n");
@@ -11,7 +11,7 @@ async function testApprovalSystem() {
   // First, let's get all leave requests to see what we have
   console.log("📋 Fetching all leave requests...");
   try {
-    const getResponse = await fetch(`${API_BASE}/leave/request`);
+    const getResponse = await fetch(`${APPROVAL_API_BASE}/leave/request`);
     const getResult = await getResponse.json();
 
     if (getResponse.ok && getResult.leaveRequests.length > 0) {
@@ -29,7 +29,7 @@ async function testApprovalSystem() {
 
       // Test approval
       console.log("\n✅ Testing approval...");
-      const approveResponse = await fetch(`${API_BASE}/leave/request/${firstPending.id}/approve`, {
+      const approveResponse = await fetch(`${APPROVAL_API_BASE}/leave/request/${firstPending.id}/approve`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -54,7 +54,7 @@ async function testApprovalSystem() {
         comments: "Test request for rejection"
       };
 
-      const createResponse = await fetch(`${API_BASE}/leave/request`, {
+      const createResponse = await fetch(`${APPROVAL_API_BASE}/leave/request`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -69,7 +69,7 @@ async function testApprovalSystem() {
         
         // Test rejection
         console.log("\n❌ Testing rejection...");
-        const rejectResponse = await fetch(`${API_BASE}/leave/request/${createResult.leaveRequest.id}/reject`, {
+        const rejectResponse = await fetch(`${APPROVAL_API_BASE}/leave/request/${createResult.leaveRequest.id}/reject`, {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",

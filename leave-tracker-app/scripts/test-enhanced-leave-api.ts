@@ -3,7 +3,7 @@
 // Enhanced test script for the leave request API with conflict detection
 // Run with: npx tsx scripts/test-enhanced-leave-api.ts
 
-const API_BASE = "http://localhost:3000/api";
+const ENHANCED_API_BASE = "http://localhost:3000/api";
 
 async function testEnhancedLeaveRequest() {
   console.log("🚀 Testing Enhanced Leave Request API with Conflict Detection...\n");
@@ -17,7 +17,7 @@ async function testEnhancedLeaveRequest() {
   };
 
   try {
-    const createResponse = await fetch(`${API_BASE}/leave/request`, {
+    const createResponse = await fetch(`${ENHANCED_API_BASE}/leave/request`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -54,7 +54,7 @@ async function testEnhancedLeaveRequest() {
   };
 
   try {
-    const createResponse = await fetch(`${API_BASE}/leave/request`, {
+    const createResponse = await fetch(`${ENHANCED_API_BASE}/leave/request`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -90,7 +90,7 @@ async function testEnhancedLeaveRequest() {
   // Test 3: Get all leave requests
   console.log("📋 Fetching all leave requests...");
   try {
-    const getResponse = await fetch(`${API_BASE}/leave/request`);
+    const getResponse = await fetch(`${ENHANCED_API_BASE}/leave/request`);
     const getResult = await getResponse.json();
 
     if (getResponse.ok) {
@@ -122,7 +122,7 @@ async function testWeekendCalculation() {
   };
 
   try {
-    const createResponse = await fetch(`${API_BASE}/leave/request`, {
+    const createResponse = await fetch(`${ENHANCED_API_BASE}/leave/request`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -146,9 +146,9 @@ async function testWeekendCalculation() {
 }
 
 // Run the tests
-async function main() {
+async function runEnhancedTests() {
   await testEnhancedLeaveRequest();
   await testWeekendCalculation();
 }
 
-main().catch(console.error);
+runEnhancedTests().catch(console.error);

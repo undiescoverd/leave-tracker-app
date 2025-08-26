@@ -3,7 +3,7 @@
 // Quick test script for the leave request API
 // Run with: npx tsx scripts/test-leave-api.ts
 
-const API_BASE = "http://localhost:3000/api";
+const LEAVE_API_BASE = "http://localhost:3000/api";
 
 async function testLeaveRequest() {
   console.log("🚀 Testing Leave Request API...\n");
@@ -17,7 +17,7 @@ async function testLeaveRequest() {
   };
 
   try {
-    const createResponse = await fetch(`${API_BASE}/leave/request`, {
+    const createResponse = await fetch(`${LEAVE_API_BASE}/leave/request`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -43,7 +43,7 @@ async function testLeaveRequest() {
   // Test 2: Get all leave requests
   console.log("📋 Fetching all leave requests...");
   try {
-    const getResponse = await fetch(`${API_BASE}/leave/request`);
+    const getResponse = await fetch(`${LEAVE_API_BASE}/leave/request`);
     const getResult = await getResponse.json();
 
     if (getResponse.ok) {
@@ -76,7 +76,7 @@ async function testValidationErrors() {
   };
 
   try {
-    const response = await fetch(`${API_BASE}/leave/request`, {
+    const response = await fetch(`${LEAVE_API_BASE}/leave/request`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

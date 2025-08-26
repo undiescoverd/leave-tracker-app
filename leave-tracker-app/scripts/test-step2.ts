@@ -3,7 +3,7 @@
 // Test script for STEP 2: GET endpoint for user's leave requests
 // Run with: npx tsx scripts/test-step2.ts
 
-const API_BASE = "http://localhost:3001/api";
+const STEP2_API_BASE = "http://localhost:3001/api";
 
 async function testStep2() {
   console.log("🚀 Testing STEP 2: GET Endpoint for User's Leave Requests\n");
@@ -11,7 +11,7 @@ async function testStep2() {
   // Test 1: Try to get leave requests without authentication
   console.log("📝 Test 1: Getting leave requests without authentication...");
   try {
-    const response = await fetch(`${API_BASE}/leave/requests`, {
+    const response = await fetch(`${STEP2_API_BASE}/leave/requests`, {
       redirect: 'manual' // Don't follow redirects
     });
     
@@ -39,7 +39,7 @@ async function testStep2() {
   
   for (const status of statusFilters) {
     try {
-      const response = await fetch(`${API_BASE}/leave/requests?status=${status}`, {
+      const response = await fetch(`${STEP2_API_BASE}/leave/requests?status=${status}`, {
         redirect: 'manual' // Don't follow redirects
       });
       if (response.status === 307 || response.status === 302) {

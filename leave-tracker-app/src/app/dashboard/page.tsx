@@ -103,7 +103,10 @@ export default function DashboardPage() {
                   <button className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium">
                     View Team Calendar
                   </button>
-                  <button className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+                  <button 
+                    onClick={() => router.push("/leave/requests")}
+                    className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+                  >
                     My Leave History
                   </button>
                 </div>

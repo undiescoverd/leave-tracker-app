@@ -3,7 +3,7 @@
 // Test admin login and approval system
 // Run with: npx tsx scripts/test-admin-login.ts
 
-const API_BASE = "http://localhost:3000/api";
+const ADMIN_API_BASE = "http://localhost:3000/api";
 
 async function testAdminLogin() {
   console.log("🚀 Testing Admin Login and Approval System...\n");
@@ -16,7 +16,7 @@ async function testAdminLogin() {
   };
 
   try {
-    const loginResponse = await fetch(`${API_BASE}/auth/callback/credentials`, {
+    const loginResponse = await fetch(`${ADMIN_API_BASE}/auth/callback/credentials`, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
@@ -33,7 +33,7 @@ async function testAdminLogin() {
       console.log("✅ Admin login successful!");
       
       // Now test the approval system
-      await testApprovalSystem();
+      await testAdminApprovalSystem();
     } else {
       console.log("❌ Admin login failed");
       console.log("💡 You can manually log in as an admin user:");
@@ -46,10 +46,10 @@ async function testAdminLogin() {
   }
 }
 
-async function testApprovalSystem() {
+async function testAdminApprovalSystem() {
   console.log("\n📋 Fetching all leave requests...");
   try {
-    const getResponse = await fetch(`${API_BASE}/leave/request`);
+    const getResponse = await fetch(`${ADMIN_API_BASE}/leave/request`);
     const getResult = await getResponse.json();
 
     if (getResponse.ok && getResult.leaveRequests.length > 0) {
@@ -67,7 +67,7 @@ async function testApprovalSystem() {
 
       // Test approval
       console.log("\n✅ Testing approval...");
-      const approveResponse = await fetch(`${API_BASE}/leave/request/${firstPending.id}/approve`, {
+      const approveResponse = await fetch(`${ADMIN_API_BASE}/leave/request/${firstPending.id}/approve`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

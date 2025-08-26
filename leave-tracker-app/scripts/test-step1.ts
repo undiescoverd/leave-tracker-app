@@ -3,7 +3,7 @@
 // Test script for STEP 1: POST endpoint for leave requests
 // Run with: npx tsx scripts/test-step1.ts
 
-const API_BASE = "http://localhost:3000/api";
+const STEP1_API_BASE = "http://localhost:3000/api";
 
 async function testStep1() {
   console.log("🚀 Testing STEP 1: POST Endpoint for Leave Requests\n");
@@ -17,7 +17,7 @@ async function testStep1() {
   };
 
   try {
-    const createResponse = await fetch(`${API_BASE}/leave/request`, {
+    const createResponse = await fetch(`${STEP1_API_BASE}/leave/request`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -48,7 +48,7 @@ async function testStep1() {
   };
 
   try {
-    const response = await fetch(`${API_BASE}/leave/request`, {
+    const response = await fetch(`${STEP1_API_BASE}/leave/request`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
