@@ -72,8 +72,7 @@ async function testStep1() {
 
   console.log("🎉 STEP 1 Testing Complete!");
   console.log("\n📋 Next Steps:");
-  console.log("1. Login via the UI at 
-    http://localhost:3000/login");
+  console.log("1. Login via the UI at http://localhost:3000/login");
   console.log("2. Use Postman/Thunder Client to test with authentication");
   console.log("3. Test with valid data: " + JSON.stringify(leaveData, null, 2));
 }

@@ -5,12 +5,16 @@ import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { ValidationError, AuthenticationError } from '@/lib/api/errors';
 import { calculateLeaveDays, checkUKAgentConflict, getUserLeaveBalance } from '@/lib/services/leave.service';
+import { validateLeaveRequest } from '@/lib/services/leave-balance.service';
+import { features } from '@/lib/features';
 
-// Validation schema
+// Enhanced validation schema with leave type support
 const createLeaveRequestSchema = z.object({
   startDate: z.string().datetime(),
   endDate: z.string().datetime(),
   reason: z.string().min(1, 'Reason is required').max(500),
+  type: z.enum(['ANNUAL', 'TOIL', 'SICK']).optional().default('ANNUAL'),
+  hours: z.number().optional(), // For TOIL requests
 }).refine((data) => {
   const start = new Date(data.startDate);
   const end = new Date(data.endDate);
@@ -103,7 +107,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { startDate, endDate, reason } = validationResult.data;
+    const { startDate, endDate, reason, type, hours } = validationResult.data;
+
+    // Check if requested type is enabled
+    if (type === 'TOIL' && !features.TOIL_ENABLED) {
+      throw new ValidationError('TOIL requests are not currently enabled');
+    }
+    
+    if (type === 'SICK' && !features.SICK_LEAVE_ENABLED) {
+      throw new ValidationError('Sick leave requests are not currently enabled');
+    }
 
     // Calculate leave days
     const leaveDays = calculateLeaveDays(
@@ -111,14 +124,16 @@ export async function POST(req: NextRequest) {
       new Date(endDate)
     );
 
-    // Check leave balance
-    const year = new Date(startDate).getFullYear();
-    const balance = await getUserLeaveBalance(user.id, year);
-    
-    if (balance.remaining < leaveDays) {
-      throw new ValidationError(
-        `Insufficient leave balance. You have ${balance.remaining} days remaining but requested ${leaveDays} days.`
-      );
+    // Validate leave request based on type and balance
+    const validation_result = await validateLeaveRequest(
+      user.id,
+      type,
+      new Date(startDate),
+      new Date(endDate)
+    );
+
+    if (!validation_result.valid) {
+      throw new ValidationError(validation_result.error || 'Invalid request');
     }
 
     // Check for UK agent conflicts (only for UK agents)
@@ -141,7 +156,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Create leave request
+    // Create leave request with type
     const leaveRequest = await prisma.leaveRequest.create({
       data: {
         userId: user.id,
@@ -149,6 +164,8 @@ export async function POST(req: NextRequest) {
         endDate: new Date(endDate),
         comments: reason,
         status: 'PENDING',
+        type, // New field
+        hours // For TOIL
       },
       include: {
         user: {
@@ -164,7 +181,7 @@ export async function POST(req: NextRequest) {
       { 
         leaveRequest,
         leaveDays,
-        remainingBalance: balance.remaining - leaveDays
+        message: `${type} leave request submitted successfully`
       },
       undefined,
       201

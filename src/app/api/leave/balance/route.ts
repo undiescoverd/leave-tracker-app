@@ -4,6 +4,8 @@ import { apiSuccess, apiError } from '@/lib/api/response';
 import { prisma } from '@/lib/prisma';
 import { AuthenticationError } from '@/lib/api/errors';
 import { getUserLeaveBalance } from '@/lib/services/leave.service';
+import { getUserLeaveBalances, getLegacyLeaveBalance } from '@/lib/services/leave-balance.service';
+import { features } from '@/lib/features';
 
 export async function GET(req: NextRequest) {
   try {
@@ -26,7 +28,41 @@ export async function GET(req: NextRequest) {
     // Get user's leave balance for current year
     const balance = await getUserLeaveBalance(user.id, currentYear);
 
-    return apiSuccess(balance);
+    // Return appropriate response based on features
+    const response = {
+      data: {
+        // Always include annual leave (backward compatible)
+        totalAllowance: balance.totalAllowance,
+        daysUsed: balance.daysUsed,
+        remaining: balance.remaining,
+        
+        // New structure if multi-type enabled
+        ...(features.isMultiLeaveTypeEnabled() && {
+          balances: {
+            annual: {
+              total: balance.totalAllowance,
+              used: balance.daysUsed,
+              remaining: balance.remaining
+            }
+          }
+        })
+      }
+    };
+
+    // Add TOIL and sick leave if enabled
+    if (features.TOIL_ENABLED || features.SICK_LEAVE_ENABLED) {
+      const multiBalances = await getUserLeaveBalances(user.id, currentYear);
+      
+      if (features.TOIL_ENABLED && multiBalances.toil) {
+        response.data.balances.toil = multiBalances.toil;
+      }
+      
+      if (features.SICK_LEAVE_ENABLED && multiBalances.sick) {
+        response.data.balances.sick = multiBalances.sick;
+      }
+    }
+
+    return apiSuccess(response.data);
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return apiError(error, error.statusCode);
