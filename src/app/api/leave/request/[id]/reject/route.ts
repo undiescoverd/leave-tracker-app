@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { auth } from '@/auth';
+import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { apiSuccess, apiError } from '@/lib/api/response';
 import { AuthenticationError, AuthorizationError, NotFoundError, ValidationError } from '@/lib/api/errors';
@@ -41,7 +41,7 @@ export async function POST(
     const { id } = await context.params;
 
     // Get the leave request
-    const leaveRequest = await prisma.leave.findUnique({
+    const leaveRequest = await prisma.leaveRequest.findUnique({
       where: { id },
       include: { user: true }
     });
@@ -51,11 +51,11 @@ export async function POST(
     }
 
     // Update status with comment
-    const updated = await prisma.leave.update({
+    const updated = await prisma.leaveRequest.update({
       where: { id },
       data: {
         status: 'REJECTED',
-        adminComment: validation.data.adminComment,
+        comments: validation.data.adminComment, // Use comments field instead of adminComment
         updatedAt: new Date()
       },
       include: { user: true }

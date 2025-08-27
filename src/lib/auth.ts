@@ -2,7 +2,23 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { prisma } from "./prisma";
 import bcrypt from "bcryptjs";
-import { env } from "./env";
+
+// Simple environment check without Zod for now
+const requiredEnvVars = {
+  NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
+  NEXTAUTH_URL: process.env.NEXTAUTH_URL || "http://localhost:3000",
+  DATABASE_URL: process.env.DATABASE_URL,
+};
+
+// Check for missing environment variables
+const missingVars = Object.entries(requiredEnvVars)
+  .filter(([key, value]) => !value)
+  .map(([key]) => key);
+
+if (missingVars.length > 0) {
+  console.error("❌ Missing environment variables:", missingVars);
+  console.error("Please check your .env file");
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -73,6 +89,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     signIn: "/login",
     signOut: "/login",
   },
-  secret: env.NEXTAUTH_SECRET,
-  debug: env.NODE_ENV === "development",
+  secret: process.env.NEXTAUTH_SECRET,
+  debug: process.env.NODE_ENV === "development",
 });

@@ -25,6 +25,8 @@ export default function PendingRequestsPage() {
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
+  const [rejectComment, setRejectComment] = useState("");
+  const [showRejectModal, setShowRejectModal] = useState<string | null>(null);
   const { toasts, showSuccess, showError, removeToast } = useToast();
 
   useEffect(() => {
@@ -47,7 +49,7 @@ export default function PendingRequestsPage() {
       const data = await response.json();
       
       if (response.ok) {
-        setLeaveRequests(data.leaveRequests);
+        setLeaveRequests(data.data?.leaveRequests || data.leaveRequests || []);
       } else {
         console.error("Failed to fetch leave requests:", data.error);
       }
@@ -62,7 +64,7 @@ export default function PendingRequestsPage() {
     setProcessing(requestId);
     try {
       const response = await fetch(`/api/leave/request/${requestId}/approve`, {
-        method: "PATCH",
+        method: "POST",
       });
       
       if (response.ok) {
@@ -81,18 +83,31 @@ export default function PendingRequestsPage() {
   };
 
   const handleReject = async (requestId: string) => {
+    if (!rejectComment.trim()) {
+      showError("Please provide a reason for rejection");
+      return;
+    }
+
     setProcessing(requestId);
     try {
       const response = await fetch(`/api/leave/request/${requestId}/reject`, {
-        method: "PATCH",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          adminComment: rejectComment.trim()
+        }),
       });
       
       if (response.ok) {
         showSuccess("Leave request rejected successfully!");
         fetchLeaveRequests(); // Refresh the list
+        setRejectComment(""); // Clear comment
+        setShowRejectModal(null); // Close modal
       } else {
         const error = await response.json();
-        showError(`Failed to reject: ${error.error}`);
+        showError(`Failed to reject: ${error.error?.message || error.error || 'Unknown error'}`);
       }
     } catch (error) {
       showError("Error rejecting request");
@@ -138,8 +153,10 @@ export default function PendingRequestsPage() {
     return null;
   }
 
-  const pendingRequests = leaveRequests.filter(req => req.status === 'PENDING');
-  const otherRequests = leaveRequests.filter(req => req.status !== 'PENDING');
+  // Ensure leaveRequests is always an array
+  const requests = leaveRequests || [];
+  const pendingRequests = requests.filter(req => req.status === 'PENDING');
+  const otherRequests = requests.filter(req => req.status !== 'PENDING');
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -210,7 +227,7 @@ export default function PendingRequestsPage() {
                             {processing === request.id ? "Processing..." : "Approve"}
                           </button>
                           <button
-                            onClick={() => handleReject(request.id)}
+                            onClick={() => setShowRejectModal(request.id)}
                             disabled={processing === request.id}
                             className="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md text-sm font-medium"
                           >
@@ -287,6 +304,60 @@ export default function PendingRequestsPage() {
           </div>
         </div>
       </main>
+      
+      {/* Rejection Modal */}
+      {showRejectModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Reject Leave Request</h2>
+              <button
+                onClick={() => {
+                  setShowRejectModal(null);
+                  setRejectComment("");
+                }}
+                className="text-gray-400 hover:text-gray-600 text-xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Reason for Rejection *
+              </label>
+              <textarea
+                value={rejectComment}
+                onChange={(e) => setRejectComment(e.target.value)}
+                rows={4}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 text-gray-900 bg-white"
+                placeholder="Please provide a reason for rejecting this leave request..."
+                required
+              />
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={() => handleReject(showRejectModal)}
+                disabled={!rejectComment.trim() || processing === showRejectModal}
+                className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md text-sm font-medium"
+              >
+                {processing === showRejectModal ? "Processing..." : "Reject Request"}
+              </button>
+              <button
+                onClick={() => {
+                  setShowRejectModal(null);
+                  setRejectComment("");
+                }}
+                disabled={processing === showRejectModal}
+                className="flex-1 bg-gray-300 hover:bg-gray-400 disabled:bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-sm font-medium"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />

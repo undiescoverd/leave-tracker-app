@@ -14,6 +14,10 @@ export default function Home() {
     } else if (status === "unauthenticated") {
       router.push("/login");
     }
+    // Fallback - redirect to login if we get here (for any other status)
+    else if (status !== "loading") {
+      router.push("/login");
+    }
   }, [status, router]);
 
   // If we're still loading, show loading screen
@@ -27,11 +31,6 @@ export default function Home() {
       </div>
     );
   }
-
-  // Fallback - redirect to login if we get here
-  useEffect(() => {
-    router.push("/login");
-  }, [router]);
 
   // Show loading while redirecting
   return (

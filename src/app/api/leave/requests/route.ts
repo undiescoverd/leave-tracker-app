@@ -21,9 +21,12 @@ export async function GET(req: NextRequest) {
       throw new AuthenticationError('User not found');
     }
 
-    // Get query parameters for filtering
+    // Get query parameters for filtering and pagination
     const { searchParams } = new URL(req.url);
     const status = searchParams.get('status');
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const offset = (page - 1) * limit;
 
     // Build query
     const where: any = { userId: user.id };
@@ -31,10 +34,15 @@ export async function GET(req: NextRequest) {
       where.status = status;
     }
 
-    // Get leave requests
+    // Get total count for pagination
+    const totalCount = await prisma.leaveRequest.count({ where });
+
+    // Get leave requests with pagination
     const leaveRequests = await prisma.leaveRequest.findMany({
       where,
       orderBy: { createdAt: 'desc' },
+      take: limit,
+      skip: offset,
       include: {
         user: {
           select: {
@@ -54,13 +62,20 @@ export async function GET(req: NextRequest) {
       return {
         ...request,
         days,
+        // Fix: Map comments field to reason for frontend compatibility
+        reason: request.comments || 'No reason provided',
+        // Keep original comments field for admin functionality
+        comments: request.comments,
       };
     });
 
     return apiSuccess(
       { 
         requests: requestsWithDays,
-        total: requestsWithDays.length 
+        total: totalCount,
+        page,
+        limit,
+        totalPages: Math.ceil(totalCount / limit)
       },
       'Leave requests retrieved successfully'
     );
