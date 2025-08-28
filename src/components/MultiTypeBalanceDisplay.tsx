@@ -2,16 +2,26 @@
 
 import { useLeaveBalance } from '@/hooks/useLeaveBalance';
 import type { BalanceType } from '@/types/leave';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { Loader2 } from 'lucide-react';
 
 export default function MultiTypeBalanceDisplay() {
   const { balance: balanceData, loading, error } = useLeaveBalance();
 
   if (loading) {
     return (
-      <div className="animate-pulse">
+      <div className="space-y-6">
+        <div className="flex items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span className="ml-2 text-muted-foreground">Loading balances...</span>
+        </div>
         <div className="grid gap-4 md:grid-cols-3">
           {[1, 2, 3].map(i => (
-            <div key={i} className="bg-gray-200 rounded-lg h-32"></div>
+            <Card key={i} className="animate-pulse">
+              <CardContent className="h-32" />
+            </Card>
           ))}
         </div>
       </div>
@@ -20,55 +30,61 @@ export default function MultiTypeBalanceDisplay() {
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4">
-        {error}
-      </div>
+      <Card className="border-destructive">
+        <CardContent className="pt-6">
+          <p className="text-destructive">{error}</p>
+        </CardContent>
+      </Card>
     );
   }
 
   if (!balanceData) return null;
 
-  const isMultiType = balanceData.features?.multiTypeEnabled;
+  const isMultiType = (balanceData as any).features?.multiTypeEnabled;
 
   // Single type display (backward compatible)
   if (!isMultiType) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold mb-4">Annual Leave Balance</h2>
-        <div className="space-y-2">
-          <div className="flex justify-between">
-            <span className="text-gray-600">Total Allowance:</span>
-            <span className="font-semibold">{balanceData.totalAllowance} days</span>
+      <Card>
+        <CardHeader>
+          <CardTitle>Annual Leave Balance</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Total Allowance:</span>
+                <span className="font-semibold">{balanceData.totalAllowance} days</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Days Used:</span>
+                <span className="font-semibold">{balanceData.daysUsed} days</span>
+              </div>
+              <div className="flex justify-between pt-2 border-t">
+                <span className="text-muted-foreground">Remaining:</span>
+                <span className="font-bold text-primary">{balanceData.remaining} days</span>
+              </div>
+            </div>
+            
+            {/* Progress bar */}
+            <div className="space-y-2">
+              <Progress value={(balanceData.daysUsed / balanceData.totalAllowance) * 100} className="h-2" />
+              <p className="text-xs text-muted-foreground text-center">
+                {Math.round((balanceData.daysUsed / balanceData.totalAllowance) * 100)}% used
+              </p>
+            </div>
           </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">Days Used:</span>
-            <span className="font-semibold">{balanceData.daysUsed} days</span>
-          </div>
-          <div className="flex justify-between pt-2 border-t">
-            <span className="text-gray-600">Remaining:</span>
-            <span className="font-bold text-blue-600">{balanceData.remaining} days</span>
-          </div>
-        </div>
-        
-        {/* Progress bar */}
-        <div className="mt-4">
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
-              className="bg-blue-600 h-2 rounded-full transition-all"
-              style={{ width: `${(balanceData.daysUsed / balanceData.totalAllowance) * 100}%` }}
-            />
-          </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     );
   }
 
   // Multi-type display
-  const balances = balanceData.balancesByType || {};
+  const balances = (balanceData as any).balancesByType || {};
   
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900">Leave Balances</h2>
+      <h2 className="text-2xl font-bold text-foreground">Leave Balances</h2>
       
       <div className="grid gap-4 md:grid-cols-3">
         {/* Annual Leave Card */}
@@ -103,27 +119,31 @@ export default function MultiTypeBalanceDisplay() {
       </div>
 
       {/* Summary Stats */}
-      <div className="bg-gray-50 rounded-lg p-4">
-        <h3 className="text-sm font-medium text-gray-700 mb-2">Quick Summary</h3>
-        <div className="grid grid-cols-3 gap-4 text-center">
-          <div>
-            <p className="text-2xl font-bold text-blue-600">{balanceData.remaining}</p>
-            <p className="text-xs text-gray-600">Annual Days Left</p>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Quick Summary</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div>
+              <p className="text-2xl font-bold text-primary">{balanceData.remaining}</p>
+              <p className="text-xs text-muted-foreground">Annual Days Left</p>
+            </div>
+            {balances.toil && (
+              <div>
+                <p className="text-2xl font-bold text-green-600">{balances.toil.remaining}</p>
+                <p className="text-xs text-muted-foreground">TOIL Hours</p>
+              </div>
+            )}
+            {balances.sick && (
+              <div>
+                <p className="text-2xl font-bold text-orange-600">{balances.sick.remaining}</p>
+                <p className="text-xs text-muted-foreground">Sick Days</p>
+              </div>
+            )}
           </div>
-          {balances.toil && (
-            <div>
-              <p className="text-2xl font-bold text-green-600">{balances.toil.remaining}</p>
-              <p className="text-xs text-gray-600">TOIL Hours</p>
-            </div>
-          )}
-          {balances.sick && (
-            <div>
-              <p className="text-2xl font-bold text-orange-600">{balances.sick.remaining}</p>
-              <p className="text-xs text-gray-600">Sick Days</p>
-            </div>
-          )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -144,47 +164,50 @@ function BalanceCard({
     ? (balance.used / balance.total) * 100 
     : 0;
 
-  const colorClasses = {
-    blue: 'bg-blue-50 border-blue-200 text-blue-600',
-    green: 'bg-green-50 border-green-200 text-green-600',
-    orange: 'bg-orange-50 border-orange-200 text-orange-600',
-  }[color] || 'bg-gray-50 border-gray-200 text-gray-600';
+  const getColorClasses = (color: string) => {
+    switch (color) {
+      case 'blue': return 'border-blue-200 bg-blue-50/50';
+      case 'green': return 'border-green-200 bg-green-50/50';
+      case 'orange': return 'border-orange-200 bg-orange-50/50';
+      default: return 'border-border bg-muted/50';
+    }
+  };
 
-  const progressColor = {
-    blue: 'bg-blue-500',
-    green: 'bg-green-500',
-    orange: 'bg-orange-500',
-  }[color] || 'bg-gray-500';
+  const getTextColor = (color: string) => {
+    switch (color) {
+      case 'blue': return 'text-blue-600';
+      case 'green': return 'text-green-600';
+      case 'orange': return 'text-orange-600';
+      default: return 'text-foreground';
+    }
+  };
 
   return (
-    <div className={`rounded-lg border-2 p-4 ${colorClasses}`}>
-      <div className="flex justify-between items-start mb-3">
-        <div>
-          <span className="text-2xl">{icon}</span>
-          <h3 className="font-semibold mt-1">{balance.label}</h3>
+    <Card className={`border-2 ${getColorClasses(color)}`}>
+      <CardContent className="pt-6">
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <span className="text-2xl mb-1 block">{icon}</span>
+            <h3 className={`font-semibold ${getTextColor(color)}`}>{balance.label}</h3>
+          </div>
+          <div className="text-right">
+            <p className={`text-2xl font-bold ${getTextColor(color)}`}>{balance.remaining}</p>
+            <p className="text-xs text-muted-foreground">{balance.unit} left</p>
+          </div>
         </div>
-        <div className="text-right">
-          <p className="text-2xl font-bold">{balance.remaining}</p>
-          <p className="text-xs opacity-75">{balance.unit} left</p>
-        </div>
-      </div>
 
-      {/* Progress Bar */}
-      <div className="space-y-1">
-        <div className="flex justify-between text-xs opacity-75">
-          <span>Used: {balance.used} {balance.unit}</span>
-          <span>Total: {balance.total} {balance.unit}</span>
+        {/* Progress Bar */}
+        <div className="space-y-2">
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>Used: {balance.used} {balance.unit}</span>
+            <span>Total: {balance.total} {balance.unit}</span>
+          </div>
+          <Progress value={Math.min(percentage, 100)} className="h-2" />
+          <div className="text-right text-xs text-muted-foreground">
+            {percentage.toFixed(0)}% used
+          </div>
         </div>
-        <div className="w-full bg-white bg-opacity-50 rounded-full h-2">
-          <div 
-            className={`${progressColor} h-2 rounded-full transition-all`}
-            style={{ width: `${Math.min(percentage, 100)}%` }}
-          />
-        </div>
-        <div className="text-right text-xs opacity-75">
-          {percentage.toFixed(0)}% used
-        </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

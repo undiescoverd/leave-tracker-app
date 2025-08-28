@@ -4,6 +4,11 @@ import { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 function LoginForm() {
   const [email, setEmail] = useState("");
@@ -41,77 +46,87 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-black text-white">
-      <div className="w-full max-w-sm mx-auto">
-        <div className="text-center mb-8">
-          <h2 className="text-2xl font-bold">Sign in to your account</h2>
-          <p className="mt-2">TDH Agency Leave Tracker</p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="email" className="block text-sm mb-1">
-              Email address
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 bg-white border border-gray-300 text-black"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="password" className="block text-sm mb-1">
-              Password
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 bg-white border border-gray-300 text-black"
-            />
-          </div>
-
-          {error && (
-            <div className="text-red-500 text-sm text-center">
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full bg-white text-black py-2 px-4 border border-transparent hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isLoading ? "Signing in..." : "Sign in"}
-          </button>
-        </form>
-
-        <div className="mt-6 text-center">
-          <p className="text-sm">
-            New to the platform?{" "}
-            <Link href="/register" className="text-blue-500 hover:underline">
-              Create an account
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-sm">
+        <CardHeader>
+          <CardTitle>Login to your account</CardTitle>
+          <CardDescription>
+            Enter your email below to login to your account
+          </CardDescription>
+          <div className="pt-2">
+            <Link href="/register">
+              <Button variant="link" className="p-0 h-auto text-sm">
+                Need an account? Sign Up
+              </Button>
             </Link>
-          </p>
-        </div>
-      </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit}>
+            <div className="flex flex-col gap-6">
+              <div className="grid gap-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  placeholder="m@example.com"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <div className="flex items-center">
+                  <Label htmlFor="password">Password</Label>
+                  <a
+                    href="#"
+                    className="ml-auto inline-block text-sm underline-offset-4 hover:underline text-muted-foreground"
+                  >
+                    Forgot your password?
+                  </a>
+                </div>
+                <Input 
+                  id="password" 
+                  name="password"
+                  type="password" 
+                  required
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+              
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+            </div>
+          </form>
+        </CardContent>
+        <CardFooter className="flex-col gap-2">
+          <Button 
+            type="submit" 
+            className="w-full"
+            disabled={isLoading}
+            onClick={handleSubmit}
+          >
+            {isLoading ? "Signing in..." : "Login"}
+          </Button>
+          <Button variant="outline" className="w-full" disabled>
+            Login with Google
+          </Button>
+        </CardFooter>
+      </Card>
     </div>
   );
 }
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-black text-white">Loading...</div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background text-foreground">Loading...</div>}>
       <LoginForm />
     </Suspense>
   );

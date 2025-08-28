@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
       'luis.drake@tdhagency.com'
     ];
     
-    if (ukAgentEmails.includes(session.user.email)) {
+    if (ukAgentEmails.includes(user.email)) {
       const conflict = await checkUKAgentConflict(
         new Date(startDate),
         new Date(endDate),
