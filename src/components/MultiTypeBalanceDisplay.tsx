@@ -4,13 +4,28 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 
 interface LeaveBalance {
-  annual: number;
-  toil: number;
-  sick: number;
-  used: {
-    annual: number;
-    toil: number;
-    sick: number;
+  // Legacy format support
+  totalAllowance?: number;
+  daysUsed?: number;
+  remaining?: number;
+  
+  // New multi-type format
+  balances?: {
+    annual?: {
+      total: number;
+      used: number;
+      remaining: number;
+    };
+    toil?: {
+      total: number;
+      used: number;
+      remaining: number;
+    };
+    sick?: {
+      total: number;
+      used: number;
+      remaining: number;
+    };
   };
 }
 
@@ -86,6 +101,16 @@ export default function MultiTypeBalanceDisplay() {
     return "bg-teal-500";
   };
 
+  // Extract data with proper fallbacks
+  const annualBalance = balance.balances?.annual || {
+    total: balance.totalAllowance || 0,
+    used: balance.daysUsed || 0,
+    remaining: balance.remaining || 0
+  };
+  
+  const toilBalance = balance.balances?.toil || { total: 0, used: 0, remaining: 0 };
+  const sickBalance = balance.balances?.sick || { total: 0, used: 0, remaining: 0 };
+
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
       <div className="mb-6">
@@ -99,57 +124,61 @@ export default function MultiTypeBalanceDisplay() {
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-gray-700">Annual Leave</span>
             <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-              {balance.used.annual}/{balance.annual} days
+              {annualBalance.used}/{annualBalance.total} days
             </span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div
-              className={`h-2 rounded-full ${getProgressColor(calculatePercentage(balance.used.annual, balance.annual))}`}
-              style={{ width: `${calculatePercentage(balance.used.annual, balance.annual)}%` }}
+              className={`h-2 rounded-full ${getProgressColor(calculatePercentage(annualBalance.used, annualBalance.total))}`}
+              style={{ width: `${calculatePercentage(annualBalance.used, annualBalance.total)}%` }}
             ></div>
           </div>
           <p className="text-xs text-gray-500">
-            {balance.annual - balance.used.annual} days remaining
+            {annualBalance.remaining} days remaining
           </p>
         </div>
 
-        {/* TOIL */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-gray-700">TOIL</span>
-            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
-              {balance.toil} hours
-            </span>
+        {/* TOIL - Only show if available */}
+        {(balance.balances?.toil || toilBalance.total > 0) && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-700">TOIL</span>
+              <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                {toilBalance.remaining} hours
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div
+                className="h-2 rounded-full bg-green-500"
+                style={{ width: `${Math.min(100, (toilBalance.remaining / 40) * 100)}%` }}
+              ></div>
+            </div>
+            <p className="text-xs text-gray-500">
+              {toilBalance.remaining} hours available
+            </p>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div
-              className="h-2 rounded-full bg-green-500"
-              style={{ width: `${Math.min(100, (balance.toil / 40) * 100)}%` }}
-            ></div>
-          </div>
-          <p className="text-xs text-gray-500">
-            {balance.toil} hours available
-          </p>
-        </div>
+        )}
 
-        {/* Sick Leave */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-gray-700">Sick Leave</span>
-            <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
-              {balance.used.sick}/{balance.sick} days
-            </span>
+        {/* Sick Leave - Only show if available */}
+        {(balance.balances?.sick || sickBalance.total > 0) && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-700">Sick Leave</span>
+              <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
+                {sickBalance.used}/{sickBalance.total} days
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div
+                className={`h-2 rounded-full ${getProgressColor(calculatePercentage(sickBalance.used, sickBalance.total))}`}
+                style={{ width: `${calculatePercentage(sickBalance.used, sickBalance.total)}%` }}
+              ></div>
+            </div>
+            <p className="text-xs text-gray-500">
+              {sickBalance.remaining} days remaining
+            </p>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div
-              className={`h-2 rounded-full ${getProgressColor(calculatePercentage(balance.used.sick, balance.sick))}`}
-              style={{ width: `${calculatePercentage(balance.used.sick, balance.sick)}%` }}
-            ></div>
-          </div>
-          <p className="text-xs text-gray-500">
-            {balance.sick - balance.used.sick} days remaining
-          </p>
-        </div>
+        )}
       </div>
 
       {/* Summary */}
@@ -157,12 +186,14 @@ export default function MultiTypeBalanceDisplay() {
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
             <span className="text-gray-600">Total Annual Leave:</span>
-            <span className="ml-2 font-medium">{balance.annual} days</span>
+            <span className="ml-2 font-medium">{annualBalance.total} days</span>
           </div>
-          <div>
-            <span className="text-gray-600">Total TOIL:</span>
-            <span className="ml-2 font-medium">{balance.toil} hours</span>
-          </div>
+          {(balance.balances?.toil || toilBalance.total > 0) && (
+            <div>
+              <span className="text-gray-600">Total TOIL:</span>
+              <span className="ml-2 font-medium">{toilBalance.remaining} hours</span>
+            </div>
+          )}
         </div>
       </div>
     </div>
