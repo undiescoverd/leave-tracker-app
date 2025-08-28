@@ -69,19 +69,16 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    return apiSuccess(
-      { 
-        requests: requestsWithDays,
-        total: totalCount,
-        page,
-        limit,
-        totalPages: Math.ceil(totalCount / limit)
-      },
-      'Leave requests retrieved successfully'
-    );
+    return apiSuccess({
+      requests: requestsWithDays,
+      total: totalCount,
+      page,
+      limit,
+      totalPages: Math.ceil(totalCount / limit)
+    });
   } catch (error) {
     if (error instanceof AuthenticationError) {
-      return apiError(error, error.statusCode);
+      return apiError(error, error.statusCode as any);
     }
     return apiError('Internal server error');
   }

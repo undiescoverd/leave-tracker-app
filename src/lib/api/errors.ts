@@ -1,50 +1,37 @@
 /**
- * Custom Error Classes for API
- * Provides structured error handling throughout the application
+ * API Error Classes
+ * Standardized error handling for the application
  */
 
-import { HttpStatus, HttpStatusCode } from './response';
+import { HttpStatus } from './response';
 
 /**
- * Base class for all application errors
+ * Base error class for all application errors
  */
 export abstract class AppError extends Error {
   public readonly code: string;
-  public readonly statusCode: HttpStatusCode;
+  public readonly statusCode: number;
   public readonly isOperational: boolean;
   public readonly details?: any;
-  public readonly timestamp: string;
 
   constructor(
     message: string,
     code: string,
-    statusCode: HttpStatusCode,
-    isOperational = true,
+    statusCode: number = HttpStatus.INTERNAL_SERVER_ERROR,
+    isOperational: boolean = true,
     details?: any
   ) {
     super(message);
-    Object.setPrototypeOf(this, new.target.prototype);
-    
     this.name = this.constructor.name;
     this.code = code;
     this.statusCode = statusCode;
     this.isOperational = isOperational;
     this.details = details;
-    this.timestamp = new Date().toISOString();
-    
-    Error.captureStackTrace(this, this.constructor);
-  }
 
-  /**
-   * Convert error to JSON format for API responses
-   */
-  toJSON() {
-    return {
-      code: this.code,
-      message: this.message,
-      details: this.details,
-      timestamp: this.timestamp,
-    };
+    // Maintains proper stack trace for where our error was thrown (only available on V8)
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, this.constructor);
+    }
   }
 }
 
@@ -64,7 +51,7 @@ export class ValidationError extends AppError {
 }
 
 /**
- * Authentication error for unauthorized access
+ * Authentication error for missing or invalid credentials
  */
 export class AuthenticationError extends AppError {
   constructor(message = 'Authentication required') {
@@ -78,7 +65,7 @@ export class AuthenticationError extends AppError {
 }
 
 /**
- * Authorization error for forbidden access
+ * Authorization error for insufficient permissions
  */
 export class AuthorizationError extends AppError {
   constructor(message = 'Insufficient permissions') {
@@ -97,12 +84,12 @@ export class AuthorizationError extends AppError {
 export class NotFoundError extends AppError {
   constructor(resource = 'Resource', id?: string | number) {
     const message = id 
-      ? `${resource} with ID ${id} not found`
+      ? `${resource} with id ${id} not found`
       : `${resource} not found`;
     
     super(
       message,
-      'NOT_FOUND',
+      'NOT_FOUND_ERROR',
       HttpStatus.NOT_FOUND,
       true
     );
@@ -110,13 +97,13 @@ export class NotFoundError extends AppError {
 }
 
 /**
- * Conflict error for duplicate resources or conflicting operations
+ * Conflict error for resource conflicts
  */
 export class ConflictError extends AppError {
   constructor(message = 'Resource conflict', details?: any) {
     super(
       message,
-      'CONFLICT',
+      'CONFLICT_ERROR',
       HttpStatus.CONFLICT,
       true,
       details
@@ -131,7 +118,7 @@ export class BadRequestError extends AppError {
   constructor(message = 'Bad request', details?: any) {
     super(
       message,
-      'BAD_REQUEST',
+      'BAD_REQUEST_ERROR',
       HttpStatus.BAD_REQUEST,
       true,
       details
@@ -143,10 +130,10 @@ export class BadRequestError extends AppError {
  * Rate limit error for too many requests
  */
 export class RateLimitError extends AppError {
-  constructor(message = 'Too many requests', retryAfter?: number) {
+  constructor(message = 'Rate limit exceeded', retryAfter?: number) {
     super(
       message,
-      'RATE_LIMIT_EXCEEDED',
+      'RATE_LIMIT_ERROR',
       HttpStatus.TOO_MANY_REQUESTS,
       true,
       { retryAfter }
@@ -155,7 +142,7 @@ export class RateLimitError extends AppError {
 }
 
 /**
- * Database error for database-related issues
+ * Database error for database operation failures
  */
 export class DatabaseError extends AppError {
   constructor(message = 'Database operation failed', details?: any) {
@@ -210,20 +197,10 @@ export function toAppError(error: unknown): AppError {
   }
   
   if (error instanceof Error) {
-    return new AppError(
-      error.message,
-      'INTERNAL_ERROR',
-      HttpStatus.INTERNAL_SERVER_ERROR,
-      false
-    );
+    return new BadRequestError(error.message);
   }
   
-  return new AppError(
-    'An unexpected error occurred',
-    'INTERNAL_ERROR',
-    HttpStatus.INTERNAL_SERVER_ERROR,
-    false
-  );
+  return new BadRequestError('An unexpected error occurred');
 }
 
 /**

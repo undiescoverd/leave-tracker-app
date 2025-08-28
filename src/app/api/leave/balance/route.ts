@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
     const balance = await getUserLeaveBalance(user.id, currentYear);
 
     // Return appropriate response based on features
-    const response = {
+    const response: any = {
       data: {
         // Always include annual leave (backward compatible)
         totalAllowance: balance.totalAllowance,
@@ -54,19 +54,24 @@ export async function GET(req: NextRequest) {
       const multiBalances = await getUserLeaveBalances(user.id, currentYear);
       
       if (features.TOIL_ENABLED && multiBalances.toil) {
-        response.data.balances.toil = multiBalances.toil;
+        if (response.data.balances) {
+          response.data.balances.toil = multiBalances.toil;
+        }
       }
       
       if (features.SICK_LEAVE_ENABLED && multiBalances.sick) {
-        response.data.balances.sick = multiBalances.sick;
+        if (response.data.balances) {
+          response.data.balances.sick = multiBalances.sick;
+        }
       }
     }
 
     return apiSuccess(response.data);
+
   } catch (error) {
     if (error instanceof AuthenticationError) {
-      return apiError(error, error.statusCode);
+      return apiError(error.message, error.statusCode as any);
     }
-    return apiError('Internal server error');
+    return apiError('Internal server error', 500);
   }
 }

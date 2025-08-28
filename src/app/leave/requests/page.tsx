@@ -214,16 +214,16 @@ export default function LeaveRequestsPage() {
                     </div>
                     
                     <p className="text-sm text-gray-700 mb-2">
-                      {request.reason || request.comments || 'No reason provided'}
+                      {request.reason || request.reason || 'No reason provided'}
                     </p>
                     
                     <p className="text-xs text-gray-500">
                       Submitted: {formatDate(request.createdAt)}
                     </p>
                     
-                    {request.status === 'REJECTED' && request.comments && (
+                    {request.status === 'REJECTED' && request.reason && (
                       <div className="mt-2 p-2 bg-red-50 rounded text-xs text-red-700">
-                        <strong>Admin Comment:</strong> {request.comments}
+                        <strong>Admin Comment:</strong> {request.reason}
                       </div>
                     )}
                   </div>
@@ -250,7 +250,7 @@ export default function LeaveRequestsPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">{request.days}</td>
                         <td className="px-6 py-4 text-sm">
-                          {request.reason || request.comments || 'No reason provided'}
+                          {request.reason || request.reason || 'No reason provided'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusBadge(request.status)}`}>

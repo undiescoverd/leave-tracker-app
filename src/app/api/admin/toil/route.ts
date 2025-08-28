@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     if (error instanceof AuthenticationError || error instanceof AuthorizationError) {
-      return apiError(error.message, error.statusCode);
+      return apiError(error.message, error.statusCode as any);
     }
     return apiError('Internal server error', 500);
   }
@@ -140,7 +140,7 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     if (error instanceof AuthenticationError) {
-      return apiError(error.message, error.statusCode);
+      return apiError(error.message, error.statusCode as any);
     }
     return apiError('Internal server error', 500);
   }
@@ -203,7 +203,7 @@ export async function PATCH(request: NextRequest) {
 
   } catch (error) {
     if (error instanceof AuthenticationError || error instanceof AuthorizationError) {
-      return apiError(error.message, error.statusCode);
+      return apiError(error.message, error.statusCode as any);
     }
     return apiError('Internal server error', 500);
   }

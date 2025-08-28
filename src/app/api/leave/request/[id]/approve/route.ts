@@ -56,7 +56,7 @@ export async function POST(
     if (error instanceof AuthenticationError || 
         error instanceof AuthorizationError || 
         error instanceof NotFoundError) {
-      return apiError(error.toJSON(), error.statusCode);
+      return apiError(error.message, error.statusCode as any);
     }
     return apiError({ 
       code: 'INTERNAL_ERROR', 

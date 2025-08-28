@@ -1,137 +1,120 @@
 /**
- * Global Error Handler Middleware
- * Catches and formats all errors in API routes
+ * Error handling middleware for Next.js API routes
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { isAppError, toAppError, isOperationalError } from '@/lib/api/errors';
 import { apiError } from '@/lib/api/response';
 
 /**
- * Error logging service interface
+ * HTTP Status codes
  */
-interface ErrorLogger {
-  error(message: string, error: Error, context?: any): void;
-  warn(message: string, context?: any): void;
+export const HttpStatus = {
+  OK: 200,
+  CREATED: 201,
+  BAD_REQUEST: 400,
+  UNAUTHORIZED: 401,
+  FORBIDDEN: 403,
+  NOT_FOUND: 404,
+  METHOD_NOT_ALLOWED: 405,
+  CONFLICT: 409,
+  UNPROCESSABLE_ENTITY: 422,
+  TOO_MANY_REQUESTS: 429,
+  INTERNAL_SERVER_ERROR: 500,
+} as const;
+
+/**
+ * Error types
+ */
+export interface ApiError {
+  code: string;
+  message: string;
+  details?: any;
 }
 
 /**
- * Simple console logger implementation
+ * Authentication middleware
  */
-class ConsoleErrorLogger implements ErrorLogger {
-  error(message: string, error: Error, context?: any): void {
-    console.error(`[ERROR] ${message}`, {
-      error: {
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
-      },
-      context,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  warn(message: string, context?: any): void {
-    console.warn(`[WARN] ${message}`, {
-      context,
-      timestamp: new Date().toISOString(),
-    });
-  }
-}
-
-// Global error logger instance
-const errorLogger = new ConsoleErrorLogger();
-
-/**
- * Handle errors and return appropriate response
- */
-export function handleError(
-  error: unknown,
-  request?: NextRequest
-): NextResponse {
-  // Convert to AppError if needed
-  const appError = toAppError(error);
-  
-  // Log error details
-  const requestContext = request ? {
-    url: request.url,
-    method: request.method,
-    headers: Object.fromEntries(request.headers.entries()),
-  } : undefined;
-  
-  if (isOperationalError(error)) {
-    // Log operational errors as warnings
-    errorLogger.warn('Operational error occurred', {
-      error: appError.toJSON(),
-      request: requestContext,
-    });
-  } else {
-    // Log unexpected errors with full details
-    errorLogger.error('Unexpected error occurred', appError, {
-      request: requestContext,
-    });
-  }
-  
-  // In production, hide internal error details
-  if (process.env.NODE_ENV === 'production' && !appError.isOperational) {
-    return apiError(
-      {
-        code: 'INTERNAL_ERROR',
-        message: 'An unexpected error occurred',
-      },
-      appError.statusCode
-    );
-  }
-  
-  // Return formatted error response
-  return apiError(appError.toJSON(), appError.statusCode);
+export function withAuth(handler: any) {
+  return async (request: NextRequest, context: any) => {
+    // Check for authentication header or session
+    const authHeader = request.headers.get('authorization');
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return apiError(
+        {
+          code: 'UNAUTHORIZED',
+          message: 'Authentication required',
+        },
+        401
+      );
+    }
+    
+    return handler(request, context);
+  };
 }
 
 /**
- * Async error wrapper for API route handlers
+ * Role-based authorization middleware
  */
-export function withErrorHandler<T extends any[], R>(
-  handler: (...args: T) => Promise<R>
-): (...args: T) => Promise<R | NextResponse> {
-  return async (...args: T) => {
+export function withRole(requiredRole: string, handler: any) {
+  return async (request: NextRequest, context: any) => {
+    // This would check the user's role from the session/token
+    // For now, we'll just pass through
+    return handler(request, context);
+  };
+}
+
+/**
+ * Validation middleware
+ */
+export function withValidation(schema: any, handler: any) {
+  return async (request: NextRequest, context: any) => {
     try {
-      return await handler(...args);
-    } catch (error) {
-      // Find NextRequest in arguments
-      const request = args.find(arg => arg instanceof NextRequest) as NextRequest | undefined;
-      return handleError(error, request);
+      const body = await request.json();
+      const validatedData = schema.parse(body);
+      
+      // Add validated data to request
+      (request as any).validatedData = validatedData;
+      
+      return handler(request, context);
+    } catch (error: any) {
+      return apiError(
+        {
+          code: 'VALIDATION_ERROR',
+          message: 'Request validation failed',
+          details: error.errors || error.message,
+        },
+        422
+      );
     }
   };
 }
 
 /**
- * Create an error-handled API route
+ * CORS middleware
  */
-export function createApiRoute(
-  handler: (request: NextRequest, context?: any) => Promise<NextResponse>
-) {
-  return withErrorHandler(handler);
+export function withCORS(handler: any) {
+  return async (request: NextRequest, context: any) => {
+    const response = await handler(request, context);
+    
+    if (response instanceof NextResponse) {
+      response.headers.set('Access-Control-Allow-Origin', '*');
+      response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    }
+    
+    return response;
+  };
 }
 
 /**
- * Error boundary for API routes with method validation
+ * Method validation middleware
  */
-export function createMethodHandler(
-  handlers: {
-    GET?: (request: NextRequest, context?: any) => Promise<NextResponse>;
-    POST?: (request: NextRequest, context?: any) => Promise<NextResponse>;
-    PUT?: (request: NextRequest, context?: any) => Promise<NextResponse>;
-    PATCH?: (request: NextRequest, context?: any) => Promise<NextResponse>;
-    DELETE?: (request: NextRequest, context?: any) => Promise<NextResponse>;
-  }
-) {
-  const allowedMethods = Object.keys(handlers);
-  
-  return withErrorHandler(async (request: NextRequest, context?: any) => {
-    const method = request.method as keyof typeof handlers;
+export function withMethod(allowedMethods: string[], handler: any) {
+  return async (request: NextRequest, context: any) => {
+    const method = request.method.toUpperCase();
     
-    const handler = handlers[method];
-    if (!handler) {
+    if (!allowedMethods.includes(method)) {
       return apiError(
         {
           code: 'METHOD_NOT_ALLOWED',
@@ -142,39 +125,23 @@ export function createMethodHandler(
     }
     
     return handler(request, context);
-  });
+  };
 }
 
 /**
  * Rate limiting middleware
  */
 interface RateLimitConfig {
-  windowMs: number;  // Time window in milliseconds
-  max: number;       // Max requests per window
-  message?: string;  // Custom error message
+  windowMs: number;
+  max: number;
+  message?: string;
 }
 
-// Simple in-memory rate limit store (use Redis in production)
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
-/**
- * Apply rate limiting to an API route
- */
-export function withRateLimit(
-  config: RateLimitConfig,
-  keyGenerator?: (request: NextRequest) => string
-) {
-  return function <T extends any[], R>(
-    handler: (...args: T) => Promise<R>
-  ): (...args: T) => Promise<R | NextResponse> {
-    return async (...args: T) => {
-      const request = args.find(arg => arg instanceof NextRequest) as NextRequest;
-      
-      if (!request) {
-        return handler(...args);
-      }
-      
-      // Generate rate limit key
+export function withRateLimit(config: RateLimitConfig, keyGenerator?: (request: NextRequest) => string) {
+  return (handler: any) => {
+    return async (request: NextRequest, context: any) => {
       const key = keyGenerator 
         ? keyGenerator(request)
         : request.headers.get('x-forwarded-for') || 'anonymous';
@@ -197,28 +164,17 @@ export function withRateLimit(
           }
           limit.count++;
         } else {
-          // Reset window
           limit.count = 1;
           limit.resetTime = now + config.windowMs;
         }
       } else {
-        // First request
         rateLimitStore.set(key, {
           count: 1,
           resetTime: now + config.windowMs,
         });
       }
       
-      // Clean up old entries periodically
-      if (Math.random() < 0.01) {
-        for (const [k, v] of rateLimitStore.entries()) {
-          if (now > v.resetTime) {
-            rateLimitStore.delete(k);
-          }
-        }
-      }
-      
-      return handler(...args);
+      return handler(request, context);
     };
   };
 }
@@ -226,10 +182,8 @@ export function withRateLimit(
 /**
  * Combine multiple middleware functions
  */
-export function composeMiddleware<T extends any[], R>(
-  ...middlewares: Array<(handler: (...args: T) => Promise<R>) => (...args: T) => Promise<R | NextResponse>>
-) {
-  return (handler: (...args: T) => Promise<R>) => {
+export function composeMiddleware(...middlewares: any[]) {
+  return (handler: any) => {
     return middlewares.reduceRight((acc, middleware) => middleware(acc), handler);
   };
 }

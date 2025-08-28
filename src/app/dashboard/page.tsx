@@ -3,7 +3,8 @@
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import LeaveRequestForm from "@/components/LeaveRequestForm";
+import EnhancedLeaveRequestForm from "@/components/EnhancedLeaveRequestForm";
+import MultiTypeBalanceDisplay from "@/components/MultiTypeBalanceDisplay";
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
@@ -74,24 +75,9 @@ export default function DashboardPage() {
                 Dashboard
               </h2>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-blue-50 p-6 rounded-lg">
-                  <h3 className="text-lg font-semibold text-blue-900 font-bold">Leave Balance</h3>
-                  <p className="text-3xl font-bold text-blue-600">32 days</p>
-                  <p className="text-sm text-blue-700">Annual entitlement</p>
-                </div>
-                
-                <div className="bg-green-50 p-6 rounded-lg">
-                  <h3 className="text-lg font-semibold text-green-900 font-bold">Used Leave</h3>
-                  <p className="text-3xl font-bold text-green-600">0 days</p>
-                  <p className="text-sm text-green-700">This year</p>
-                </div>
-                
-                <div className="bg-purple-50 p-6 rounded-lg">
-                  <h3 className="text-lg font-semibold text-purple-900 font-bold">Remaining</h3>
-                  <p className="text-3xl font-bold text-purple-600">32 days</p>
-                  <p className="text-sm text-purple-700">Available</p>
-                </div>
+              {/* Multi-Type Balance Display */}
+              <div className="mb-8">
+                <MultiTypeBalanceDisplay />
               </div>
 
               <div className="mt-8">
@@ -99,7 +85,7 @@ export default function DashboardPage() {
                   Quick Actions
                 </h3>
                 <div className="flex space-x-4">
-                  <LeaveRequestForm />
+                  <EnhancedLeaveRequestForm />
                   <button className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium">
                     View Team Calendar
                   </button>
@@ -118,12 +104,18 @@ export default function DashboardPage() {
                     Admin Actions
                   </h3>
                   <div className="flex space-x-4">
-                                      <button 
-                    onClick={() => router.push("/admin/pending-requests")}
-                    className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-md text-sm font-medium"
-                  >
-                    Pending Requests
-                  </button>
+                    <button 
+                      onClick={() => router.push("/admin/pending-requests")}
+                      className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+                    >
+                      Pending Requests
+                    </button>
+                    <button 
+                      onClick={() => router.push("/admin/toil")}
+                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+                    >
+                      Manage TOIL
+                    </button>
                     <button className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-md text-sm font-medium">
                       User Management
                     </button>

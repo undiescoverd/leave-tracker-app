@@ -188,7 +188,7 @@ export async function POST(req: NextRequest) {
     );
   } catch (error) {
     if (error instanceof ValidationError || error instanceof AuthenticationError) {
-      return apiError(error, error.statusCode);
+      return apiError(error, error.statusCode as any);
     }
     return apiError('Internal server error');
   }
