@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
-import { auth } from '@/lib/auth';
 import { apiSuccess, apiError } from '@/lib/api/response';
 import { prisma } from '@/lib/prisma';
+import { getAuthenticatedUser } from '@/lib/auth-utils';
 import { z } from 'zod';
 import { ValidationError, AuthenticationError } from '@/lib/api/errors';
 import { calculateLeaveDays, checkUKAgentConflict, getUserLeaveBalance } from '@/lib/services/leave.service';
@@ -24,76 +24,11 @@ const createLeaveRequestSchema = z.object({
   path: ["endDate"],
 });
 
-// UK agent conflict detection
-async function checkUKAgentConflicts(startDate: Date, endDate: Date, currentUserId: string) {
-  // Get all UK agents (users with role USER)
-  const ukAgents = await prisma.user.findMany({
-    where: {
-      role: 'USER',
-      id: { not: currentUserId } // Exclude current user
-    },
-    include: {
-      leaveRequests: {
-        where: {
-          status: { in: ['PENDING', 'APPROVED'] }
-        }
-      }
-    }
-  });
-
-  const conflicts: Array<{ agent: string, dates: string }> = [];
-
-  for (const agent of ukAgents) {
-    for (const request of agent.leaveRequests) {
-      // Check if date ranges overlap
-      if (
-        (startDate <= request.endDate && endDate >= request.startDate) ||
-        (request.startDate <= endDate && request.endDate >= startDate)
-      ) {
-        conflicts.push({
-          agent: agent.name || agent.email,
-          dates: `${request.startDate.toISOString().split('T')[0]} to ${request.endDate.toISOString().split('T')[0]}`
-        });
-      }
-    }
-  }
-
-  return conflicts;
-}
-
-// Calculate working days (excluding weekends)
-function calculateWorkingDays(startDate: Date, endDate: Date): number {
-  let workingDays = 0;
-  const current = new Date(startDate);
-  
-  while (current <= endDate) {
-    const dayOfWeek = current.getDay();
-    if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Not Sunday (0) or Saturday (6)
-      workingDays++;
-    }
-    current.setDate(current.getDate() + 1);
-  }
-  
-  return workingDays;
-}
 
 export async function POST(req: NextRequest) {
   try {
-    // Check authentication
-    const session = await auth();
-    
-    if (!session?.user?.email) {
-      throw new AuthenticationError('You must be logged in to submit a leave request');
-    }
-
-    // Get user from database
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
-
-    if (!user) {
-      throw new AuthenticationError('User not found');
-    }
+    // Get authenticated user
+    const user = await getAuthenticatedUser();
 
     // Parse and validate request body
     const body = await req.json();

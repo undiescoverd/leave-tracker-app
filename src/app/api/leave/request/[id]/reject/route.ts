@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
-import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { apiSuccess, apiError } from '@/lib/api/response';
+import { requireAdmin } from '@/lib/auth-utils';
 import { AuthenticationError, AuthorizationError, NotFoundError, ValidationError } from '@/lib/api/errors';
 
 export async function POST(
@@ -9,22 +9,8 @@ export async function POST(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Get session
-    const session = await auth();
-    if (!session) {
-      return apiError({
-        code: 'AUTHENTICATION_REQUIRED',
-        message: 'Authentication required'
-      }, 401);
-    }
-
-    // Check admin role
-    if (session.user.role !== 'ADMIN') {
-      return apiError({
-        code: 'INSUFFICIENT_PERMISSIONS',
-        message: 'Admin access required'
-      }, 403);
-    }
+    // Require admin authentication
+    const adminUser = await requireAdmin();
 
     // Await the params Promise (Next.js 15 requirement)
     const params = await context.params;

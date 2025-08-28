@@ -3,27 +3,17 @@
 import { useState, useEffect } from "react";
 import { useToast, ToastContainer } from "./Toast";
 import { features } from "@/lib/features";
+import { calculateWorkingDays } from "@/lib/date-utils";
+import { useLeaveBalance } from "@/hooks/useLeaveBalance";
 
 interface LeaveRequestFormProps {
   onSuccess?: () => void;
 }
 
-interface LeaveBalance {
-  totalAllowance: number;
-  daysUsed: number;
-  remaining: number;
-  balances?: {
-    annual: { total: number; used: number; remaining: number };
-    toil?: { total: number; used: number; remaining: number };
-    sick?: { total: number; used: number; remaining: number };
-  };
-}
-
 export default function EnhancedLeaveRequestForm({ onSuccess }: LeaveRequestFormProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoadingBalance, setIsLoadingBalance] = useState(false);
-  const [leaveBalance, setLeaveBalance] = useState<LeaveBalance | null>(null);
+  const { balance: leaveBalance, loading: isLoadingBalance, error: balanceError, refetch: refetchBalance } = useLeaveBalance();
   const [formData, setFormData] = useState({
     startDate: "",
     endDate: "",
@@ -45,18 +35,7 @@ export default function EnhancedLeaveRequestForm({ onSuccess }: LeaveRequestForm
     
     if (end < start) return 0;
     
-    let count = 0;
-    const current = new Date(start);
-    
-    while (current <= end) {
-      const dayOfWeek = current.getDay();
-      if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Skip weekends
-        count++;
-      }
-      current.setDate(current.getDate() + 1);
-    }
-    
-    return count;
+    return calculateWorkingDays(start, end);
   };
 
   // Get remaining balance for selected leave type
@@ -77,27 +56,6 @@ export default function EnhancedLeaveRequestForm({ onSuccess }: LeaveRequestForm
     return leaveBalance.remaining;
   };
 
-  // Fetch leave balance when form opens
-  useEffect(() => {
-    if (isOpen && !leaveBalance) {
-      fetchLeaveBalance();
-    }
-  }, [isOpen]);
-
-  const fetchLeaveBalance = async () => {
-    setIsLoadingBalance(true);
-    try {
-      const response = await fetch("/api/leave/balance");
-      if (response.ok) {
-        const data = await response.json();
-        setLeaveBalance(data.data);
-      }
-    } catch (error) {
-      console.error("Failed to fetch leave balance:", error);
-    } finally {
-      setIsLoadingBalance(false);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

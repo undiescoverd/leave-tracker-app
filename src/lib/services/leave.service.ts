@@ -1,24 +1,13 @@
 import { prisma } from '@/lib/prisma';
 import { LeaveStatus } from '@prisma/client';
+import { calculateWorkingDays } from '@/lib/date-utils';
 
 /**
  * Calculate number of leave days (excluding weekends)
+ * @deprecated Use calculateWorkingDays from @/lib/date-utils instead
  */
 export function calculateLeaveDays(startDate: Date, endDate: Date): number {
-  let count = 0;
-  const current = new Date(startDate);
-  const end = new Date(endDate);
-
-  while (current <= end) {
-    const dayOfWeek = current.getDay();
-    // Skip weekends (0 = Sunday, 6 = Saturday)
-    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-      count++;
-    }
-    current.setDate(current.getDate() + 1);
-  }
-
-  return count;
+  return calculateWorkingDays(startDate, endDate);
 }
 
 /**

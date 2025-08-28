@@ -1,56 +1,10 @@
 "use client";
 
-import { useEffect, useState } from 'react';
-
-interface BalanceType {
-  total: number;
-  used: number;
-  remaining: number;
-  label: string;
-  unit: string;
-  color: string;
-}
-
-interface BalanceData {
-  balancesByType?: {
-    annual?: BalanceType;
-    toil?: BalanceType;
-    sick?: BalanceType;
-  };
-  totalAllowance: number;
-  daysUsed: number;
-  remaining: number;
-  features?: {
-    toilEnabled: boolean;
-    sickLeaveEnabled: boolean;
-    multiTypeEnabled: boolean;
-  };
-}
+import { useLeaveBalance } from '@/hooks/useLeaveBalance';
+import type { BalanceType } from '@/types/leave';
 
 export default function MultiTypeBalanceDisplay() {
-  const [balanceData, setBalanceData] = useState<BalanceData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchBalances();
-  }, []);
-
-  const fetchBalances = async () => {
-    try {
-      const response = await fetch('/api/leave/balance');
-      if (response.ok) {
-        const data = await response.json();
-        setBalanceData(data.data);
-      } else {
-        setError('Failed to load leave balances');
-      }
-    } catch (err) {
-      setError('An error occurred while loading balances');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { balance: balanceData, loading, error } = useLeaveBalance();
 
   if (loading) {
     return (

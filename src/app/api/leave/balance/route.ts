@@ -1,26 +1,14 @@
 import { NextRequest } from 'next/server';
-import { auth } from '@/lib/auth';
 import { apiSuccess, apiError } from '@/lib/api/response';
-import { prisma } from '@/lib/prisma';
+import { getAuthenticatedUser } from '@/lib/auth-utils';
 import { AuthenticationError } from '@/lib/api/errors';
 import { getUserLeaveBalance } from '@/lib/services/leave.service';
-import { getUserLeaveBalances, getLegacyLeaveBalance } from '@/lib/services/leave-balance.service';
+import { getUserLeaveBalances } from '@/lib/services/leave-balance.service';
 import { features } from '@/lib/features';
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.email) {
-      throw new AuthenticationError('You must be logged in to view leave balance');
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
-
-    if (!user) {
-      throw new AuthenticationError('User not found');
-    }
+    const user = await getAuthenticatedUser();
 
     // Get current year
     const currentYear = new Date().getFullYear();
