@@ -1,32 +1,23 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
-} from "@/components/ui/card";
 
-function LoginForm() {
+export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+  const callbackUrl = searchParams?.get("callbackUrl") || "/dashboard";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError("");
 
     try {
       const result = await signIn("credentials", {
@@ -36,73 +27,82 @@ function LoginForm() {
         redirect: false,
       });
 
-      if (!result?.error && result?.url) {
+      if (result?.error) {
+        setError("Invalid email or password");
+      } else if (result?.url) {
         router.push(result.url);
         router.refresh();
       }
     } catch (error) {
-      console.error('Login error:', error);
+      setError("An error occurred. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl">Login to your account</CardTitle>
-          <CardDescription>
-            Enter your email below to login to your account
-          </CardDescription>
-        </CardHeader>
+    <div className="login-container">
+      <div className="login-card">
+        <h1 className="login-title">TDH Agency Leave Tracker</h1>
+        <p className="login-subtitle">Sign in to manage leave requests</p>
+        
         <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="m@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={isLoading}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={isLoading}
-                required
-              />
-            </div>
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-2">
-            <Button 
-              type="submit"
-              className="w-full" 
+          <div className="form-group">
+            <label htmlFor="email" className="form-label">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              className="form-input"
+              placeholder="Enter your email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               disabled={isLoading}
-            >
-              {isLoading ? "Signing in..." : "Login"}
-            </Button>
-            <div className="text-sm text-center text-muted-foreground">
-              Don't have an account?{" "}
-              <Link href="/register" className="text-primary hover:underline">
-                Sign up
-              </Link>
+              required
+            />
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="password" className="form-label">
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              className="form-input"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={isLoading}
+              required
+            />
+          </div>
+          
+          {error && (
+            <div style={{ color: '#e53e3e', fontSize: '0.875rem', marginBottom: '1rem' }}>
+              {error}
             </div>
-          </CardFooter>
+          )}
+          
+          <button 
+            type="submit"
+            className="btn-primary"
+            disabled={isLoading}
+          >
+            {isLoading ? "Signing in..." : "Sign in"}
+          </button>
+          
+          <div className="links-container">
+            <Link href="/register" className="link">
+              Create account
+            </Link>
+            <Link href="/forgot-password" className="link">
+              Forgot password?
+            </Link>
+          </div>
         </form>
-      </Card>
+      </div>
     </div>
   );
-}
-
-export default function LoginPage() {
-  return <LoginForm />;
 }

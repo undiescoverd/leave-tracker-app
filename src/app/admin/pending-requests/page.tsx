@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useToast, ToastContainer } from "@/components/Toast";
+import { toast } from "sonner";
 
 interface LeaveRequest {
   id: string;
@@ -27,7 +27,8 @@ export default function PendingRequestsPage() {
   const [processing, setProcessing] = useState<string | null>(null);
   const [rejectComment, setRejectComment] = useState("");
   const [showRejectModal, setShowRejectModal] = useState<string | null>(null);
-  const { toasts, showSuccess, showError, removeToast } = useToast();
+  const showSuccess = (message: string) => toast.success(message);
+  const showError = (message: string) => toast.error(message);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -360,7 +361,6 @@ export default function PendingRequestsPage() {
       )}
       
       {/* Toast Notifications */}
-      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }

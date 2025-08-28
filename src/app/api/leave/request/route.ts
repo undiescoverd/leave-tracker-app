@@ -73,8 +73,8 @@ export async function POST(req: NextRequest) {
 
     // Check for UK agent conflicts (only for UK agents)
     const ukAgentEmails = [
-      'sup.dhanasunthorn@tdhagency.com',
-      'luis.drake@tdhagency.com'
+      'sup@tdhagency.com',
+      'luis@tdhagency.com'
     ];
     
     if (ukAgentEmails.includes(user.email)) {

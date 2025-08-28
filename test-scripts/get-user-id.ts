@@ -6,7 +6,7 @@ async function getUserId() {
   try {
     const user = await prisma.user.findFirst({
       where: {
-        email: 'sup.dhanasunthorn@tdhagency.com'
+        email: 'sup@tdhagency.com'
       },
       select: {
         id: true,

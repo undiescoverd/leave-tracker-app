@@ -62,8 +62,8 @@ export async function checkUKAgentConflict(
   // Get UK agents (you'll need to add a location field to User model later)
   // For now, we'll check by email domain or specific emails
   const ukAgentEmails = [
-    'sup.dhanasunthorn@tdhagency.com',
-    'luis.drake@tdhagency.com'
+    'sup@tdhagency.com',
+    'luis@tdhagency.com'
   ];
 
   // Find UK agents

@@ -7,22 +7,22 @@ const DEFAULT_PASSWORD = 'Password123!'
 
 const users = [
   {
-    email: 'senay@tdhagency.com',
+    email: 'senay.taormina@tdhagency.com',
     name: 'Senay Taormina',
     role: 'ADMIN' as const
   },
   {
-    email: 'ian@tdhagency.com',
+    email: 'ian.vincent@tdhagency.com',
     name: 'Ian Vincent',
     role: 'ADMIN' as const
   },
   {
-    email: 'sup@tdhagency.com',
+    email: 'sup.dhanasunthorn@tdhagency.com',
     name: 'Sup Dhanasunthorn',
     role: 'USER' as const
   },
   {
-    email: 'luis@tdhagency.com',
+    email: 'luis.drake@tdhagency.com',
     name: 'Luis Drake',
     role: 'USER' as const
   }

@@ -10,25 +10,25 @@ const TEST_PASSWORD = 'Password123!'
 
 const testUsers = [
   {
-    email: 'senay.taormina@tdhagency.com',
+    email: 'senay@tdhagency.com',
     name: 'Senay Taormina',
     role: 'ADMIN',
     expectedAccess: ['dashboard', 'admin']
   },
   {
-    email: 'ian.vincent@tdhagency.com',
+    email: 'ian@tdhagency.com',
     name: 'Ian Vincent',
     role: 'ADMIN',
     expectedAccess: ['dashboard', 'admin']
   },
   {
-    email: 'sup.dhanasunthorn@tdhagency.com',
+    email: 'sup@tdhagency.com',
     name: 'Sup Dhanasunthorn',
     role: 'USER',
     expectedAccess: ['dashboard']
   },
   {
-    email: 'luis.drake@tdhagency.com',
+    email: 'luis@tdhagency.com',
     name: 'Luis Drake',
     role: 'USER',
     expectedAccess: ['dashboard']

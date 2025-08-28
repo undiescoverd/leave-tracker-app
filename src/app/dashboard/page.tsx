@@ -5,9 +5,6 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import EnhancedLeaveRequestForm from "@/components/EnhancedLeaveRequestForm";
 import MultiTypeBalanceDisplay from "@/components/MultiTypeBalanceDisplay";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
@@ -21,10 +18,10 @@ export default function DashboardPage() {
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Loading...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
         </div>
       </div>
     );
@@ -35,21 +32,20 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <nav className="bg-card shadow border-b">
-        <div className="container max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-white">
+      <nav className="bg-white shadow border-b border-gray-200">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-              <h1 className="text-xl font-semibold text-foreground font-bold">
+              <h1 className="text-xl font-semibold text-gray-900 font-bold">
                 TDH Agency Leave Tracker
               </h1>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-muted-foreground">
+              <span className="text-sm text-gray-600">
                 Welcome, {session.user?.name || session.user?.email}
               </span>
-              <ThemeToggle />
-              <Button
+              <button
                 onClick={async () => {
                   try {
                     await signOut({ 
@@ -58,24 +54,23 @@ export default function DashboardPage() {
                     });
                   } catch (error) {
                     console.error('Logout error:', error);
-                    // Fallback redirect
                     window.location.href = '/login';
                   }
                 }}
-                variant="destructive"
+                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
               >
                 Sign Out
-              </Button>
+              </button>
             </div>
           </div>
         </div>
       </nav>
 
-      <main className="container max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+      <main className="max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <div className="space-y-8">
           {/* Welcome Section */}
           <div>
-            <h2 className="text-2xl font-bold text-foreground mb-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">
               Dashboard
             </h2>
             <MultiTypeBalanceDisplay />
@@ -83,70 +78,65 @@ export default function DashboardPage() {
 
           {/* Quick Actions */}
           <div className="grid gap-6 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Submit New Request</CardTitle>
-              </CardHeader>
-              <CardContent>
+            <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">Submit New Request</h3>
+              </div>
+              <div className="p-6">
                 <EnhancedLeaveRequestForm />
-              </CardContent>
-            </Card>
+              </div>
+            </div>
             
-            <Card>
-              <CardHeader>
-                <CardTitle>Quick Links</CardTitle>
-              </CardHeader>
-              <CardContent>
+            <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">Quick Links</h3>
+              </div>
+              <div className="p-6">
                 <div className="grid gap-3">
-                  <Button 
+                  <button 
                     onClick={() => router.push("/leave/requests")}
-                    className="w-full justify-start"
-                    variant="outline"
+                    className="w-full text-left px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
                   >
                     My Leave History
-                  </Button>
-                  <Button 
-                    className="w-full justify-start"
-                    variant="outline"
+                  </button>
+                  <button 
+                    className="w-full text-left px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
                   >
                     View Team Calendar
-                  </Button>
+                  </button>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
 
           {/* Admin Section */}
           {session.user?.role === "ADMIN" && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Admin Actions</CardTitle>
-              </CardHeader>
-              <CardContent>
+            <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">Admin Actions</h3>
+              </div>
+              <div className="p-6">
                 <div className="grid gap-3 sm:grid-cols-3">
-                  <Button 
+                  <button 
                     onClick={() => router.push("/admin/pending-requests")}
-                    variant="outline"
-                    className="w-full"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
                   >
                     Pending Requests
-                  </Button>
-                  <Button 
+                  </button>
+                  <button 
                     onClick={() => router.push("/admin/toil")}
-                    variant="outline"
-                    className="w-full"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
                   >
                     Manage TOIL
-                  </Button>
-                  <Button 
-                    variant="outline"
-                    className="w-full"
+                  </button>
+                  <button 
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
                   >
                     User Management
-                  </Button>
+                  </button>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           )}
         </div>
       </main>

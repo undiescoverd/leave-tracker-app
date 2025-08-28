@@ -67,7 +67,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     })
   ],
   session: {
-    strategy: "jwt"
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+    updateAge: 24 * 60 * 60, // 24 hours
   },
   callbacks: {
     async jwt({ token, user }: any) {
@@ -83,6 +85,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.role = token.role as string;
       }
       return session;
+    },
+    async signIn({ user, account, profile }: any) {
+      return true;
     }
   },
   pages: {
@@ -91,4 +96,36 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   secret: process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV === "development",
+  cookies: {
+    sessionToken: {
+      name: `authjs.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: false,
+        domain: undefined
+      }
+    },
+    callbackUrl: {
+      name: `authjs.callback-url`,
+      options: {
+        httpOnly: false,
+        sameSite: 'lax',
+        path: '/',
+        secure: false
+      }
+    },
+    csrfToken: {
+      name: `authjs.csrf-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: false
+      }
+    }
+  },
+  useSecureCookies: false,
+  trustHost: true,
 });

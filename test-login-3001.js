@@ -10,7 +10,7 @@ const util = require('util');
 const execAsync = util.promisify(exec);
 
 async function testApiEndpoint(endpoint, method = 'GET', body = null) {
-  const url = `http://localhost:3000/api${endpoint}`;
+  const url = `http://localhost:3001/api${endpoint}`;
   
   try {
     console.log(`\n🧪 Testing ${method} ${url}`);

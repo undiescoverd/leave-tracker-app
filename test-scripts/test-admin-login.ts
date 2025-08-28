@@ -11,7 +11,7 @@ async function testAdminLogin() {
   // Test admin login
   console.log("👑 Testing admin login...");
   const loginData = {
-    email: "ian.vincent@tdhagency.com",
+    email: "ian@tdhagency.com",
     password: "Password123!"
   };
 
@@ -37,9 +37,9 @@ async function testAdminLogin() {
     } else {
       console.log("❌ Admin login failed");
       console.log("💡 You can manually log in as an admin user:");
-      console.log("   Email: ian.vincent@tdhagency.com");
+      console.log("   Email: ian@tdhagency.com");
       console.log("   Password: Password123!");
-      console.log("   Or: senay.taormina@tdhagency.com");
+      console.log("   Or: senay@tdhagency.com");
     }
   } catch (error) {
     console.log("❌ Error during admin login:", error);

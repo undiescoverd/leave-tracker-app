@@ -59,6 +59,9 @@ module.exports = {
           '5': 'hsl(var(--chart-5))',
         },
       },
+      borderColor: {
+        DEFAULT: 'hsl(var(--border))',
+      },
     },
   },
   plugins: [require("tailwindcss-animate")],

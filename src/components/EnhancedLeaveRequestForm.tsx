@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useToast, ToastContainer } from "./Toast";
+import { toast } from "sonner";
 import { features } from "@/lib/features";
 import { calculateWorkingDays } from "@/lib/date-utils";
 import { useLeaveBalance } from "@/hooks/useLeaveBalance";
@@ -21,7 +21,8 @@ export default function EnhancedLeaveRequestForm({ onSuccess }: LeaveRequestForm
     type: "ANNUAL" as "ANNUAL" | "TOIL" | "SICK",
     hours: "" as string | number,
   });
-  const { toasts, showSuccess, showError, removeToast } = useToast();
+  const showSuccess = (message: string) => toast.success(message);
+  const showError = (message: string) => toast.error(message);
 
   // Get available leave types based on feature flags
   const availableLeaveTypes = features.getAvailableLeaveTypes();
@@ -305,7 +306,6 @@ export default function EnhancedLeaveRequestForm({ onSuccess }: LeaveRequestForm
         </div>
       )}
 
-      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </>
   );
 }
