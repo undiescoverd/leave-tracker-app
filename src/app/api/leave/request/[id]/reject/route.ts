@@ -3,76 +3,98 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { apiSuccess, apiError } from '@/lib/api/response';
 import { AuthenticationError, AuthorizationError, NotFoundError, ValidationError } from '@/lib/api/errors';
-import { z } from 'zod';
-
-const rejectSchema = z.object({
-  adminComment: z.string().min(1, 'Comment is required for rejection')
-});
 
 export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Auth check
+    // Get session
     const session = await auth();
-    if (!session?.user?.email) {
-      throw new AuthenticationError('Authentication required');
+    if (!session) {
+      return apiError({
+        code: 'AUTHENTICATION_REQUIRED',
+        message: 'Authentication required'
+      }, 401);
     }
 
-    // Get user and check admin role
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    });
-
-    if (!user || user.role !== 'ADMIN') {
-      throw new AuthorizationError('Admin access required');
+    // Check admin role
+    if (session.user.role !== 'ADMIN') {
+      return apiError({
+        code: 'INSUFFICIENT_PERMISSIONS',
+        message: 'Admin access required'
+      }, 403);
     }
 
-    // Parse body
+    // Await the params Promise (Next.js 15 requirement)
+    const params = await context.params;
+    const { id } = params;
+
+    if (!id) {
+      return apiError({
+        code: 'INVALID_REQUEST',
+        message: 'Request ID is required'
+      }, 400);
+    }
+
+    // Get rejection reason from request body
     const body = await request.json();
-    const validation = rejectSchema.safeParse(body);
-    
-    if (!validation.success) {
-      throw new ValidationError('Invalid request data', validation.error.flatten().fieldErrors);
+    const rejectionReason = body.reason?.trim();
+
+    if (!rejectionReason) {
+      return apiError({
+        code: 'INVALID_REQUEST',
+        message: 'Rejection reason is required'
+      }, 400);
     }
 
-    // Get params in Next.js 15 style
-    const { id } = await context.params;
-
-    // Get the leave request
+    // Find the leave request
     const leaveRequest = await prisma.leaveRequest.findUnique({
       where: { id },
       include: { user: true }
     });
 
     if (!leaveRequest) {
-      throw new NotFoundError('Leave request', id);
+      return apiError({
+        code: 'NOT_FOUND',
+        message: 'Leave request not found'
+      }, 404);
     }
 
-    // Update status with comment
+    // Check if already processed
+    if (leaveRequest.status !== 'PENDING') {
+      return apiError({
+        code: 'INVALID_STATUS',
+        message: 'Leave request has already been processed'
+      }, 409);
+    }
+
+    // Update the leave request
     const updated = await prisma.leaveRequest.update({
       where: { id },
       data: {
         status: 'REJECTED',
-        comments: validation.data.adminComment, // Use comments field instead of adminComment
-        updatedAt: new Date()
+        updatedAt: new Date(),
+        comments: rejectionReason
       },
       include: { user: true }
     });
 
     return apiSuccess({
-      message: 'Leave request rejected',
+      message: 'Leave request rejected successfully',
       request: updated
     });
 
   } catch (error) {
+    console.error('Error rejecting leave request:', error);
+    
     if (error instanceof AuthenticationError || 
         error instanceof AuthorizationError || 
         error instanceof NotFoundError ||
         error instanceof ValidationError) {
-      return apiError(error.message, error.statusCode as any);
+      return apiError({ code: error.name, message: error.message }, 500);
     }
+    
     return apiError({ 
       code: 'INTERNAL_ERROR', 
       message: 'Failed to reject request' 

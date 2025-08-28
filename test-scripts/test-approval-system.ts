@@ -1,103 +1,175 @@
-#!/usr/bin/env tsx
+import { PrismaClient } from '@prisma/client';
+import fetch from 'node-fetch';
 
-// Test script for the approval system
-// Run with: npx tsx scripts/test-approval-system.ts
+const prisma = new PrismaClient();
 
-const APPROVAL_API_BASE = "http://localhost:3000/api";
+// Configuration
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+let adminToken: string;
+let testLeaveRequestId: string;
 
-async function testApprovalSystem() {
-  console.log("🚀 Testing Approval System...\n");
+async function getAdminToken() {
+  // Note: This assumes you have an admin user in your database
+  // You should replace these credentials with your actual admin test account
+  const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: 'admin@example.com',
+      password: 'admin123'
+    })
+  });
 
-  // First, let's get all leave requests to see what we have
-  console.log("📋 Fetching all leave requests...");
-  try {
-    const getResponse = await fetch(`${APPROVAL_API_BASE}/leave/request`);
-    const getResult = await getResponse.json();
-
-    if (getResponse.ok && getResult.leaveRequests.length > 0) {
-      console.log(`✅ Found ${getResult.leaveRequests.length} leave requests:`);
-      
-      const pendingRequests = getResult.leaveRequests.filter((req: any) => req.status === 'PENDING');
-      
-      if (pendingRequests.length === 0) {
-        console.log("❌ No pending requests to approve/reject");
-        return;
-      }
-
-      const firstPending = pendingRequests[0];
-      console.log(`🎯 Testing with request: ${firstPending.id} (${firstPending.user.name})`);
-
-      // Test approval
-      console.log("\n✅ Testing approval...");
-      const approveResponse = await fetch(`${APPROVAL_API_BASE}/leave/request/${firstPending.id}/approve`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      const approveResult = await approveResponse.json();
-      
-      if (approveResponse.ok) {
-        console.log("✅ Leave request approved successfully!");
-        console.log("📊 Response:", JSON.stringify(approveResult, null, 2));
-      } else {
-        console.log("❌ Failed to approve leave request:");
-        console.log(JSON.stringify(approveResult, null, 2));
-      }
-
-      // Test rejection (we'll need to create another request first)
-      console.log("\n📝 Creating another request for rejection test...");
-      const newRequestData = {
-        startDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-        endDate: new Date(Date.now() + 17 * 24 * 60 * 60 * 1000).toISOString(),
-        comments: "Test request for rejection"
-      };
-
-      const createResponse = await fetch(`${APPROVAL_API_BASE}/leave/request`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(newRequestData),
-      });
-
-      const createResult = await createResponse.json();
-      
-      if (createResponse.ok) {
-        console.log("✅ New request created for rejection test");
-        
-        // Test rejection
-        console.log("\n❌ Testing rejection...");
-        const rejectResponse = await fetch(`${APPROVAL_API_BASE}/leave/request/${createResult.leaveRequest.id}/reject`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-
-        const rejectResult = await rejectResponse.json();
-        
-        if (rejectResponse.ok) {
-          console.log("✅ Leave request rejected successfully!");
-          console.log("📊 Response:", JSON.stringify(rejectResult, null, 2));
-        } else {
-          console.log("❌ Failed to reject leave request:");
-          console.log(JSON.stringify(rejectResult, null, 2));
-        }
-      } else {
-        console.log("❌ Failed to create test request for rejection");
-      }
-
-    } else {
-      console.log("❌ No leave requests found or failed to fetch");
-    }
-  } catch (error) {
-    console.log("❌ Error testing approval system:", error);
-  }
-
-  console.log("\n🎉 Approval system test complete!");
+  const data = await response.json();
+  return data.token;
 }
 
-// Run the test
-testApprovalSystem().catch(console.error);
+async function createTestLeaveRequest() {
+  // Create a test leave request
+  const leaveRequest = await prisma.leaveRequest.create({
+    data: {
+      userId: 'test-user-id', // Replace with an actual test user ID
+      startDate: new Date(Date.now() + 86400000), // Tomorrow
+      endDate: new Date(Date.now() + 172800000),  // Day after tomorrow
+      type: 'ANNUAL',
+      status: 'PENDING',
+      comments: 'Test leave request'
+    }
+  });
+
+  return leaveRequest.id;
+}
+
+async function testApproveRequest() {
+  console.log('\n🧪 Testing Leave Request Approval...');
+  
+  try {
+    const response = await fetch(`${API_BASE_URL}/leave/request/${testLeaveRequestId}/approve`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${adminToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const data = await response.json();
+    
+    if (response.ok) {
+      console.log('✅ Approval test passed');
+      console.log('Response:', JSON.stringify(data, null, 2));
+    } else {
+      console.log('❌ Approval test failed');
+      console.log('Error:', data);
+    }
+  } catch (error) {
+    console.error('❌ Approval test error:', error);
+  }
+}
+
+async function testRejectRequest() {
+  console.log('\n🧪 Testing Leave Request Rejection...');
+  
+  try {
+    const response = await fetch(`${API_BASE_URL}/leave/request/${testLeaveRequestId}/reject`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${adminToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        reason: 'Test rejection reason'
+      })
+    });
+
+    const data = await response.json();
+    
+    if (response.ok) {
+      console.log('✅ Rejection test passed');
+      console.log('Response:', JSON.stringify(data, null, 2));
+    } else {
+      console.log('❌ Rejection test failed');
+      console.log('Error:', data);
+    }
+  } catch (error) {
+    console.error('❌ Rejection test error:', error);
+  }
+}
+
+async function testErrorCases() {
+  console.log('\n🧪 Testing Error Cases...');
+
+  // Test 1: Missing authentication
+  try {
+    const response = await fetch(`${API_BASE_URL}/leave/request/${testLeaveRequestId}/approve`, {
+      method: 'POST'
+    });
+    console.log('Auth Test:', response.status === 401 ? '✅ Passed' : '❌ Failed');
+  } catch (error) {
+    console.error('Auth Test Error:', error);
+  }
+
+  // Test 2: Invalid request ID
+  try {
+    const response = await fetch(`${API_BASE_URL}/leave/request/invalid-id/approve`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${adminToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    console.log('Invalid ID Test:', response.status === 404 ? '✅ Passed' : '❌ Failed');
+  } catch (error) {
+    console.error('Invalid ID Test Error:', error);
+  }
+
+  // Test 3: Missing rejection reason
+  try {
+    const response = await fetch(`${API_BASE_URL}/leave/request/${testLeaveRequestId}/reject`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${adminToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({})
+    });
+    console.log('Missing Reason Test:', response.status === 400 ? '✅ Passed' : '❌ Failed');
+  } catch (error) {
+    console.error('Missing Reason Test Error:', error);
+  }
+}
+
+async function cleanup() {
+  console.log('\n🧹 Cleaning up test data...');
+  try {
+    await prisma.leaveRequest.delete({
+      where: { id: testLeaveRequestId }
+    });
+    console.log('✅ Test data cleaned up successfully');
+  } catch (error) {
+    console.error('❌ Cleanup error:', error);
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+async function runTests() {
+  console.log('🚀 Starting approval system tests...');
+
+  try {
+    // Setup
+    adminToken = await getAdminToken();
+    testLeaveRequestId = await createTestLeaveRequest();
+
+    // Run tests
+    await testApproveRequest();
+    await testRejectRequest();
+    await testErrorCases();
+  } catch (error) {
+    console.error('❌ Test setup error:', error);
+  } finally {
+    await cleanup();
+  }
+}
+
+// Run the tests
+runTests().catch(console.error);

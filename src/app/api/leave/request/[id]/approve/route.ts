@@ -2,42 +2,63 @@ import { NextRequest } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { apiSuccess, apiError } from '@/lib/api/response';
-import { AuthenticationError, AuthorizationError, NotFoundError } from '@/lib/api/errors';
+import { AuthenticationError, AuthorizationError, NotFoundError, ValidationError } from '@/lib/api/errors';
 
 export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Auth check
+    // Get session
     const session = await auth();
-    if (!session?.user?.email) {
-      throw new AuthenticationError('Authentication required');
+    if (!session) {
+      return apiError({
+        code: 'AUTHENTICATION_REQUIRED',
+        message: 'Authentication required'
+      }, 401);
     }
 
-    // Get user and check admin role
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    });
-
-    if (!user || user.role !== 'ADMIN') {
-      throw new AuthorizationError('Admin access required');
+    // Check admin role
+    if (session.user.role !== 'ADMIN') {
+      return apiError({
+        code: 'INSUFFICIENT_PERMISSIONS',
+        message: 'Admin access required'
+      }, 403);
     }
 
-    // Get params in Next.js 15 style
-    const { id } = await context.params;
+    // Await the params Promise (Next.js 15 requirement)
+    const params = await context.params;
+    const { id } = params;
 
-    // Get the leave request
+    if (!id) {
+      return apiError({
+        code: 'INVALID_REQUEST',
+        message: 'Request ID is required'
+      }, 400);
+    }
+
+    // Find the leave request
     const leaveRequest = await prisma.leaveRequest.findUnique({
       where: { id },
       include: { user: true }
     });
 
     if (!leaveRequest) {
-      throw new NotFoundError('Leave request', id);
+      return apiError({
+        code: 'NOT_FOUND',
+        message: 'Leave request not found'
+      }, 404);
     }
 
-    // Update status
+    // Check if already processed
+    if (leaveRequest.status !== 'PENDING') {
+      return apiError({
+        code: 'INVALID_STATUS',
+        message: 'Leave request has already been processed'
+      }, 409);
+    }
+
+    // Update the leave request
     const updated = await prisma.leaveRequest.update({
       where: { id },
       data: {
@@ -53,11 +74,15 @@ export async function POST(
     });
 
   } catch (error) {
+    console.error('Error approving leave request:', error);
+    
     if (error instanceof AuthenticationError || 
         error instanceof AuthorizationError || 
-        error instanceof NotFoundError) {
-      return apiError(error.message, error.statusCode as any);
+        error instanceof NotFoundError ||
+        error instanceof ValidationError) {
+      return apiError({ code: error.name, message: error.message }, 500);
     }
+    
     return apiError({ 
       code: 'INTERNAL_ERROR', 
       message: 'Failed to approve request' 
