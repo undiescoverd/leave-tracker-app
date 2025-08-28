@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -181,11 +180,20 @@ export default function AdminToilPage() {
               <h1 className="text-3xl font-bold text-foreground">TOIL Management</h1>
               <p className="text-muted-foreground">Manage Time Off In Lieu balances and approvals</p>
             </div>
-            <Button variant="outline" asChild>
-              <Link href="/admin">
+            <div className="flex space-x-2">
+              <Button 
+                variant="outline"
+                onClick={() => router.push("/admin")}
+              >
                 Back to Admin
-              </Link>
-            </Button>
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => router.push("/dashboard")}
+              >
+                Dashboard
+              </Button>
+            </div>
           </div>
         </div>
 

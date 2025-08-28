@@ -131,7 +131,13 @@ export default function DashboardPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-3 sm:grid-cols-3">
+                <div className="grid gap-3 sm:grid-cols-4">
+                  <Button 
+                    variant="default"
+                    onClick={() => router.push("/admin")}
+                  >
+                    Admin Dashboard
+                  </Button>
                   <Button 
                     variant="outline"
                     onClick={() => router.push("/admin/pending-requests")}

@@ -177,12 +177,20 @@ export default function PendingRequestsPage() {
               <span className="text-sm text-muted-foreground">
                 Welcome, {session.user?.name || session.user?.email}
               </span>
-              <Button
-                variant="outline"
-                onClick={() => router.push("/dashboard")}
-              >
-                Back to Dashboard
-              </Button>
+              <div className="flex space-x-2">
+                <Button
+                  variant="outline"
+                  onClick={() => router.push("/admin")}
+                >
+                  Back to Admin
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => router.push("/dashboard")}
+                >
+                  Dashboard
+                </Button>
+              </div>
             </div>
           </div>
         </div>
