@@ -46,87 +46,105 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>Login to your account</CardTitle>
-          <CardDescription>
-            Enter your email below to login to your account
-          </CardDescription>
-          <div className="pt-2">
-            <Link href="/register">
-              <Button variant="link" className="p-0 h-auto text-sm">
-                Need an account? Sign Up
-              </Button>
-            </Link>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit}>
-            <div className="flex flex-col gap-6">
-              <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  placeholder="m@example.com"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
+    <div className="min-h-screen bg-background">
+      <div className="container max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
+          <Card className="w-full max-w-md mx-auto shadow-lg">
+            <CardHeader className="space-y-2">
+              <CardTitle className="text-2xl font-bold text-center">Welcome Back</CardTitle>
+              <CardDescription className="text-center">
+                Enter your credentials to access your account
+              </CardDescription>
+              <div className="pt-2 text-center">
+                <Link href="/register">
+                  <Button variant="link" className="p-0 h-auto text-sm">
+                    Need an account? Sign Up
+                  </Button>
+                </Link>
               </div>
-              <div className="grid gap-2">
-                <div className="flex items-center">
-                  <Label htmlFor="password">Password</Label>
-                  <a
-                    href="#"
-                    className="ml-auto inline-block text-sm underline-offset-4 hover:underline text-muted-foreground"
-                  >
-                    Forgot your password?
-                  </a>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      placeholder="m@example.com"
+                      autoComplete="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="password">Password</Label>
+                      <Link
+                        href="#"
+                        className="text-sm text-muted-foreground hover:text-primary underline-offset-4 hover:underline"
+                      >
+                        Forgot password?
+                      </Link>
+                    </div>
+                    <Input 
+                      id="password" 
+                      name="password"
+                      type="password" 
+                      required
+                      autoComplete="current-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                  
+                  {error && (
+                    <Alert variant="destructive">
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
                 </div>
-                <Input 
-                  id="password" 
-                  name="password"
-                  type="password" 
-                  required
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
-              
-              {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-            </div>
-          </form>
-        </CardContent>
-        <CardFooter className="flex-col gap-2">
-          <Button 
-            type="submit" 
-            className="w-full"
-            disabled={isLoading}
-            onClick={handleSubmit}
-          >
-            {isLoading ? "Signing in..." : "Login"}
-          </Button>
-          <Button variant="outline" className="w-full" disabled>
-            Login with Google
-          </Button>
-        </CardFooter>
-      </Card>
+              </form>
+            </CardContent>
+            <CardFooter className="flex flex-col gap-3">
+              <Button 
+                type="submit" 
+                className="w-full"
+                disabled={isLoading}
+                onClick={handleSubmit}
+                size="lg"
+              >
+                {isLoading ? "Signing in..." : "Sign In"}
+              </Button>
+              <Button 
+                variant="outline" 
+                className="w-full" 
+                disabled
+                size="lg"
+              >
+                Continue with Google
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background text-foreground">Loading...</div>}>
+    <Suspense 
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      }
+    >
       <LoginForm />
     </Suspense>
   );
