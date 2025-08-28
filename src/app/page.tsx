@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -23,10 +24,10 @@ export default function Home() {
   // If we're still loading, show loading screen
   if (status === "loading") {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Skeleton className="h-12 w-12 rounded-full mx-auto" />
+          <Skeleton className="h-4 w-24 mx-auto" />
         </div>
       </div>
     );
@@ -34,10 +35,10 @@ export default function Home() {
 
   // Show loading while redirecting
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
-        <p className="mt-4 text-gray-600">Redirecting...</p>
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="text-center space-y-4">
+        <Skeleton className="h-12 w-12 rounded-full mx-auto" />
+        <Skeleton className="h-4 w-32 mx-auto" />
       </div>
     </div>
   );

@@ -3,6 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -69,25 +74,29 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-background flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900 font-bold">
-          Create your account
-        </h2>
-        <p className="mt-2 text-center text-sm text-gray-700 font-medium">
-          TDH Agency Leave Tracker
-        </p>
-      </div>
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-bold tracking-tight text-foreground">
+            Create your account
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            TDH Agency Leave Tracker
+          </p>
+        </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            <div>
-              <label htmlFor="name" className="block text-sm font-semibold text-gray-700 font-bold">
-                Full Name
-              </label>
-              <div className="mt-1">
-                <input
+        <Card>
+          <CardHeader>
+            <CardTitle>Register</CardTitle>
+            <CardDescription>
+              Enter your details to create a new account
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form className="space-y-6" onSubmit={handleSubmit}>
+              <div className="space-y-2">
+                <Label htmlFor="name">Full Name</Label>
+                <Input
                   id="name"
                   name="name"
                   type="text"
@@ -95,18 +104,13 @@ export default function RegisterPage() {
                   required
                   value={formData.name}
                   onChange={handleChange}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm text-gray-900 bg-white"
                   placeholder="Enter your full name"
                 />
               </div>
-            </div>
 
-            <div>
-              <label htmlFor="email" className="block text-sm font-semibold text-gray-700 font-bold">
-                Email address
-              </label>
-              <div className="mt-1">
-                <input
+              <div className="space-y-2">
+                <Label htmlFor="email">Email address</Label>
+                <Input
                   id="email"
                   name="email"
                   type="email"
@@ -114,18 +118,13 @@ export default function RegisterPage() {
                   required
                   value={formData.email}
                   onChange={handleChange}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm text-gray-900 bg-white"
                   placeholder="Enter your email"
                 />
               </div>
-            </div>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-semibold text-gray-700 font-bold">
-                Password
-              </label>
-              <div className="mt-1">
-                <input
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
                   id="password"
                   name="password"
                   type="password"
@@ -133,18 +132,13 @@ export default function RegisterPage() {
                   required
                   value={formData.password}
                   onChange={handleChange}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm text-gray-900 bg-white"
                   placeholder="Enter your password"
                 />
               </div>
-            </div>
 
-            <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-700 font-bold">
-                Confirm Password
-              </label>
-              <div className="mt-1">
-                <input
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Input
                   id="confirmPassword"
                   name="confirmPassword"
                   type="password"
@@ -152,49 +146,50 @@ export default function RegisterPage() {
                   required
                   value={formData.confirmPassword}
                   onChange={handleChange}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm text-gray-900 bg-white"
                   placeholder="Confirm your password"
                 />
               </div>
-            </div>
 
-            {error && (
-              <div className="text-red-600 text-sm text-center">
-                {error}
-              </div>
-            )}
+              {error && (
+                <div className="text-destructive text-sm text-center">
+                  {error}
+                </div>
+              )}
 
-            <div>
-              <button
+              <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full"
               >
                 {isLoading ? "Creating account..." : "Create account"}
-              </button>
-            </div>
-          </form>
+              </Button>
+            </form>
 
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
+            
+            <div className="space-y-4">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <Separator className="w-full" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">
+                    Already have an account?
+                  </span>
+                </div>
               </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-700 font-medium">Already have an account?</span>
-              </div>
-            </div>
 
-            <div className="mt-6">
-              <Link
-                href="/login"
-                className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
+              <Button
+                variant="outline"
+                className="w-full"
+                asChild
               >
-                Sign in to your account
-              </Link>
+                <Link href="/login">
+                  Sign in to your account
+                </Link>
+              </Button>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

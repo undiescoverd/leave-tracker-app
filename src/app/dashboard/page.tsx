@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import EnhancedLeaveRequestForm from "@/components/EnhancedLeaveRequestForm";
 import MultiTypeBalanceDisplay from "@/components/MultiTypeBalanceDisplay";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
@@ -18,10 +22,10 @@ export default function DashboardPage() {
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Skeleton className="h-12 w-12 rounded-full mx-auto" />
+          <Skeleton className="h-4 w-32 mx-auto" />
         </div>
       </div>
     );
@@ -32,20 +36,22 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <nav className="bg-white shadow border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-background">
+      <nav className="border-b">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-              <h1 className="text-xl font-semibold text-gray-900 font-bold">
+              <h1 className="text-xl font-semibold text-foreground">
                 TDH Agency Leave Tracker
               </h1>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-muted-foreground">
                 Welcome, {session.user?.name || session.user?.email}
               </span>
-              <button
+              <Button
+                variant="destructive"
+                size="sm"
                 onClick={async () => {
                   try {
                     await signOut({ 
@@ -57,20 +63,19 @@ export default function DashboardPage() {
                     window.location.href = '/login';
                   }
                 }}
-                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
               >
                 Sign Out
-              </button>
+              </Button>
             </div>
           </div>
         </div>
       </nav>
 
-      <main className="max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+      <main className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <div className="space-y-8">
           {/* Welcome Section */}
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">
+            <h2 className="text-3xl font-bold text-foreground mb-6">
               Dashboard
             </h2>
             <MultiTypeBalanceDisplay />
@@ -78,65 +83,76 @@ export default function DashboardPage() {
 
           {/* Quick Actions */}
           <div className="grid gap-6 lg:grid-cols-2">
-            <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">Submit New Request</h3>
-              </div>
-              <div className="p-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Submit New Request</CardTitle>
+                <CardDescription>
+                  Create a new leave request for approval
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
                 <EnhancedLeaveRequestForm />
-              </div>
-            </div>
+              </CardContent>
+            </Card>
             
-            <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">Quick Links</h3>
-              </div>
-              <div className="p-6">
-                <div className="grid gap-3">
-                  <button 
-                    onClick={() => router.push("/leave/requests")}
-                    className="w-full text-left px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-                  >
-                    My Leave History
-                  </button>
-                  <button 
-                    className="w-full text-left px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-                  >
-                    View Team Calendar
-                  </button>
-                </div>
-              </div>
-            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Quick Links</CardTitle>
+                <CardDescription>
+                  Access your leave history and team information
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  onClick={() => router.push("/leave/requests")}
+                >
+                  My Leave History
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  disabled
+                >
+                  View Team Calendar
+                </Button>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Admin Section */}
           {session.user?.role === "ADMIN" && (
-            <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">Admin Actions</h3>
-              </div>
-              <div className="p-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Admin Actions</CardTitle>
+                <CardDescription>
+                  Manage leave requests and system administration
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
                 <div className="grid gap-3 sm:grid-cols-3">
-                  <button 
+                  <Button 
+                    variant="outline"
                     onClick={() => router.push("/admin/pending-requests")}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
                   >
                     Pending Requests
-                  </button>
-                  <button 
+                  </Button>
+                  <Button 
+                    variant="outline"
                     onClick={() => router.push("/admin/toil")}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
                   >
                     Manage TOIL
-                  </button>
-                  <button 
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    disabled
                   >
                     User Management
-                  </button>
+                  </Button>
                 </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           )}
         </div>
       </main>

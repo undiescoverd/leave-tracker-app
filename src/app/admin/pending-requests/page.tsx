@@ -4,6 +4,14 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 interface LeaveRequest {
   id: string;
@@ -126,25 +134,21 @@ export default function PendingRequestsPage() {
     });
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
-      case 'PENDING':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'APPROVED':
-        return 'bg-green-100 text-green-800';
-      case 'REJECTED':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+      case 'PENDING': return 'secondary';
+      case 'APPROVED': return 'default';
+      case 'REJECTED': return 'destructive';
+      default: return 'outline';
     }
   };
 
   if (status === "loading" || loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Skeleton className="h-12 w-12 rounded-full mx-auto" />
+          <Skeleton className="h-4 w-32 mx-auto" />
         </div>
       </div>
     );
@@ -160,25 +164,25 @@ export default function PendingRequestsPage() {
   const otherRequests = requests.filter(req => req.status !== 'PENDING');
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow">
+    <div className="min-h-screen bg-background">
+      <nav className="border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-              <h1 className="text-xl font-semibold text-gray-900">
+              <h1 className="text-xl font-semibold text-foreground">
                 TDH Agency Leave Tracker - Admin
               </h1>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-700">
+              <span className="text-sm text-muted-foreground">
                 Welcome, {session.user?.name || session.user?.email}
               </span>
-              <button
+              <Button
+                variant="outline"
                 onClick={() => router.push("/dashboard")}
-                className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium"
               >
                 Back to Dashboard
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -187,178 +191,165 @@ export default function PendingRequestsPage() {
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           {/* Pending Requests Section */}
-          <div className="bg-white overflow-hidden shadow rounded-lg mb-6">
-            <div className="px-4 py-5 sm:p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                Pending Requests ({pendingRequests.length})
-              </h2>
-              
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Pending Requests ({pendingRequests.length})</CardTitle>
+              <CardDescription>Leave requests awaiting your review</CardDescription>
+            </CardHeader>
+            <CardContent>
               {pendingRequests.length === 0 ? (
-                <p className="text-gray-500">No pending requests to review.</p>
+                <p className="text-muted-foreground">No pending requests to review.</p>
               ) : (
                 <div className="space-y-4">
                   {pendingRequests.map((request) => (
-                    <div key={request.id} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <h3 className="text-lg font-medium text-gray-900">
-                            {request.user.name}
-                          </h3>
-                          <p className="text-sm text-gray-600">{request.user.email}</p>
-                                                     <div className="mt-2 space-y-1">
-                             <p className="text-sm text-gray-900">
-                               <span className="font-semibold">Dates:</span> {formatDate(request.startDate)} - {formatDate(request.endDate)}
-                             </p>
-                             {request.comments && (
-                               <p className="text-sm text-gray-900">
-                                 <span className="font-semibold">Comments:</span> {request.comments}
-                               </p>
-                             )}
-                             <p className="text-sm text-gray-600">
-                               Submitted: {formatDate(request.createdAt)}
-                             </p>
-                           </div>
+                    <Card key={request.id}>
+                      <CardContent className="pt-4">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <h3 className="text-lg font-medium text-foreground">
+                              {request.user.name}
+                            </h3>
+                            <p className="text-sm text-muted-foreground">{request.user.email}</p>
+                            <div className="mt-2 space-y-1">
+                              <p className="text-sm text-foreground">
+                                <span className="font-semibold">Dates:</span> {formatDate(request.startDate)} - {formatDate(request.endDate)}
+                              </p>
+                              {request.comments && (
+                                <p className="text-sm text-foreground">
+                                  <span className="font-semibold">Comments:</span> {request.comments}
+                                </p>
+                              )}
+                              <p className="text-sm text-muted-foreground">
+                                Submitted: {formatDate(request.createdAt)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex space-x-2 ml-4">
+                            <Button
+                              onClick={() => handleApprove(request.id)}
+                              disabled={processing === request.id}
+                              size="sm"
+                            >
+                              {processing === request.id ? "Processing..." : "Approve"}
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => setShowRejectModal(request.id)}
+                              disabled={processing === request.id}
+                            >
+                              {processing === request.id ? "Processing..." : "Reject"}
+                            </Button>
+                          </div>
                         </div>
-                        <div className="flex space-x-2 ml-4">
-                          <button
-                            onClick={() => handleApprove(request.id)}
-                            disabled={processing === request.id}
-                            className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md text-sm font-medium"
-                          >
-                            {processing === request.id ? "Processing..." : "Approve"}
-                          </button>
-                          <button
-                            onClick={() => setShowRejectModal(request.id)}
-                            disabled={processing === request.id}
-                            className="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md text-sm font-medium"
-                          >
-                            {processing === request.id ? "Processing..." : "Reject"}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+                      </CardContent>
+                    </Card>
                   ))}
                 </div>
               )}
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
           {/* All Other Requests Section */}
-          <div className="bg-white overflow-hidden shadow rounded-lg">
-            <div className="px-4 py-5 sm:p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                All Requests ({leaveRequests.length})
-              </h2>
-              
+          <Card>
+            <CardHeader>
+              <CardTitle>All Requests ({leaveRequests.length})</CardTitle>
+              <CardDescription>Complete history of all leave requests</CardDescription>
+            </CardHeader>
+            <CardContent>
               {leaveRequests.length === 0 ? (
-                <p className="text-gray-500">No leave requests found.</p>
+                <p className="text-muted-foreground">No leave requests found.</p>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Employee
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Dates
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Status
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Submitted
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {leaveRequests.map((request) => (
-                        <tr key={request.id}>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">
-                                {request.user.name}
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                {request.user.email}
-                              </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Employee</TableHead>
+                      <TableHead>Dates</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Submitted</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {leaveRequests.map((request) => (
+                      <TableRow key={request.id}>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">
+                              {request.user.name}
                             </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {formatDate(request.startDate)} - {formatDate(request.endDate)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(request.status)}`}>
-                              {request.status}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {formatDate(request.createdAt)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                            <div className="text-sm text-muted-foreground">
+                              {request.user.email}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {formatDate(request.startDate)} - {formatDate(request.endDate)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={getStatusVariant(request.status)}>
+                            {request.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {formatDate(request.createdAt)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
       </main>
       
       {/* Rejection Modal */}
-      {showRejectModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Reject Leave Request</h2>
-              <button
-                onClick={() => {
-                  setShowRejectModal(null);
-                  setRejectComment("");
-                }}
-                className="text-gray-400 hover:text-gray-600 text-xl font-bold"
-              >
-                ×
-              </button>
-            </div>
-            
-            <div className="mb-4">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Reason for Rejection *
-              </label>
-              <textarea
+      <Dialog open={!!showRejectModal} onOpenChange={(open) => {
+        if (!open) {
+          setShowRejectModal(null);
+          setRejectComment("");
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reject Leave Request</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="rejectComment">Reason for Rejection *</Label>
+              <Textarea
+                id="rejectComment"
                 value={rejectComment}
                 onChange={(e) => setRejectComment(e.target.value)}
                 rows={4}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 text-gray-900 bg-white"
                 placeholder="Please provide a reason for rejecting this leave request..."
                 required
               />
             </div>
-
-            <div className="flex space-x-3">
-              <button
-                onClick={() => handleReject(showRejectModal)}
-                disabled={!rejectComment.trim() || processing === showRejectModal}
-                className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md text-sm font-medium"
-              >
-                {processing === showRejectModal ? "Processing..." : "Reject Request"}
-              </button>
-              <button
-                onClick={() => {
-                  setShowRejectModal(null);
-                  setRejectComment("");
-                }}
-                disabled={processing === showRejectModal}
-                className="flex-1 bg-gray-300 hover:bg-gray-400 disabled:bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-sm font-medium"
-              >
-                Cancel
-              </button>
-            </div>
           </div>
-        </div>
-      )}
+
+          <DialogFooter className="space-x-3">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowRejectModal(null);
+                setRejectComment("");
+              }}
+              disabled={processing === showRejectModal}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => handleReject(showRejectModal!)}
+              disabled={!rejectComment.trim() || processing === showRejectModal}
+            >
+              {processing === showRejectModal ? "Processing..." : "Reject Request"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
       {/* Toast Notifications */}
     </div>

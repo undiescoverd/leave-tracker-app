@@ -4,6 +4,11 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -41,68 +46,71 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="login-container">
-      <div className="login-card">
-        <h1 className="login-title">TDH Agency Leave Tracker</h1>
-        <p className="login-subtitle">Sign in to manage leave requests</p>
-        
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="email" className="form-label">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              className="form-input"
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={isLoading}
-              required
-            />
-          </div>
-          
-          <div className="form-group">
-            <label htmlFor="password" className="form-label">
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              className="form-input"
-              placeholder="Enter your password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={isLoading}
-              required
-            />
-          </div>
-          
-          {error && (
-            <div style={{ color: '#e53e3e', fontSize: '0.875rem', marginBottom: '1rem' }}>
-              {error}
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl font-bold text-center">
+            Welcome Back
+          </CardTitle>
+          <CardDescription className="text-center">
+            Sign in to your TDH Agency account
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                placeholder="name@tdhagency.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+                disabled={isLoading}
+              />
             </div>
-          )}
-          
-          <button 
-            type="submit"
-            className="btn-primary"
-            disabled={isLoading}
-          >
-            {isLoading ? "Signing in..." : "Sign in"}
-          </button>
-          
-          <div className="links-container">
-            <Link href="/register" className="link">
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                disabled={isLoading}
+              />
+            </div>
+            
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            
+            <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={isLoading}
+            >
+              {isLoading ? "Signing in..." : "Sign In"}
+            </Button>
+          </form>
+        </CardContent>
+        <CardFooter className="flex flex-col space-y-2">
+          <div className="text-sm text-muted-foreground">
+            Don't have an account?{" "}
+            <Link href="/register" className="text-primary hover:underline">
               Create account
             </Link>
-            <Link href="/forgot-password" className="link">
-              Forgot password?
-            </Link>
           </div>
-        </form>
-      </div>
+        </CardFooter>
+      </Card>
     </div>
   );
 }

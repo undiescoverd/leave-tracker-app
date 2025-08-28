@@ -5,6 +5,12 @@ import { toast } from "sonner";
 import { features } from "@/lib/features";
 import { calculateWorkingDays } from "@/lib/date-utils";
 import { useLeaveBalance } from "@/hooks/useLeaveBalance";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 interface LeaveRequestFormProps {
   onSuccess?: () => void;
@@ -151,161 +157,133 @@ export default function EnhancedLeaveRequestForm({ onSuccess }: LeaveRequestForm
 
   return (
     <>
-      <button
-        onClick={() => setIsOpen(true)}
-        className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
-      >
+      <Button onClick={() => setIsOpen(true)}>
         Request Leave
-      </button>
+      </Button>
 
-      {isOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-gray-800">
-                Request Leave
-              </h2>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                ✕
-              </button>
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Request Leave</DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Leave Type Selection */}
+            {availableLeaveTypes.length > 1 && (
+              <div className="space-y-2">
+                <Label htmlFor="type">Leave Type</Label>
+                <Select name="type" value={formData.type} onValueChange={(value) => setFormData(prev => ({ ...prev, type: value as "ANNUAL" | "TOIL" | "SICK" }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableLeaveTypes.map((type: string) => (
+                      <SelectItem key={type} value={type}>
+                        {type.charAt(0) + type.slice(1).toLowerCase()}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* TOIL Hours Input */}
+            {formData.type === 'TOIL' && (
+              <div className="space-y-2">
+                <Label htmlFor="hours">TOIL Hours</Label>
+                <Input
+                  type="number"
+                  name="hours"
+                  value={formData.hours}
+                  onChange={handleInputChange}
+                  min="1"
+                  max="24"
+                  placeholder="Enter hours (1-24)"
+                />
+              </div>
+            )}
+
+            {/* Date Selection */}
+            <div className="space-y-2">
+              <Label htmlFor="startDate">Start Date</Label>
+              <Input
+                type="date"
+                name="startDate"
+                value={formData.startDate}
+                onChange={handleInputChange}
+                min={new Date().toISOString().split('T')[0]}
+                required
+              />
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Leave Type Selection */}
-              {availableLeaveTypes.length > 1 && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Leave Type
-                  </label>
-                  <select
-                    name="type"
-                    value={formData.type}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    {availableLeaveTypes.map((type: string) => (
-                      <option key={type} value={type}>
-                        {type.charAt(0) + type.slice(1).toLowerCase()}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+            <div className="space-y-2">
+              <Label htmlFor="endDate">End Date</Label>
+              <Input
+                type="date"
+                name="endDate"
+                value={formData.endDate}
+                onChange={handleInputChange}
+                min={formData.startDate || new Date().toISOString().split('T')[0]}
+                required
+              />
+            </div>
 
-              {/* TOIL Hours Input */}
-              {formData.type === 'TOIL' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    TOIL Hours
-                  </label>
-                  <input
-                    type="number"
-                    name="hours"
-                    value={formData.hours}
-                    onChange={handleInputChange}
-                    min="1"
-                    max="24"
-                    placeholder="Enter hours (1-24)"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              )}
-
-              {/* Date Selection */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Start Date
-                </label>
-                <input
-                  type="date"
-                  name="startDate"
-                  value={formData.startDate}
-                  onChange={handleInputChange}
-                  min={new Date().toISOString().split('T')[0]}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  End Date
-                </label>
-                <input
-                  type="date"
-                  name="endDate"
-                  value={formData.endDate}
-                  onChange={handleInputChange}
-                  min={formData.startDate || new Date().toISOString().split('T')[0]}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-
-              {/* Balance Display */}
-              {leaveBalance && (
-                <div className="bg-gray-50 p-3 rounded-md">
-                  <div className="text-sm text-gray-600">
-                    <div className="flex justify-between">
-                      <span>Available {formData.type.toLowerCase()} leave:</span>
-                      <span className="font-medium">{remainingBalance} days</span>
-                    </div>
-                    {previewDays > 0 && (
-                      <div className="flex justify-between mt-1">
-                        <span>Requested:</span>
-                        <span className="font-medium">{previewDays} days</span>
-                      </div>
-                    )}
-                    {previewDays > 0 && remainingBalance < previewDays && (
-                      <div className="text-red-600 text-xs mt-1">
-                        ⚠️ Insufficient balance
-                      </div>
-                    )}
+            {/* Balance Display */}
+            {leaveBalance && (
+              <div className="bg-muted p-3 rounded-md">
+                <div className="text-sm text-muted-foreground">
+                  <div className="flex justify-between">
+                    <span>Available {formData.type.toLowerCase()} leave:</span>
+                    <span className="font-medium text-foreground">{remainingBalance} days</span>
                   </div>
+                  {previewDays > 0 && (
+                    <div className="flex justify-between mt-1">
+                      <span>Requested:</span>
+                      <span className="font-medium text-foreground">{previewDays} days</span>
+                    </div>
+                  )}
+                  {previewDays > 0 && remainingBalance < previewDays && (
+                    <div className="text-destructive text-xs mt-1">
+                      ⚠️ Insufficient balance
+                    </div>
+                  )}
                 </div>
-              )}
-
-              {/* Comments */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Reason
-                </label>
-                <textarea
-                  name="comments"
-                  value={formData.comments}
-                  onChange={handleInputChange}
-                  rows={3}
-                  placeholder="Please provide a reason for your leave request..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
               </div>
+            )}
 
-              {/* Submit Button */}
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setIsOpen(false)}
-                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors duration-200"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting || isLoadingBalance}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-                >
-                  {isSubmitting ? "Submitting..." : "Submit Request"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            {/* Comments */}
+            <div className="space-y-2">
+              <Label htmlFor="comments">Reason</Label>
+              <Textarea
+                name="comments"
+                value={formData.comments}
+                onChange={handleInputChange}
+                rows={3}
+                placeholder="Please provide a reason for your leave request..."
+                required
+              />
+            </div>
 
+            <DialogFooter className="pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsOpen(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSubmitting || isLoadingBalance}
+                className="flex-1"
+              >
+                {isSubmitting ? "Submitting..." : "Submit Request"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
