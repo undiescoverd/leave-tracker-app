@@ -1,13 +1,16 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Force development server settings
-  devIndicators: {
-    buildActivity: true,
-    buildActivityPosition: 'bottom-right',
-  },
+  // Remove deprecated devIndicators configuration
+  // devIndicators: {
+  //   buildActivity: true,
+  //   buildActivityPosition: 'bottom-right',
+  // },
   
   // Ensure consistent behavior
   reactStrictMode: true,
+  
+  // Fix the lockfile warning by setting the correct root
+  outputFileTracingRoot: __dirname,
   
   // Help with 500 errors - show more detailed errors in development
   onDemandEntries: {
@@ -21,7 +24,7 @@ const nextConfig = {
   experimental: {
     // Helps with hot reload issues
     serverActions: {
-      allowedOrigins: ['localhost:3000'],
+      allowedOrigins: ['localhost:3000', 'localhost:3001', 'localhost:3002'],
     },
   },
 
