@@ -58,13 +58,13 @@ export default function MultiTypeBalanceDisplay() {
 
   if (loading) {
     return (
-      <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+      <div className="bg-card border border-border rounded-lg shadow-sm p-6">
         <div className="animate-pulse">
-          <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
+          <div className="h-4 bg-muted rounded w-1/4 mb-4"></div>
           <div className="space-y-3">
-            <div className="h-3 bg-gray-200 rounded"></div>
-            <div className="h-3 bg-gray-200 rounded w-5/6"></div>
-            <div className="h-3 bg-gray-200 rounded w-4/6"></div>
+            <div className="h-3 bg-muted rounded"></div>
+            <div className="h-3 bg-muted rounded w-5/6"></div>
+            <div className="h-3 bg-muted rounded w-4/6"></div>
           </div>
         </div>
       </div>
@@ -73,8 +73,8 @@ export default function MultiTypeBalanceDisplay() {
 
   if (error) {
     return (
-      <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
-        <div className="text-red-600 text-center">
+      <div className="bg-card border border-border rounded-lg shadow-sm p-6">
+        <div className="text-destructive text-center">
           <p>Error loading balance: {error}</p>
         </div>
       </div>
@@ -83,8 +83,8 @@ export default function MultiTypeBalanceDisplay() {
 
   if (!balance) {
     return (
-      <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
-        <div className="text-gray-600 text-center">
+      <div className="bg-card border border-border rounded-lg shadow-sm p-6">
+        <div className="text-muted-foreground text-center">
           <p>No balance information available</p>
         </div>
       </div>
@@ -96,9 +96,9 @@ export default function MultiTypeBalanceDisplay() {
   };
 
   const getProgressColor = (percentage: number) => {
-    if (percentage >= 80) return "bg-red-500";
-    if (percentage >= 60) return "bg-yellow-500";
-    return "bg-teal-500";
+    if (percentage >= 80) return "bg-destructive";
+    if (percentage >= 60) return "bg-warning";
+    return "bg-success";
   };
 
   // Extract data with proper fallbacks
@@ -112,28 +112,28 @@ export default function MultiTypeBalanceDisplay() {
   const sickBalance = balance.balances?.sick || { total: 0, used: 0, remaining: 0 };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+    <div className="bg-card border border-border rounded-lg shadow-sm p-6">
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">Leave Balance</h3>
-        <p className="text-sm text-gray-600">Your current leave entitlements and usage</p>
+        <h3 className="text-lg font-semibold text-card-foreground mb-2">Leave Balance</h3>
+        <p className="text-sm text-muted-foreground">Your current leave entitlements and usage</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
         {/* Annual Leave */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-gray-700">Annual Leave</span>
-            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+            <span className="text-sm font-medium text-card-foreground">Annual Leave</span>
+            <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded-full">
               {annualBalance.used}/{annualBalance.total} days
             </span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="w-full bg-muted rounded-full h-2">
             <div
               className={`h-2 rounded-full ${getProgressColor(calculatePercentage(annualBalance.used, annualBalance.total))}`}
               style={{ width: `${calculatePercentage(annualBalance.used, annualBalance.total)}%` }}
             ></div>
           </div>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-muted-foreground">
             {annualBalance.remaining} days remaining
           </p>
         </div>
@@ -142,18 +142,18 @@ export default function MultiTypeBalanceDisplay() {
         {(balance.balances?.toil || toilBalance.total > 0) && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-700">TOIL</span>
-              <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+              <span className="text-sm font-medium text-card-foreground">TOIL</span>
+              <span className="text-xs bg-success/20 text-success px-2 py-1 rounded-full">
                 {toilBalance.remaining} hours
               </span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className="w-full bg-muted rounded-full h-2">
               <div
-                className="h-2 rounded-full bg-green-500"
+                className="h-2 rounded-full bg-success"
                 style={{ width: `${Math.min(100, (toilBalance.remaining / 40) * 100)}%` }}
               ></div>
             </div>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted-foreground">
               {toilBalance.remaining} hours available
             </p>
           </div>
@@ -163,18 +163,18 @@ export default function MultiTypeBalanceDisplay() {
         {(balance.balances?.sick || sickBalance.total > 0) && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-700">Sick Leave</span>
-              <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
+              <span className="text-sm font-medium text-card-foreground">Sick Leave</span>
+              <span className="text-xs bg-destructive/20 text-destructive px-2 py-1 rounded-full">
                 {sickBalance.used}/{sickBalance.total} days
               </span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className="w-full bg-muted rounded-full h-2">
               <div
                 className={`h-2 rounded-full ${getProgressColor(calculatePercentage(sickBalance.used, sickBalance.total))}`}
                 style={{ width: `${calculatePercentage(sickBalance.used, sickBalance.total)}%` }}
               ></div>
             </div>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted-foreground">
               {sickBalance.remaining} days remaining
             </p>
           </div>
@@ -182,15 +182,15 @@ export default function MultiTypeBalanceDisplay() {
       </div>
 
       {/* Summary */}
-      <div className="mt-6 pt-6 border-t border-gray-200">
+      <div className="mt-6 pt-6 border-t border-border">
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <span className="text-gray-600">Total Annual Leave:</span>
+            <span className="text-muted-foreground">Total Annual Leave:</span>
             <span className="ml-2 font-medium">{annualBalance.total} days</span>
           </div>
           {(balance.balances?.toil || toilBalance.total > 0) && (
             <div>
-              <span className="text-gray-600">Total TOIL:</span>
+              <span className="text-muted-foreground">Total TOIL:</span>
               <span className="ml-2 font-medium">{toilBalance.remaining} hours</span>
             </div>
           )}

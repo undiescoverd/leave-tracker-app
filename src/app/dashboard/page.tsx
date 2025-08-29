@@ -4,7 +4,8 @@ import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import EnhancedLeaveRequestForm from "@/components/EnhancedLeaveRequestForm";
-import MultiTypeBalanceDisplay from "@/components/MultiTypeBalanceDisplay";
+import EnhancedLeaveBalanceDisplay from "@/components/EnhancedLeaveBalanceDisplay";
+import TeamCalendar from "@/components/calendar/TeamCalendar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -52,7 +53,7 @@ export default function DashboardPage() {
               </span>
               <ThemeToggle />
               <Button
-                variant="destructive"
+                variant="default"
                 size="sm"
                 onClick={async () => {
                   try {
@@ -80,47 +81,7 @@ export default function DashboardPage() {
             <h2 className="text-3xl font-bold text-foreground mb-6">
               Dashboard
             </h2>
-            <MultiTypeBalanceDisplay />
-          </div>
-
-          {/* Quick Actions */}
-          <div className="grid gap-6 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Submit New Request</CardTitle>
-                <CardDescription>
-                  Create a new leave request for approval
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <EnhancedLeaveRequestForm />
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader>
-                <CardTitle>Quick Links</CardTitle>
-                <CardDescription>
-                  Access your leave history and team information
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start"
-                  onClick={() => router.push("/leave/requests")}
-                >
-                  My Leave History
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start"
-                  disabled
-                >
-                  View Team Calendar
-                </Button>
-              </CardContent>
-            </Card>
+            <EnhancedLeaveBalanceDisplay />
           </div>
 
           {/* Admin Section */}
@@ -162,6 +123,32 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           )}
+
+          {/* Leave Actions */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Leave Actions</CardTitle>
+              <CardDescription>
+                Submit new requests and view your leave history
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-4">
+                <EnhancedLeaveRequestForm />
+                <Button 
+                  onClick={() => router.push("/leave/requests")}
+                  className="flex-1"
+                >
+                  My Leave History
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Team Calendar Section */}
+          <div id="team-calendar">
+            <TeamCalendar />
+          </div>
         </div>
       </main>
     </div>

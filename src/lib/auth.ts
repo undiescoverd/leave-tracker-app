@@ -30,29 +30,33 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
+          console.log("Missing credentials");
           return null;
         }
 
         try {
+          const email = (credentials.email as string).trim().toLowerCase();
+          const password = credentials.password as string;
+
           const user = await prisma.user.findUnique({
             where: {
-              email: credentials.email as string
+              email: email
             }
           });
 
           if (!user) {
+            console.log("User not found:", email);
             return null;
           }
 
-          const isPasswordValid = await bcrypt.compare(
-            credentials.password as string,
-            user.password
-          );
+          const isPasswordValid = await bcrypt.compare(password, user.password);
 
           if (!isPasswordValid) {
+            console.log("Invalid password for:", email);
             return null;
           }
 
+          console.log("Authentication successful for:", email);
           return {
             id: user.id,
             email: user.email,
@@ -104,7 +108,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         sameSite: 'lax',
         path: '/',
         secure: false,
-        domain: undefined
+        domain: undefined,
+        maxAge: 30 * 24 * 60 * 60 // 30 days
       }
     },
     callbackUrl: {
@@ -113,7 +118,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         httpOnly: false,
         sameSite: 'lax',
         path: '/',
-        secure: false
+        secure: false,
+        maxAge: 24 * 60 * 60 // 24 hours
       }
     },
     csrfToken: {
@@ -122,10 +128,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        secure: false
+        secure: false,
+        maxAge: 60 * 60 // 1 hour
       }
     }
   },
   useSecureCookies: false,
   trustHost: true,
+  experimental: {
+    enableWebAuthn: false,
+  },
 });

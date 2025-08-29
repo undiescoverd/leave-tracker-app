@@ -1,0 +1,112 @@
+---
+alwaysApply: false
+---
+CLI version 3.0 introduced support for namespaced registries, private registries with authentication, search commands (view, search, list) and improved error handling ￼.
+
+Monorepo Support
+
+The docs include guidance for using shadcn/ui in a monorepo.  Running pnpm dlx shadcn@canary init and selecting “Next.js (Monorepo)” sets up a Turborepo with web and ui workspaces.  The CLI configures Tailwind and components.json for each workspace and installs shared dependencies.  To add a component, run npx shadcn@canary add button; the component files are placed under packages/ui and imported from there.  Each workspace must have its own components.json with matching style and baseColor values and appropriate alias settings ￼ ￼.
+
+Open in v0
+
+Every component on the site can be customized in v0 — a code‑generation tool by Vercel.  By signing up with a free Vercel account you can click an “open in v0” link on component pages, write natural language descriptions and generate variations of the component ￼.
+
+JavaScript Support
+
+Although components are written in TypeScript, you can generate JavaScript versions by setting tsx to false in components.json.  You will also need a jsconfig.json to set up path aliases.  The docs provide an example configuration with tsx: false and alias settings ￼.
+
+Blocks
+
+Blocks are higher‑level UI pieces (single or multiple components) contributed by the community.  To add a block to the registry you must fork the repository, create a new branch, install dependencies, and start the dev server.  A new block is added by creating a folder under registry/new-york/blocks/<block‑name> containing component files and a registry-blocks.ts entry.  After adding the block, run pnpm registry:build to generate the registry files and submit a pull request.  Blocks must specify properties like name, description, type (e.g., registry:block), files, dependencies, and registry dependencies.  You can also create categories for blocks by editing registry-categories.ts ￼ ￼.
+
+Figma Kits
+
+The docs link to several design kits that match shadcn/ui components:
+	•	Shadcn/ui kit by Matt Wierzbicki (paid) – premium Figma kit closely matching the implementation.
+	•	Shadcn/ui design system by Pietro Schirano (free) – a free kit with light/dark themes and responsive components.
+	•	Obra shadcn/ui kit by Obra Studio (paid) – large design library based on shadcn/ui ￼.
+
+Colors and Themes
+
+Colors
+
+The Colors section provides the complete Tailwind CSS color palette in multiple formats—HEX, RGB, HSL, CSS variables and utility classes.  Colors are organised into palettes such as neutral, stone, zinc, slate, gray, red, orange, amber, yellow, lime, green, emerald, teal, cyan, sky, blue, indigo, violet, purple, fuchsia, pink and rose.  Each palette lists shades from 50 to 950, ready to copy into your project ￼.
+
+Themes
+
+The Themes section offers pre‑built color themes (default, red, rose, orange, green, blue, yellow, violet) with examples of cards, forms and tables.  A theme editor is “coming soon.”  Users can copy theme variables and apply them to their projects ￼.  The page demonstrates a dashboard UI that uses the selected theme but does not include code examples; it is primarily an interactive preview of the themes.
+
+Components Overview
+
+shadcn/ui includes dozens of components organized under the Components section.  Each component page follows a consistent structure:
+	•	A brief description of what the component does.
+	•	Installation instructions (CLI command to add the component).
+	•	Usage examples showing how to import the component and basic usage.
+	•	Variants and interactive examples demonstrating different props and visual styles.
+	•	Links to open the component in v0 for customization.
+
+For example, the Button component page states that a button displays a clickable element.  After installing the component with pnpm dlx shadcn@latest add button, you can import it from @/components/ui/button and use it with optional variants such as outline, secondary, destructive, ghost, link, icon and loading.  The docs show how to use the asChild prop to make other elements (e.g., links) look like buttons and provide code for each variant ￼ ￼.
+
+Other components follow similar patterns—examples include Accordion, Alert, Alert Dialog, Badge, Breadcrumb, Calendar, Card, Checkbox, Combobox, Context Menu, Data Table, Date Picker, Dialog, Drawer, Dropdown Menu, Hover Card, Input, Input OTP, Label, Menubar, Navigation Menu, Pagination, Popover, Progress, Radio Group, Resizable, Scroll Area, Select, Separator, Sheet, Sidebar, Skeleton, Slider, Sonner, Switch, Table, Tabs, Textarea, Toast, Toggle, Toggle Group, Tooltip and Typography.  Each component has installation and usage sections along with examples.
+
+Charts
+
+The Chart component provides a collection of chart components built on top of Recharts.  Charts are designed to be fully customizable but include sensible defaults.  Key points include:
+	•	Installation – Install the chart component with pnpm dlx shadcn@latest add chart and define custom color variables in app/globals.css (e.g., --chart-1 to --chart-5 for light and dark modes) ￼.
+	•	First chart – Build a bar chart by defining your chartData array and chartConfig object (labels and colors).  Use ChartContainer to wrap Recharts components (e.g., BarChart, Bar) and specify a minimum height for responsive charts ￼.
+	•	Adding grid/axis/tooltip/legend – Import CartesianGrid, XAxis, ChartTooltip, ChartTooltipContent, ChartLegend, and ChartLegendContent to add grid lines, axes, tooltips and legends.  Each addition is optional and composed using Recharts components ￼.
+	•	Chart config – The chart configuration object holds labels, icons and colors separate from the data.  This decoupling lets you reuse config across charts.  You can specify color values directly (hex, hsl or oklch) or reference CSS variables (e.g., var(--chart-1)) ￼ ￼.
+	•	Theming and colors – Charts support CSS variables; define your color palette in globals.css and reference them in chartConfig or directly in your data via fill properties.  Colors may be defined in hex, hsl, or oklch formats.  When using Tailwind, you can apply colors via class names or CSS variables ￼ ￼.
+	•	Tooltip and legend – ChartTooltip and ChartTooltipContent provide accessible tooltips with customizable label, name and indicator.  Props include labelKey, nameKey, indicator, hideLabel and hideIndicator ￼.  Similarly, ChartLegend and ChartLegendContent render legends; you can override the name key via nameKey ￼.  Chart tooltips and legends automatically use colors from the chart config but can be customized.
+	•	Accessibility – A boolean accessibilityLayer prop on Recharts (LineChart, BarChart, etc.) adds keyboard and screen‑reader support ￼.
+
+Registry
+
+shadcn/ui supports custom registries where component authors can publish their own components, styles or other resources.  Registries are defined by a registry.json file and can be referenced in components.json via namespaces.
+
+Introduction
+
+The registry system allows teams to distribute components or other code (hooks, libraries, pages, themes) through a registry that can be public or private.  The CLI can fetch items from multiple registries and install them into a project ￼.  Namespaced registries enable multiple registries to exist without a central authority ￼.
+
+Getting Started
+
+To create a registry:
+	1.	Create a registry.json file that contains metadata ($schema, name, homepage) and an items array listing registry items.  Each item must follow the registry-item schema ￼.
+	2.	Define each item in its own folder under registry/<style>/<type>/<item-name>/....  For example, to create a “Hello World” component you add hello-world.tsx and corresponding entry in registry.json ￼.
+	3.	Add dependencies to the dependencies array and registryDependencies for referencing other registry items ￼.
+	4.	Write a build script in package.json to generate the registry JSON file using shadcn build ￼.
+	5.	Serve or publish the registry so consumers can install items via the CLI (pnpm dlx shadcn@latest add http://your-registry.url) ￼.
+
+Namespaces
+
+Namespaces enable multiple registries with unique prefixes (e.g., @acme-ui, @acme-docs).  In components.json you define a URL for each namespace.  During installation you specify the namespace (pnpm dlx shadcn add @acme-ui/button).  Namespaces help organize resources by type, team or product and avoid name conflicts ￼.  The CLI and API treat each namespace as an independent registry.
+
+Authentication
+
+For private registries you can provide authentication headers or query parameters in components.json.  The docs show examples of using bearer tokens via an Authorization header, API keys with custom headers (e.g., X‑API‑Key, X‑Workspace‑Id), and query parameters (e.g., token=...).  A server route example illustrates how to validate tokens before returning registry items ￼ ￼.
+
+Examples
+
+The Examples page provides sample registry items: custom styles that extend shadcn/ui and entirely new styles with theme definitions.  For instance, a registry:style item might depend on icons and other registry components, define registryDependencies, and include cssVars for CSS variables used by the style.  Another example shows how to define a new style from scratch with fonts, colors for light and dark modes, and dependencies ￼ ￼.
+
+MCP Server
+
+The MCP server is an optional server that hosts registries, making them discoverable through search.  To use the MCP server you need a registry.json at the root of your registry.  Consumers add the registry URL in components.json and run pnpm dlx shadcn@latest mcp init --client claude.  The MCP server improves search and dependency resolution, and the docs list best practices for registry authors: provide clear descriptions, list dependencies accurately, specify registryDependencies, and follow consistent naming conventions ￼.
+
+Schema References
+	•	registry.json – Must include $schema, name, homepage and an array of items.  Each item references a separate JSON file defined by the registry-item schema ￼.
+	•	registry-item.json – Defines properties for an individual registry item including name, type, title, description, registryDependencies, dependencies, files, optional cssVars, css, envVars, and an author object (name, url) ￼.  Supported item types include registry:block, registry:component, registry:lib, registry:hook, registry:ui, registry:page, registry:file, registry:style, registry:theme and generic registry:item ￼.  The schema describes how to specify file targets, customizing Tailwind configuration, adding CSS variables and environment variables ￼.
+
+Changelog Highlights
+
+The Changelog page documents updates; notable entries include the August 2025 release of shadcn CLI 3.0:
+	•	Namespaced registries with support for multiple registries and private registries.  Configuration is done in components.json; components are installed via @namespace/name ￼.
+	•	Private registry authentication – components.json supports token or headers fields for bearer tokens or API keys, and the CLI looks for environment variables to inject tokens into headers ￼.
+	•	Search & discovery commands – new CLI commands view, search and list for viewing items and searching registries ￼.
+	•	MCP server – improvements like server‑side search and faster dependency resolution ￼.
+	•	Upgrade guide – CLI 3.0 is not a breaking change; old commands continue working with the addition of new features ￼.
+
+Using the Docs
+	•	Use the left‑hand navigation to browse Get Started, Components, Registry, Charts, Themes and Colors.  Each component page includes installation instructions, usage examples and live previews.  Buttons at the top of pages allow you to copy the entire page, open in v0, or switch between CLI and manual install instructions.
+	•	Many pages include an On This Page table of contents that lists headings like Installation, Usage, Examples, Props and Accessibility (where applicable).  Use this to navigate quickly.
+	•	The site encourages customizing components.  By copying code into your project you retain full control; there is no runtime dependency on the library.

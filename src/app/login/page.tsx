@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -24,21 +24,29 @@ export default function LoginPage() {
     setIsLoading(true);
     setError("");
 
+    // Add a small delay to ensure form data is properly captured by password managers
+    await new Promise(resolve => setTimeout(resolve, 100));
+
     try {
       const result = await signIn("credentials", {
-        email,
+        email: email.trim(),
         password,
         callbackUrl,
         redirect: false,
       });
 
       if (result?.error) {
+        console.error("Sign in error:", result.error);
         setError("Invalid email or password");
-      } else if (result?.url) {
-        router.push(result.url);
-        router.refresh();
+      } else if (result?.ok) {
+        // Success - navigate to callback URL or dashboard
+        const redirectUrl = result.url || callbackUrl || "/dashboard";
+        window.location.href = redirectUrl;
+      } else {
+        setError("Login failed. Please try again.");
       }
     } catch (error) {
+      console.error("Login error:", error);
       setError("An error occurred. Please try again.");
     } finally {
       setIsLoading(false);
@@ -57,7 +65,7 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" autoComplete="on">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -69,7 +77,11 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
+                autoFocus
                 disabled={isLoading}
+                spellCheck={false}
+                autoCapitalize="off"
+                autoCorrect="off"
               />
             </div>
             <div className="space-y-2">
@@ -84,6 +96,9 @@ export default function LoginPage() {
                 required
                 autoComplete="current-password"
                 disabled={isLoading}
+                spellCheck={false}
+                autoCapitalize="off"
+                autoCorrect="off"
               />
             </div>
             
@@ -112,5 +127,13 @@ export default function LoginPage() {
         </CardFooter>
       </Card>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <LoginForm />
+    </Suspense>
   );
 }

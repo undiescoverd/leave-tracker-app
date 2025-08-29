@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { DatePicker } from "@/components/ui/date-picker";
 
 interface LeaveRequestFormProps {
   onSuccess?: () => void;
@@ -21,8 +22,8 @@ export default function EnhancedLeaveRequestForm({ onSuccess }: LeaveRequestForm
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { balance: leaveBalance, loading: isLoadingBalance, error: balanceError, refetch: refetchBalance } = useLeaveBalance();
   const [formData, setFormData] = useState({
-    startDate: "",
-    endDate: "",
+    startDate: undefined as Date | undefined,
+    endDate: undefined as Date | undefined,
     comments: "",
     type: "ANNUAL" as "ANNUAL" | "TOIL" | "SICK",
     hours: "" as string | number,
@@ -37,12 +38,9 @@ export default function EnhancedLeaveRequestForm({ onSuccess }: LeaveRequestForm
   const calculatePreviewDays = () => {
     if (!formData.startDate || !formData.endDate) return 0;
     
-    const start = new Date(formData.startDate);
-    const end = new Date(formData.endDate);
+    if (formData.endDate < formData.startDate) return 0;
     
-    if (end < start) return 0;
-    
-    return calculateWorkingDays(start, end);
+    return calculateWorkingDays(formData.startDate, formData.endDate);
   };
 
   // Get remaining balance for selected leave type
@@ -69,18 +67,22 @@ export default function EnhancedLeaveRequestForm({ onSuccess }: LeaveRequestForm
     setIsSubmitting(true);
 
     // Enhanced client-side validation
-    const startDate = new Date(formData.startDate);
-    const endDate = new Date(formData.endDate);
+    if (!formData.startDate || !formData.endDate) {
+      showError("Please select both start and end dates");
+      setIsSubmitting(false);
+      return;
+    }
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    if (startDate < today) {
+    if (formData.startDate < today) {
       showError("Start date cannot be in the past");
       setIsSubmitting(false);
       return;
     }
     
-    if (endDate < startDate) {
+    if (formData.endDate < formData.startDate) {
       showError("End date must be after or equal to start date");
       setIsSubmitting(false);
       return;
@@ -105,8 +107,8 @@ export default function EnhancedLeaveRequestForm({ onSuccess }: LeaveRequestForm
 
     try {
       const requestData = {
-        startDate: new Date(formData.startDate).toISOString(),
-        endDate: new Date(formData.endDate).toISOString(),
+        startDate: formData.startDate.toISOString(),
+        endDate: formData.endDate.toISOString(),
         reason: formData.comments,
         type: formData.type,
         ...(formData.type === 'TOIL' && formData.hours && { hours: Number(formData.hours) })
@@ -125,8 +127,8 @@ export default function EnhancedLeaveRequestForm({ onSuccess }: LeaveRequestForm
       if (response.ok) {
         showSuccess(result.data.message || `${formData.type} leave request submitted successfully!`);
         setFormData({
-          startDate: "",
-          endDate: "",
+          startDate: undefined,
+          endDate: undefined,
           comments: "",
           type: "ANNUAL",
           hours: "",
@@ -144,7 +146,7 @@ export default function EnhancedLeaveRequestForm({ onSuccess }: LeaveRequestForm
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -157,7 +159,7 @@ export default function EnhancedLeaveRequestForm({ onSuccess }: LeaveRequestForm
 
   return (
     <>
-      <Button onClick={() => setIsOpen(true)}>
+      <Button onClick={() => setIsOpen(true)} className="flex-1">
         Request Leave
       </Button>
 
@@ -205,26 +207,22 @@ export default function EnhancedLeaveRequestForm({ onSuccess }: LeaveRequestForm
 
             {/* Date Selection */}
             <div className="space-y-2">
-              <Label htmlFor="startDate">Start Date</Label>
-              <Input
-                type="date"
-                name="startDate"
-                value={formData.startDate}
-                onChange={handleInputChange}
-                min={new Date().toISOString().split('T')[0]}
-                required
+              <Label>Start Date</Label>
+              <DatePicker
+                date={formData.startDate}
+                onDateChange={(date) => setFormData(prev => ({ ...prev, startDate: date }))}
+                placeholder="Select start date"
+                minDate={new Date()}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="endDate">End Date</Label>
-              <Input
-                type="date"
-                name="endDate"
-                value={formData.endDate}
-                onChange={handleInputChange}
-                min={formData.startDate || new Date().toISOString().split('T')[0]}
-                required
+              <Label>End Date</Label>
+              <DatePicker
+                date={formData.endDate}
+                onDateChange={(date) => setFormData(prev => ({ ...prev, endDate: date }))}
+                placeholder="Select end date"
+                minDate={formData.startDate || new Date()}
               />
             </div>
 
