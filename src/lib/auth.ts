@@ -3,11 +3,24 @@ import Credentials from "next-auth/providers/credentials";
 import { prisma } from "./prisma";
 import bcrypt from "bcryptjs";
 
-// Simple environment check without Zod for now
+// Environment configuration
 const requiredEnvVars = {
   NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
   NEXTAUTH_URL: process.env.NEXTAUTH_URL || "http://localhost:3000",
   DATABASE_URL: process.env.DATABASE_URL,
+};
+
+// Security configuration based on environment
+const isProduction = process.env.NODE_ENV === 'production';
+const isSecureContext = isProduction || process.env.NEXTAUTH_URL?.startsWith('https://');
+
+// Cookie security settings
+const cookieSettings = {
+  secure: isSecureContext,
+  sameSite: 'lax' as const,
+  httpOnly: true,
+  path: '/',
+  domain: isProduction ? process.env.COOKIE_DOMAIN : undefined,
 };
 
 // Check for missing environment variables
@@ -104,36 +117,27 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     sessionToken: {
       name: `authjs.session-token`,
       options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: false,
-        domain: undefined,
+        ...cookieSettings,
         maxAge: 30 * 24 * 60 * 60 // 30 days
       }
     },
     callbackUrl: {
       name: `authjs.callback-url`,
       options: {
-        httpOnly: false,
-        sameSite: 'lax',
-        path: '/',
-        secure: false,
+        ...cookieSettings,
+        httpOnly: false, // Callback URL needs to be readable by client
         maxAge: 24 * 60 * 60 // 24 hours
       }
     },
     csrfToken: {
       name: `authjs.csrf-token`,
       options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: false,
+        ...cookieSettings,
         maxAge: 60 * 60 // 1 hour
       }
     }
   },
-  useSecureCookies: false,
+  useSecureCookies: isSecureContext,
   trustHost: true,
   experimental: {
     enableWebAuthn: false,

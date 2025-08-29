@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { LeaveStatus } from '@prisma/client';
 import { calculateWorkingDays } from '@/lib/date-utils';
+import { LEAVE_CONFIG, UK_AGENTS } from '@/lib/config/business';
 
 /**
  * Calculate number of leave days (excluding weekends)
@@ -40,7 +41,7 @@ export async function getUserLeaveBalance(userId: string, year: number) {
     );
   }
 
-  const totalAllowance = 32; // Annual leave allowance
+  const totalAllowance = LEAVE_CONFIG.ANNUAL_LEAVE_ALLOWANCE;
   const remaining = totalAllowance - daysUsed;
 
   return {
@@ -59,12 +60,8 @@ export async function checkUKAgentConflict(
   endDate: Date,
   excludeUserId?: string
 ): Promise<{ hasConflict: boolean; conflictingAgents: string[] }> {
-  // Get UK agents (you'll need to add a location field to User model later)
-  // For now, we'll check by email domain or specific emails
-  const ukAgentEmails = [
-    'sup@tdhagency.com',
-    'luis@tdhagency.com'
-  ];
+  // Get UK agents from configuration
+  const ukAgentEmails = UK_AGENTS.EMAILS;
 
   // Find UK agents
   const ukAgents = await prisma.user.findMany({

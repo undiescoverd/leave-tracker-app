@@ -7,6 +7,8 @@ import { ValidationError, AuthenticationError } from '@/lib/api/errors';
 import { calculateLeaveDays, checkUKAgentConflict, getUserLeaveBalance } from '@/lib/services/leave.service';
 import { validateLeaveRequest } from '@/lib/services/leave-balance.service';
 import { features } from '@/lib/features';
+import { sanitizeObject, sanitizationRules } from '@/lib/middleware/sanitization';
+import { UK_AGENTS } from '@/lib/config/business';
 
 // Enhanced validation schema with leave type support
 const createLeaveRequestSchema = z.object({
@@ -30,10 +32,11 @@ export async function POST(req: NextRequest) {
     // Get authenticated user
     const user = await getAuthenticatedUser();
 
-    // Parse and validate request body
-    const body = await req.json();
+    // Parse, sanitize and validate request body
+    const rawBody = await req.json();
+    const sanitizedBody = sanitizeObject(rawBody, sanitizationRules.leaveRequest);
     
-    const validationResult = createLeaveRequestSchema.safeParse(body);
+    const validationResult = createLeaveRequestSchema.safeParse(sanitizedBody);
     
     if (!validationResult.success) {
       throw new ValidationError(
@@ -72,12 +75,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check for UK agent conflicts (only for UK agents)
-    const ukAgentEmails = [
-      'sup@tdhagency.com',
-      'luis@tdhagency.com'
-    ];
-    
-    if (ukAgentEmails.includes(user.email)) {
+    if (UK_AGENTS.REQUIRE_COVERAGE && UK_AGENTS.EMAILS.includes(user.email)) {
       const conflict = await checkUKAgentConflict(
         new Date(startDate),
         new Date(endDate),
