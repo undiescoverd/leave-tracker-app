@@ -1,0 +1,39 @@
+# Test files and scripts
+test-*.js
+test-*.ts
+*.test.js
+*.test.ts
+check-users.js
+reset-passwords.js
+diagnose-*.js
+kill-port.sh
+fix-server.sh
+start-dev.sh
+
+# Build files
+.next/
+node_modules/
+out/
+dist/
+
+# Config files
+next.config.js
+next.config.ts
+tailwind.config.js
+postcss.config.js
+jest.config.js
+playwright.config.js
+
+# Scripts and tools
+scripts/
+prisma/
+.eslintrc.js
+.eslintrc.json
+
+# Logs and temp files
+*.log
+*.tmp
+.env*
+
+# Root level JS files (likely scripts)
+/*.js

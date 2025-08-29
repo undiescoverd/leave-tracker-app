@@ -112,6 +112,37 @@ export default function EnhancedLeaveBalanceDisplay() {
   
   const error = fetchError?.message || null;
 
+  // Extract data with proper fallbacks - memoized for performance (moved before conditional returns)
+  const { annualBalance, toilBalance, sickBalance, totalDaysAvailable } = useMemo(() => {
+    if (!balance) {
+      // Return default values when balance is not available
+      return {
+        annualBalance: { total: 32, used: 0, remaining: 32 },
+        toilBalance: { total: 0, used: 0, remaining: 0 },
+        sickBalance: { total: 3, used: 0, remaining: 3 },
+        totalDaysAvailable: 35
+      };
+    }
+    
+    const annual = balance.balances?.annual || {
+      total: balance.totalAllowance || 32,
+      used: balance.daysUsed || 0,
+      remaining: balance.remaining || 32
+    };
+    
+    const toil = balance.balances?.toil || { total: 0, used: 0, remaining: 0 };
+    const sick = balance.balances?.sick || { total: 3, used: 0, remaining: 3 };
+
+    const totalDays = annual.remaining + sick.remaining + (toil.remaining / 8); // Convert TOIL hours to days
+
+    return {
+      annualBalance: annual,
+      toilBalance: toil,
+      sickBalance: sick,
+      totalDaysAvailable: totalDays
+    };
+  }, [balance]);
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -159,27 +190,6 @@ export default function EnhancedLeaveBalanceDisplay() {
       </div>
     );
   }
-
-  // Extract data with proper fallbacks - memoized for performance
-  const { annualBalance, toilBalance, sickBalance, totalDaysAvailable } = useMemo(() => {
-    const annual = balance.balances?.annual || {
-      total: balance.totalAllowance || 25,
-      used: balance.daysUsed || 0,
-      remaining: balance.remaining || 25
-    };
-    
-    const toil = balance.balances?.toil || { total: 0, used: 0, remaining: 0 };
-    const sick = balance.balances?.sick || { total: 10, used: 0, remaining: 10 };
-
-    const totalDays = annual.remaining + sick.remaining + (toil.remaining / 8); // Convert TOIL hours to days
-
-    return {
-      annualBalance: annual,
-      toilBalance: toil,
-      sickBalance: sick,
-      totalDaysAvailable: totalDays
-    };
-  }, [balance]);
 
   return (
     <div className="space-y-4">

@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { LeaveType, User } from '@prisma/client';
+import { LeaveType } from '@prisma/client';
 import { features } from '@/lib/features';
 import { calculateWorkingDays } from '@/lib/date-utils';
 

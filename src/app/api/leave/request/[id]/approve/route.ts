@@ -10,7 +10,7 @@ export async function POST(
 ) {
   try {
     // Require admin authentication
-    const adminUser = await requireAdmin();
+    await requireAdmin();
 
     // Await the params Promise (Next.js 15 requirement)
     const params = await context.params;

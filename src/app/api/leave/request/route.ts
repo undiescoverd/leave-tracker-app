@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { getAuthenticatedUser } from '@/lib/auth-utils';
 import { z } from 'zod';
 import { ValidationError, AuthenticationError } from '@/lib/api/errors';
-import { checkUKAgentConflict, getUserLeaveBalance } from '@/lib/services/leave.service';
+import { checkUKAgentConflict } from '@/lib/services/leave.service';
 import { calculateWorkingDays } from '@/lib/date-utils';
 import { validateLeaveRequest } from '@/lib/services/leave-balance.service';
 import { features } from '@/lib/features';
@@ -12,6 +12,8 @@ import { sanitizeObject, sanitizationRules } from '@/lib/middleware/sanitization
 import { UK_AGENTS } from '@/lib/config/business';
 import { invalidateOnLeaveRequestChange } from '@/lib/cache/cache-invalidation';
 import { logger, generateRequestId } from '@/lib/logger';
+import { TOILScenario } from '@/lib/types/toil';
+import { TOIL_SCENARIOS } from '@/lib/toil/scenarios';
 
 // Enhanced validation schema with leave type support
 const createLeaveRequestSchema = z.object({
@@ -20,6 +22,10 @@ const createLeaveRequestSchema = z.object({
   reason: z.string().min(1, 'Reason is required').max(500),
   type: z.enum(['ANNUAL', 'TOIL', 'SICK']).optional().default('ANNUAL'),
   hours: z.number().optional(), // For TOIL requests
+  
+  // TOIL-specific fields
+  scenario: z.string().optional(), // TOIL scenario
+  coveringUserId: z.string().optional(), // For panel days
 }).refine((data) => {
   const start = new Date(data.startDate);
   const end = new Date(data.endDate);
@@ -58,7 +64,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { startDate, endDate, reason, type, hours } = validationResult.data;
+    const { startDate, endDate, reason, type, hours, scenario, coveringUserId } = validationResult.data;
 
     // Check if requested type is enabled
     if (type === 'TOIL' && !features.TOIL_ENABLED) {
@@ -103,12 +109,26 @@ export async function POST(req: NextRequest) {
     }
 
     // Create leave request with type
+    let comments = reason;
+    
+    // Enhance comments for TOIL scenarios
+    if (type === 'TOIL' && scenario) {
+      const scenarioInfo = TOIL_SCENARIOS[scenario as TOILScenario];
+      comments = `${reason} (${scenarioInfo?.label || scenario})`;
+      
+      // Add coverage info for panel days
+      if (scenario === TOILScenario.WORKING_DAY_PANEL && coveringUserId) {
+        comments += `
+Coverage: ${coveringUserId}`;
+      }
+    }
+
     const leaveRequest = await prisma.leaveRequest.create({
       data: {
         userId: user.id,
         startDate: new Date(startDate),
         endDate: new Date(endDate),
-        comments: reason,
+        comments,
         status: 'PENDING',
         type, // New field
         hours // For TOIL
@@ -210,7 +230,7 @@ export async function GET() {
     return apiSuccess(
       { leaveRequests }
     );
-  } catch (error) {
+  } catch (_error) {
     return apiError('Internal server error');
   }
 }

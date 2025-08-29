@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -23,7 +23,7 @@ interface LeaveRequest {
 }
 
 export default function LeaveRequestsPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,15 +37,7 @@ export default function LeaveRequestsPage() {
   // Ensure requests is always an array
   const safeRequests = Array.isArray(requests) ? requests : [];
 
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login");
-    } else if (status === "authenticated") {
-      fetchRequests();
-    }
-  }, [status, router, currentPage, pageSize, statusFilter]);
-
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -85,7 +77,22 @@ export default function LeaveRequestsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, pageSize, statusFilter]);
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login");
+    } else if (status === "authenticated") {
+      fetchRequests();
+    }
+  }, [status, router, fetchRequests]);
+
+  // Refetch when filters change
+  useEffect(() => {
+    if (status === "authenticated") {
+      fetchRequests();
+    }
+  }, [currentPage, pageSize, statusFilter, fetchRequests]);
 
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return 'N/A';

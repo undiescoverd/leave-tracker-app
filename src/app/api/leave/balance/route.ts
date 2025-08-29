@@ -7,9 +7,9 @@ import { getUserLeaveBalances } from '@/lib/services/leave-balance.service';
 import { features } from '@/lib/features';
 import { calculateWorkingDays } from '@/lib/date-utils';
 import { userDataCache, createCacheKey } from '@/lib/cache/cache-manager';
-import { logger, generateRequestId, withPerformanceLogging } from '@/lib/logger';
+import { logger, generateRequestId } from '@/lib/logger';
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   const requestId = generateRequestId();
   const start = performance.now();
   
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
     const balance = await getUserLeaveBalance(user.id, currentYear);
 
     // Get pending requests data
-    const pendingRequests = await getUserLeaveBalances(user.id, currentYear);
+    await getUserLeaveBalances(user.id, currentYear);
     
     // Calculate pending days by type
     const pendingData = await calculatePendingLeaveByType(user.id, currentYear);

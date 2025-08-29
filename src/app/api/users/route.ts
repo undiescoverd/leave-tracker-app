@@ -4,9 +4,9 @@ import { AuthenticationError, AuthorizationError } from '@/lib/api/errors';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/auth-utils';
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
-    const admin = await requireAdmin();
+    await requireAdmin();
 
     const users = await prisma.user.findMany({
       select: {

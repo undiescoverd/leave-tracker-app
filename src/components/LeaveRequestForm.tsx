@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { DatePicker } from "@/components/ui/date-picker";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TOILForm } from "@/components/leave/toil/TOILForm";
 import ErrorBoundary from "@/components/ErrorBoundary";
 
 interface LeaveRequestFormProps {
@@ -22,6 +24,7 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { balance: leaveBalance, loading: isLoadingBalance, error: balanceError, refetch: refetchBalance } = useLeaveBalance();
+  const [leaveType, setLeaveType] = useState<'ANNUAL' | 'TOIL' | 'SICK'>('ANNUAL');
   const [formData, setFormData] = useState({
     startDate: undefined as Date | undefined,
     endDate: undefined as Date | undefined,
@@ -147,6 +150,46 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
     }
   };
 
+  // Handle TOIL form submission
+  const handleTOILSubmit = async (data: any) => {
+    setIsSubmitting(true);
+    
+    try {
+      const requestData = {
+        startDate: data.travelDate.toISOString(),
+        endDate: data.returnDate?.toISOString() || data.travelDate.toISOString(),
+        reason: data.reason,
+        type: 'TOIL',
+        hours: data.calculatedHours,
+        scenario: data.scenario,
+        coveringUserId: data.coveringUserId
+      };
+
+      const response = await fetch("/api/leave/request", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestData),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        showSuccess(result.data.message || "TOIL request submitted successfully!");
+        setIsOpen(false);
+        if (onSuccess) onSuccess();
+      } else {
+        showError(result.error || "Failed to submit TOIL request");
+      }
+    } catch (error) {
+      console.error("Error submitting TOIL request:", error);
+      showError("An error occurred while submitting your TOIL request");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -170,117 +213,213 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
             <DialogTitle>Request Leave</DialogTitle>
           </DialogHeader>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Leave Type Selection */}
-            {availableLeaveTypes.length > 1 && (
-              <div className="space-y-2">
-                <Label htmlFor="type">Leave Type</Label>
-                <Select name="type" value={formData.type} onValueChange={(value) => setFormData(prev => ({ ...prev, type: value as "ANNUAL" | "TOIL" | "SICK" }))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableLeaveTypes.map((type: string) => (
-                      <SelectItem key={type} value={type}>
-                        {type.charAt(0) + type.slice(1).toLowerCase()}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+{features.TOIL_REQUEST_ENABLED ? (
+            <Tabs value={leaveType} onValueChange={(value) => setLeaveType(value as 'ANNUAL' | 'TOIL')}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="ANNUAL">Annual Leave</TabsTrigger>
+                <TabsTrigger value="TOIL">TOIL</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="ANNUAL">
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  {/* Date Selection */}
+                  <div className="space-y-2">
+                    <Label>Start Date</Label>
+                    <DatePicker
+                      date={formData.startDate}
+                      onDateChange={(date) => setFormData(prev => ({ ...prev, startDate: date }))}
+                      placeholder="Select start date"
+                      minDate={new Date()}
+                    />
+                  </div>
 
-            {/* TOIL Hours Input */}
-            {formData.type === 'TOIL' && (
+                  <div className="space-y-2">
+                    <Label>End Date</Label>
+                    <DatePicker
+                      date={formData.endDate}
+                      onDateChange={(date) => setFormData(prev => ({ ...prev, endDate: date }))}
+                      placeholder="Select end date"
+                      minDate={formData.startDate || new Date()}
+                    />
+                  </div>
+
+                  {/* Balance Display */}
+                  {leaveBalance && (
+                    <div className="bg-muted p-3 rounded-md">
+                      <div className="text-sm text-muted-foreground">
+                        <div className="flex justify-between">
+                          <span>Available annual leave:</span>
+                          <span className="font-medium text-foreground">{remainingBalance} days</span>
+                        </div>
+                        {previewDays > 0 && (
+                          <div className="flex justify-between mt-1">
+                            <span>Requested:</span>
+                            <span className="font-medium text-foreground">{previewDays} days</span>
+                          </div>
+                        )}
+                        {previewDays > 0 && remainingBalance < previewDays && (
+                          <div className="text-destructive text-xs mt-1">
+                            ⚠️ Insufficient balance
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Comments */}
+                  <div className="space-y-2">
+                    <Label htmlFor="comments">Reason</Label>
+                    <Textarea
+                      name="comments"
+                      value={formData.comments}
+                      onChange={handleInputChange}
+                      rows={3}
+                      placeholder="Please provide a reason for your leave request..."
+                      required
+                    />
+                  </div>
+
+                  <div className="flex gap-3 justify-end pt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsOpen(false)}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={isSubmitting || isLoadingBalance}
+                      className="flex-1"
+                    >
+                      {isSubmitting ? "Submitting..." : "Submit Request"}
+                    </Button>
+                  </div>
+                </form>
+              </TabsContent>
+              
+              <TabsContent value="TOIL">
+                <TOILForm
+                  onSubmit={handleTOILSubmit}
+                  onCancel={() => setIsOpen(false)}
+                  availableUsers={[]} // TODO: Get from API
+                />
+              </TabsContent>
+            </Tabs>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Leave Type Selection */}
+              {availableLeaveTypes.length > 1 && (
+                <div className="space-y-2">
+                  <Label htmlFor="type">Leave Type</Label>
+                  <Select name="type" value={formData.type} onValueChange={(value) => setFormData(prev => ({ ...prev, type: value as "ANNUAL" | "TOIL" | "SICK" }))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableLeaveTypes.map((type: string) => (
+                        <SelectItem key={type} value={type}>
+                          {type.charAt(0) + type.slice(1).toLowerCase()}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* TOIL Hours Input */}
+              {formData.type === 'TOIL' && (
+                <div className="space-y-2">
+                  <Label htmlFor="hours">TOIL Hours</Label>
+                  <Input
+                    type="number"
+                    name="hours"
+                    value={formData.hours}
+                    onChange={handleInputChange}
+                    min="1"
+                    max="24"
+                    placeholder="Enter hours (1-24)"
+                  />
+                </div>
+              )}
+
+              {/* Date Selection */}
               <div className="space-y-2">
-                <Label htmlFor="hours">TOIL Hours</Label>
-                <Input
-                  type="number"
-                  name="hours"
-                  value={formData.hours}
-                  onChange={handleInputChange}
-                  min="1"
-                  max="24"
-                  placeholder="Enter hours (1-24)"
+                <Label>Start Date</Label>
+                <DatePicker
+                  date={formData.startDate}
+                  onDateChange={(date) => setFormData(prev => ({ ...prev, startDate: date }))}
+                  placeholder="Select start date"
+                  minDate={new Date()}
                 />
               </div>
-            )}
 
-            {/* Date Selection */}
-            <div className="space-y-2">
-              <Label>Start Date</Label>
-              <DatePicker
-                date={formData.startDate}
-                onDateChange={(date) => setFormData(prev => ({ ...prev, startDate: date }))}
-                placeholder="Select start date"
-                minDate={new Date()}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>End Date</Label>
-              <DatePicker
-                date={formData.endDate}
-                onDateChange={(date) => setFormData(prev => ({ ...prev, endDate: date }))}
-                placeholder="Select end date"
-                minDate={formData.startDate || new Date()}
-              />
-            </div>
-
-            {/* Balance Display */}
-            {leaveBalance && (
-              <div className="bg-muted p-3 rounded-md">
-                <div className="text-sm text-muted-foreground">
-                  <div className="flex justify-between">
-                    <span>Available {formData.type.toLowerCase()} leave:</span>
-                    <span className="font-medium text-foreground">{remainingBalance} days</span>
-                  </div>
-                  {previewDays > 0 && (
-                    <div className="flex justify-between mt-1">
-                      <span>Requested:</span>
-                      <span className="font-medium text-foreground">{previewDays} days</span>
-                    </div>
-                  )}
-                  {previewDays > 0 && remainingBalance < previewDays && (
-                    <div className="text-destructive text-xs mt-1">
-                      ⚠️ Insufficient balance
-                    </div>
-                  )}
-                </div>
+              <div className="space-y-2">
+                <Label>End Date</Label>
+                <DatePicker
+                  date={formData.endDate}
+                  onDateChange={(date) => setFormData(prev => ({ ...prev, endDate: date }))}
+                  placeholder="Select end date"
+                  minDate={formData.startDate || new Date()}
+                />
               </div>
-            )}
 
-            {/* Comments */}
-            <div className="space-y-2">
-              <Label htmlFor="comments">Reason</Label>
-              <Textarea
-                name="comments"
-                value={formData.comments}
-                onChange={handleInputChange}
-                rows={3}
-                placeholder="Please provide a reason for your leave request..."
-                required
-              />
-            </div>
+              {/* Balance Display */}
+              {leaveBalance && (
+                <div className="bg-muted p-3 rounded-md">
+                  <div className="text-sm text-muted-foreground">
+                    <div className="flex justify-between">
+                      <span>Available {formData.type.toLowerCase()} leave:</span>
+                      <span className="font-medium text-foreground">{remainingBalance} days</span>
+                    </div>
+                    {previewDays > 0 && (
+                      <div className="flex justify-between mt-1">
+                        <span>Requested:</span>
+                        <span className="font-medium text-foreground">{previewDays} days</span>
+                      </div>
+                    )}
+                    {previewDays > 0 && remainingBalance < previewDays && (
+                      <div className="text-destructive text-xs mt-1">
+                        ⚠️ Insufficient balance
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
-            <DialogFooter className="pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsOpen(false)}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={isSubmitting || isLoadingBalance}
-                className="flex-1"
-              >
-                {isSubmitting ? "Submitting..." : "Submit Request"}
-              </Button>
-            </DialogFooter>
-          </form>
+              {/* Comments */}
+              <div className="space-y-2">
+                <Label htmlFor="comments">Reason</Label>
+                <Textarea
+                  name="comments"
+                  value={formData.comments}
+                  onChange={handleInputChange}
+                  rows={3}
+                  placeholder="Please provide a reason for your leave request..."
+                  required
+                />
+              </div>
+
+              <DialogFooter className="pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsOpen(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isSubmitting || isLoadingBalance}
+                  className="flex-1"
+                >
+                  {isSubmitting ? "Submitting..." : "Submit Request"}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
     </>

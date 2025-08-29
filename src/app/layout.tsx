@@ -25,7 +25,7 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         <Providers>
           {children}
-          <Toaster richColors />
+          <Toaster richColors position="top-right" />
         </Providers>
       </body>
     </html>

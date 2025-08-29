@@ -7,7 +7,7 @@ import { calendarCache, createCacheKey } from '@/lib/cache/cache-manager';
 
 export async function GET(req: NextRequest) {
   try {
-    const user = await getAuthenticatedUser();
+    await getAuthenticatedUser();
     const { searchParams } = new URL(req.url);
     
     // Get query parameters

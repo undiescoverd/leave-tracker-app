@@ -1,5 +1,4 @@
 import { prisma } from '@/lib/prisma';
-import { LeaveStatus } from '@prisma/client';
 import { calculateWorkingDays } from '@/lib/date-utils';
 import { LEAVE_CONFIG, UK_AGENTS } from '@/lib/config/business';
 

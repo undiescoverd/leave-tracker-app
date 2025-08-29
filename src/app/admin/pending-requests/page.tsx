@@ -154,7 +154,6 @@ export default function PendingRequestsPage() {
   // Ensure leaveRequests is always an array
   const requests = leaveRequests || [];
   const pendingRequests = requests.filter(req => req.status === 'PENDING');
-  const otherRequests = requests.filter(req => req.status !== 'PENDING');
 
   return (
     <div className="min-h-screen bg-background">
