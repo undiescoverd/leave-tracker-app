@@ -56,6 +56,20 @@
 
 ## 🎨 **RECENT UPDATES - August 29, 2025**
 
+### Runtime Error Fixes ✅
+- **Status:** Complete and deployed
+- **Changes:** Fixed "[object Event]" runtime errors in error handling
+- **Files:** `src/components/calendar/TeamCalendar.tsx`, `src/app/leave/requests/page.tsx`
+- **Features:** Proper error message extraction, preventing Event object logging
+- **Testing:** Console errors resolved, improved error handling
+
+### Date Range Picker Component ✅
+- **Status:** Complete and deployed
+- **Changes:** Added new date range picker component for enhanced date selection
+- **Files:** `src/components/ui/date-range-picker.tsx`
+- **Features:** Modern date range selection with calendar interface
+- **Testing:** Component integrated and functional
+
 ### Enhanced Leave Request System ✅
 - **Status:** Complete and deployed
 - **Changes:** Improved leave request API with better validation and error handling
