@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
-import { auth } from '@/lib/auth';
 import { apiSuccess, apiError } from '@/lib/api/response';
 import { AuthenticationError, AuthorizationError } from '@/lib/api/errors';
+import { requireAdmin, getAuthenticatedUser } from '@/lib/auth-utils';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { features } from '@/lib/features';
@@ -36,18 +36,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Auth and admin check
-    const session = await auth();
-    if (!session?.user?.email) {
-      throw new AuthenticationError('Authentication required');
-    }
-
-    const admin = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    });
-
-    if (!admin || admin.role !== 'ADMIN') {
-      throw new AuthorizationError('Admin access required');
-    }
+    const admin = await requireAdmin();
 
     const body = await request.json();
     const validation = toilAdjustmentSchema.safeParse(body);
@@ -107,18 +96,7 @@ export async function GET(request: NextRequest) {
       return apiError('TOIL feature is not enabled', 400);
     }
 
-    const session = await auth();
-    if (!session?.user?.email) {
-      throw new AuthenticationError('Authentication required');
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    });
-
-    if (!user) {
-      throw new AuthenticationError('User not found');
-    }
+    const user = await getAuthenticatedUser();
 
     // Get TOIL entries based on role
     const where = user.role === 'ADMIN' ? {} : { userId: user.id };
@@ -153,18 +131,7 @@ export async function PATCH(request: NextRequest) {
       return apiError('TOIL feature is not enabled', 400);
     }
 
-    const session = await auth();
-    if (!session?.user?.email) {
-      throw new AuthenticationError('Authentication required');
-    }
-
-    const admin = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    });
-
-    if (!admin || admin.role !== 'ADMIN') {
-      throw new AuthorizationError('Admin access required');
-    }
+    const admin = await requireAdmin();
 
     const body = await request.json();
     const { action, ...data } = body;

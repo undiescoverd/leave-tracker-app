@@ -3,6 +3,7 @@ import { apiSuccess, apiError } from '@/lib/api/response';
 import { getAuthenticatedUser } from '@/lib/auth-utils';
 import { AuthenticationError } from '@/lib/api/errors';
 import { prisma } from '@/lib/prisma';
+import { calendarCache, createCacheKey } from '@/lib/cache/cache-manager';
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,6 +13,14 @@ export async function GET(req: NextRequest) {
     // Get query parameters
     const month = searchParams.get('month') || new Date().getMonth().toString();
     const year = searchParams.get('year') || new Date().getFullYear().toString();
+    
+    // Check cache first
+    const cacheKey = createCacheKey('team-calendar', year, month);
+    const cachedData = calendarCache.get(cacheKey);
+    
+    if (cachedData) {
+      return apiSuccess(cachedData);
+    }
     
     // Calculate date range for the month
     const startDate = new Date(parseInt(year), parseInt(month), 1);
@@ -89,13 +98,18 @@ export async function GET(req: NextRequest) {
       }
     });
 
-    return apiSuccess({
+    const responseData = {
       month: parseInt(month),
       year: parseInt(year),
       events: calendarEvents,
       eventsByDate,
       totalEvents: calendarEvents.length,
-    });
+    };
+
+    // Cache the response data
+    calendarCache.set(cacheKey, responseData);
+
+    return apiSuccess(responseData);
 
   } catch (error) {
     if (error instanceof AuthenticationError) {

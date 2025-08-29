@@ -3,7 +3,8 @@
 // Test script for STEP 3: Leave Service Functions
 // Run with: npx tsx scripts/test-step3.ts
 
-import { calculateLeaveDays, getUserLeaveBalance, checkUKAgentConflict } from '../src/lib/services/leave.service';
+import { getUserLeaveBalance, checkUKAgentConflict } from '../src/lib/services/leave.service';
+import { calculateWorkingDays } from '../src/lib/date-utils';
 
 async function testStep3() {
   console.log("🚀 Testing STEP 3: Leave Service Functions\n");
@@ -12,13 +13,13 @@ async function testStep3() {
   console.log("📝 Test 1: Leave Day Calculations...");
   const start = new Date('2024-12-23'); // Monday
   const end = new Date('2024-12-27'); // Friday
-  const days = calculateLeaveDays(start, end);
+  const days = calculateWorkingDays(start, end);
   console.log(`📊 Leave days (should be 5): ${days}`);
 
   // Test with weekend
   const start2 = new Date('2024-12-21'); // Saturday
   const end2 = new Date('2024-12-29'); // Sunday
-  const days2 = calculateLeaveDays(start2, end2);
+  const days2 = calculateWorkingDays(start2, end2);
   console.log(`📊 Leave days including weekend (should be 5): ${days2}`);
 
   console.log("\n" + "=".repeat(50) + "\n");
@@ -60,7 +61,7 @@ async function testStep3() {
 
   console.log("🎉 STEP 3 Testing Complete!");
   console.log("\n📋 Service Functions Created:");
-  console.log("✅ calculateLeaveDays() - Calculates working days excluding weekends");
+  console.log("✅ calculateWorkingDays() - Calculates working days excluding weekends");
   console.log("✅ getUserLeaveBalance() - Gets user's leave balance for a year");
   console.log("✅ checkUKAgentConflict() - Checks for conflicts with UK agents");
   console.log("\n📋 Next Steps:");

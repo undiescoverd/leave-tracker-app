@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { ChevronLeft, ChevronRight, Calendar, Users, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -93,7 +93,7 @@ export default function TeamCalendar() {
     }
   };
 
-  const navigateMonth = (direction: 'prev' | 'next') => {
+  const navigateMonth = useCallback((direction: 'prev' | 'next') => {
     const newDate = new Date(currentDate);
     if (direction === 'prev') {
       newDate.setMonth(newDate.getMonth() - 1);
@@ -101,9 +101,9 @@ export default function TeamCalendar() {
       newDate.setMonth(newDate.getMonth() + 1);
     }
     setCurrentDate(newDate);
-  };
+  }, [currentDate]);
 
-  const getDaysInMonth = () => {
+  const days = useMemo(() => {
     const firstDay = new Date(currentYear, currentMonth, 1);
     const lastDay = new Date(currentYear, currentMonth + 1, 0);
     const startDate = new Date(firstDay);
@@ -111,7 +111,7 @@ export default function TeamCalendar() {
     // Start from the beginning of the week
     startDate.setDate(startDate.getDate() - firstDay.getDay());
     
-    const days = [];
+    const daysArray = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -122,7 +122,7 @@ export default function TeamCalendar() {
       const dateKey = date.toISOString().split('T')[0];
       const events = calendarData?.eventsByDate?.[dateKey] || [];
       
-      days.push({
+      daysArray.push({
         date: date,
         dateKey: dateKey,
         isCurrentMonth: date.getMonth() === currentMonth,
@@ -131,10 +131,10 @@ export default function TeamCalendar() {
       });
     }
     
-    return days;
-  };
+    return daysArray;
+  }, [currentYear, currentMonth, calendarData]);
 
-  const renderLeaveEvent = (event: LeaveEvent, index: number) => {
+  const renderLeaveEvent = useCallback((event: LeaveEvent, index: number) => {
     const color = LEAVE_TYPE_COLORS[event.type as keyof typeof LEAVE_TYPE_COLORS] || 'bg-gray-500';
     
     // Handle pending status with distinct styling
@@ -171,7 +171,7 @@ export default function TeamCalendar() {
         {event.user.name.split(' ')[0]} • {event.type}
       </div>
     );
-  };
+  }, []);
 
   if (loading) {
     return (
@@ -217,7 +217,7 @@ export default function TeamCalendar() {
     );
   }
 
-  const days = getDaysInMonth();
+  // days is now computed via useMemo above
 
   return (
     <Card>

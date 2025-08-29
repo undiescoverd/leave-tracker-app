@@ -3,13 +3,6 @@ import { LeaveStatus } from '@prisma/client';
 import { calculateWorkingDays } from '@/lib/date-utils';
 import { LEAVE_CONFIG, UK_AGENTS } from '@/lib/config/business';
 
-/**
- * Calculate number of leave days (excluding weekends)
- * @deprecated Use calculateWorkingDays from @/lib/date-utils instead
- */
-export function calculateLeaveDays(startDate: Date, endDate: Date): number {
-  return calculateWorkingDays(startDate, endDate);
-}
 
 /**
  * Get user's leave balance for a specific year
@@ -35,7 +28,7 @@ export async function getUserLeaveBalance(userId: string, year: number) {
   // Calculate total days used
   let daysUsed = 0;
   for (const leave of approvedLeaves) {
-    daysUsed += calculateLeaveDays(
+    daysUsed += calculateWorkingDays(
       new Date(leave.startDate),
       new Date(leave.endDate)
     );

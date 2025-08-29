@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo, memo } from "react";
 import { useSession } from "next-auth/react";
 import { Calendar, Heart, Clock, AlertCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { useLeaveBalance } from "@/hooks/useCachedData";
 
 interface LeaveBalance {
   // Legacy format support
@@ -66,7 +67,7 @@ interface LeaveTypeCardProps {
   pending?: number;
 }
 
-function LeaveTypeCard({ type, used, total, remaining, unit, pending = 0 }: LeaveTypeCardProps) {
+const LeaveTypeCard = memo(function LeaveTypeCard({ type, used, total, remaining, unit, pending = 0 }: LeaveTypeCardProps) {
   const config = leaveTypeConfigs[type];
   const Icon = config.icon;
   
@@ -103,34 +104,13 @@ function LeaveTypeCard({ type, used, total, remaining, unit, pending = 0 }: Leav
       </div>
     </div>
   );
-}
+});
 
 export default function EnhancedLeaveBalanceDisplay() {
   const { data: session } = useSession();
-  const [balance, setBalance] = useState<LeaveBalance | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchBalance = async () => {
-      try {
-        const response = await fetch("/api/leave/balance");
-        if (!response.ok) {
-          throw new Error("Failed to fetch balance");
-        }
-        const data = await response.json();
-        setBalance(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load balance");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (session) {
-      fetchBalance();
-    }
-  }, [session]);
+  const { data: balance, isLoading: loading, error: fetchError } = useLeaveBalance();
+  
+  const error = fetchError?.message || null;
 
   if (loading) {
     return (
@@ -180,17 +160,26 @@ export default function EnhancedLeaveBalanceDisplay() {
     );
   }
 
-  // Extract data with proper fallbacks
-  const annualBalance = balance.balances?.annual || {
-    total: balance.totalAllowance || 25,
-    used: balance.daysUsed || 0,
-    remaining: balance.remaining || 25
-  };
-  
-  const toilBalance = balance.balances?.toil || { total: 0, used: 0, remaining: 0 };
-  const sickBalance = balance.balances?.sick || { total: 10, used: 0, remaining: 10 };
+  // Extract data with proper fallbacks - memoized for performance
+  const { annualBalance, toilBalance, sickBalance, totalDaysAvailable } = useMemo(() => {
+    const annual = balance.balances?.annual || {
+      total: balance.totalAllowance || 25,
+      used: balance.daysUsed || 0,
+      remaining: balance.remaining || 25
+    };
+    
+    const toil = balance.balances?.toil || { total: 0, used: 0, remaining: 0 };
+    const sick = balance.balances?.sick || { total: 10, used: 0, remaining: 10 };
 
-  const totalDaysAvailable = annualBalance.remaining + sickBalance.remaining + (toilBalance.remaining / 8); // Convert TOIL hours to days
+    const totalDays = annual.remaining + sick.remaining + (toil.remaining / 8); // Convert TOIL hours to days
+
+    return {
+      annualBalance: annual,
+      toilBalance: toil,
+      sickBalance: sick,
+      totalDaysAvailable: totalDays
+    };
+  }, [balance]);
 
   return (
     <div className="space-y-4">

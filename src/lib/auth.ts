@@ -89,21 +89,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     updateAge: 24 * 60 * 60, // 24 hours
   },
   callbacks: {
-    async jwt({ token, user }: any) {
+    async jwt({ token, user }) {
       if (user) {
         token.role = user.role;
         token.id = user.id;
       }
       return token;
     },
-    async session({ session, token }: any) {
+    async session({ session, token }) {
       if (token) {
-        session.user.id = token.id as string;
-        session.user.role = token.role as string;
+        session.user.id = token.id;
+        session.user.role = token.role;
       }
       return session;
     },
-    async signIn({ user, account, profile }: any) {
+    async signIn({ user }) {
       return true;
     }
   },

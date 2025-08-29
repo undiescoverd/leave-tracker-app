@@ -2,90 +2,88 @@
 
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { features } from "@/lib/features";
+import { calculateWorkingDays } from "@/lib/date-utils";
+import { useLeaveBalance } from "@/hooks/useLeaveBalance";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { DatePicker } from "@/components/ui/date-picker";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 interface LeaveRequestFormProps {
   onSuccess?: () => void;
 }
 
-export default function LeaveRequestForm({ onSuccess }: LeaveRequestFormProps) {
+function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoadingBalance, setIsLoadingBalance] = useState(false);
-  const [leaveBalance, setLeaveBalance] = useState<{
-    totalAllowance: number;
-    daysUsed: number;
-    remaining: number;
-  } | null>(null);
+  const { balance: leaveBalance, loading: isLoadingBalance, error: balanceError, refetch: refetchBalance } = useLeaveBalance();
   const [formData, setFormData] = useState({
-    startDate: "",
-    endDate: "",
+    startDate: undefined as Date | undefined,
+    endDate: undefined as Date | undefined,
     comments: "",
+    type: "ANNUAL" as "ANNUAL" | "TOIL" | "SICK",
+    hours: "" as string | number,
   });
   const showSuccess = (message: string) => toast.success(message);
   const showError = (message: string) => toast.error(message);
+
+  // Get available leave types based on feature flags
+  const availableLeaveTypes = features.getAvailableLeaveTypes();
 
   // Calculate leave days for preview
   const calculatePreviewDays = () => {
     if (!formData.startDate || !formData.endDate) return 0;
     
-    const start = new Date(formData.startDate);
-    const end = new Date(formData.endDate);
+    if (formData.endDate < formData.startDate) return 0;
     
-    if (end < start) return 0;
-    
-    let count = 0;
-    const current = new Date(start);
-    
-    while (current <= end) {
-      const dayOfWeek = current.getDay();
-      if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Skip weekends
-        count++;
-      }
-      current.setDate(current.getDate() + 1);
-    }
-    
-    return count;
+    return calculateWorkingDays(formData.startDate, formData.endDate);
   };
 
-  // Fetch leave balance when form opens
-  useEffect(() => {
-    if (isOpen && !leaveBalance) {
-      fetchLeaveBalance();
-    }
-  }, [isOpen]);
-
-  const fetchLeaveBalance = async () => {
-    setIsLoadingBalance(true);
-    try {
-      const response = await fetch("/api/leave/balance");
-      if (response.ok) {
-        const data = await response.json();
-        setLeaveBalance(data.data);
+  // Get remaining balance for selected leave type
+  const getRemainingBalance = () => {
+    if (!leaveBalance) return 0;
+    
+    if (features.isMultiLeaveTypeEnabled() && leaveBalance.balances) {
+      switch (formData.type) {
+        case 'TOIL':
+          return leaveBalance.balances.toil?.remaining ?? 0;
+        case 'SICK':
+          return leaveBalance.balances.sick?.remaining ?? 0;
+        default:
+          return leaveBalance.balances.annual.remaining;
       }
-    } catch (error) {
-      console.error("Failed to fetch leave balance:", error);
-    } finally {
-      setIsLoadingBalance(false);
     }
+    
+    return leaveBalance.remaining;
   };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     // Enhanced client-side validation
-    const startDate = new Date(formData.startDate);
-    const endDate = new Date(formData.endDate);
+    if (!formData.startDate || !formData.endDate) {
+      showError("Please select both start and end dates");
+      setIsSubmitting(false);
+      return;
+    }
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    if (startDate < today) {
+    if (formData.startDate < today) {
       showError("Start date cannot be in the past");
       setIsSubmitting(false);
       return;
     }
     
-    if (endDate < startDate) {
+    if (formData.endDate < formData.startDate) {
       showError("End date must be after or equal to start date");
       setIsSubmitting(false);
       return;
@@ -98,195 +96,201 @@ export default function LeaveRequestForm({ onSuccess }: LeaveRequestFormProps) {
       return;
     }
 
+    // Validate TOIL hours if applicable
+    if (formData.type === 'TOIL' && formData.hours) {
+      const hours = Number(formData.hours);
+      if (hours <= 0 || hours > 24) {
+        showError("TOIL hours must be between 1 and 24");
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
     try {
+      const requestData = {
+        startDate: formData.startDate.toISOString(),
+        endDate: formData.endDate.toISOString(),
+        reason: formData.comments,
+        type: formData.type,
+        ...(formData.type === 'TOIL' && formData.hours && { hours: Number(formData.hours) })
+      };
+
       const response = await fetch("/api/leave/request", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
-          reason: formData.comments,
-        }),
+        body: JSON.stringify(requestData),
       });
 
       const result = await response.json();
 
       if (response.ok) {
-        const message = `Leave request submitted successfully! ${result.data.leaveDays} days requested. ${result.data.remainingBalance} days will remain.`;
-        showSuccess(message);
-        setFormData({ startDate: "", endDate: "", comments: "" });
+        showSuccess(result.data.message || `${formData.type} leave request submitted successfully!`);
+        setFormData({
+          startDate: undefined,
+          endDate: undefined,
+          comments: "",
+          type: "ANNUAL",
+          hours: "",
+        });
         setIsOpen(false);
-        setLeaveBalance(null); // Reset balance for next time
-        onSuccess?.();
+        if (onSuccess) onSuccess();
       } else {
-        // Enhanced error handling
-        if (result.error && result.error.message) {
-          showError(`Error: ${result.error.message}`);
-        } else if (result.error && result.error.details) {
-          // Handle field-specific errors
-          const fieldErrors = Object.values(result.error.details).flat();
-          showError(`Validation errors: ${fieldErrors.join(', ')}`);
-        } else if (result.error) {
-          showError(`Error: ${result.error}`);
-        } else {
-          showError("Failed to submit leave request");
-        }
+        showError(result.error || "Failed to submit leave request");
       }
     } catch (error) {
-      showError("Network error: Failed to submit leave request");
-      console.error("Error:", error);
+      console.error("Error submitting leave request:", error);
+      showError("An error occurred while submitting your request");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleClose = () => {
-    setIsOpen(false);
-    setFormData({ startDate: "", endDate: "", comments: "" });
-    setLeaveBalance(null);
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   const previewDays = calculatePreviewDays();
+  const remainingBalance = getRemainingBalance();
 
   return (
     <>
-      <button
-        onClick={() => setIsOpen(true)}
-        className="btn-primary"
-      >
-        Submit Leave Request
-      </button>
+      <Button onClick={() => setIsOpen(true)} className="flex-1">
+        Request Leave
+      </Button>
 
-      {isOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-lg max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-semibold text-gray-900">Submit Leave Request</h2>
-                <button
-                  onClick={handleClose}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  ✕
-                </button>
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Request Leave</DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Leave Type Selection */}
+            {availableLeaveTypes.length > 1 && (
+              <div className="space-y-2">
+                <Label htmlFor="type">Leave Type</Label>
+                <Select name="type" value={formData.type} onValueChange={(value) => setFormData(prev => ({ ...prev, type: value as "ANNUAL" | "TOIL" | "SICK" }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableLeaveTypes.map((type: string) => (
+                      <SelectItem key={type} value={type}>
+                        {type.charAt(0) + type.slice(1).toLowerCase()}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+            )}
 
-              {/* Leave Balance Display */}
-              {leaveBalance && (
-                <div className="bg-gray-50 p-4 rounded-lg mb-4">
-                  <div className="text-sm space-y-2">
-                    <div className="flex justify-between">
-                      <span>Annual Allowance:</span>
-                      <span className="font-semibold">{leaveBalance.totalAllowance} days</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Days Used:</span>
-                      <span className="font-semibold">{leaveBalance.daysUsed} days</span>
-                    </div>
-                    <div className="flex justify-between border-t pt-2">
-                      <span>Remaining:</span>
-                      <span className="font-semibold text-blue-600">{leaveBalance.remaining} days</span>
-                    </div>
-                  </div>
-                </div>
-              )}
+            {/* TOIL Hours Input */}
+            {formData.type === 'TOIL' && (
+              <div className="space-y-2">
+                <Label htmlFor="hours">TOIL Hours</Label>
+                <Input
+                  type="number"
+                  name="hours"
+                  value={formData.hours}
+                  onChange={handleInputChange}
+                  min="1"
+                  max="24"
+                  placeholder="Enter hours (1-24)"
+                />
+              </div>
+            )}
 
-              {isLoadingBalance && (
-                <div className="bg-gray-50 p-4 rounded-lg mb-4">
-                  <div className="text-sm text-gray-600 flex items-center">
-                    <div className="animate-spin mr-2 h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
-                    Loading leave balance...
-                  </div>
-                </div>
-              )}
-              
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="form-group">
-                  <label htmlFor="startDate" className="form-label">Start Date</label>
-                  <input
-                    id="startDate"
-                    type="date"
-                    required
-                    className="form-input"
-                    value={formData.startDate}
-                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                    min={new Date().toISOString().split('T')[0]}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="endDate" className="form-label">End Date</label>
-                  <input
-                    id="endDate"
-                    type="date"
-                    required
-                    className="form-input"
-                    value={formData.endDate}
-                    onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                    min={formData.startDate || new Date().toISOString().split('T')[0]}
-                  />
-                </div>
-
-                {/* Preview Days */}
-                {previewDays > 0 && (
-                  <div className="bg-blue-50 p-4 rounded-lg">
-                    <div className="text-sm">
-                      <span className="font-semibold">Preview:</span> {previewDays} working days requested
-                      {leaveBalance && (
-                        <span className="block text-xs mt-1 text-gray-600">
-                          {previewDays <= leaveBalance.remaining 
-                            ? `✅ You have sufficient leave balance`
-                            : `⚠️ This exceeds your remaining balance of ${leaveBalance.remaining} days`
-                          }
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                <div className="form-group">
-                  <label htmlFor="comments" className="form-label">Comments</label>
-                  <textarea
-                    id="comments"
-                    className="form-input"
-                    value={formData.comments}
-                    onChange={(e) => setFormData({ ...formData, comments: e.target.value })}
-                    rows={3}
-                    placeholder="Optional comments about your leave request..."
-                  />
-                </div>
-
-                <div className="flex space-x-3 pt-4">
-                  <button
-                    type="submit"
-                    disabled={isSubmitting || previewDays === 0}
-                    className="btn-primary flex-1 flex justify-center items-center"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <div className="animate-spin mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-                        Submitting...
-                      </>
-                    ) : (
-                      "Submit Request"
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleClose}
-                    disabled={isSubmitting}
-                    className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors flex-1"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
+            {/* Date Selection */}
+            <div className="space-y-2">
+              <Label>Start Date</Label>
+              <DatePicker
+                date={formData.startDate}
+                onDateChange={(date) => setFormData(prev => ({ ...prev, startDate: date }))}
+                placeholder="Select start date"
+                minDate={new Date()}
+              />
             </div>
-          </div>
-        </div>
-      )}
+
+            <div className="space-y-2">
+              <Label>End Date</Label>
+              <DatePicker
+                date={formData.endDate}
+                onDateChange={(date) => setFormData(prev => ({ ...prev, endDate: date }))}
+                placeholder="Select end date"
+                minDate={formData.startDate || new Date()}
+              />
+            </div>
+
+            {/* Balance Display */}
+            {leaveBalance && (
+              <div className="bg-muted p-3 rounded-md">
+                <div className="text-sm text-muted-foreground">
+                  <div className="flex justify-between">
+                    <span>Available {formData.type.toLowerCase()} leave:</span>
+                    <span className="font-medium text-foreground">{remainingBalance} days</span>
+                  </div>
+                  {previewDays > 0 && (
+                    <div className="flex justify-between mt-1">
+                      <span>Requested:</span>
+                      <span className="font-medium text-foreground">{previewDays} days</span>
+                    </div>
+                  )}
+                  {previewDays > 0 && remainingBalance < previewDays && (
+                    <div className="text-destructive text-xs mt-1">
+                      ⚠️ Insufficient balance
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Comments */}
+            <div className="space-y-2">
+              <Label htmlFor="comments">Reason</Label>
+              <Textarea
+                name="comments"
+                value={formData.comments}
+                onChange={handleInputChange}
+                rows={3}
+                placeholder="Please provide a reason for your leave request..."
+                required
+              />
+            </div>
+
+            <DialogFooter className="pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsOpen(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSubmitting || isLoadingBalance}
+                className="flex-1"
+              >
+                {isSubmitting ? "Submitting..." : "Submit Request"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </>
+  );
+}
+
+export default function LeaveRequestForm(props: LeaveRequestFormProps) {
+  return (
+    <ErrorBoundary errorTitle="Leave Request Form Error">
+      <LeaveRequestFormInternal {...props} />
+    </ErrorBoundary>
   );
 }

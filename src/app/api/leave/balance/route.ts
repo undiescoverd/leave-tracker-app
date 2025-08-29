@@ -5,13 +5,39 @@ import { AuthenticationError } from '@/lib/api/errors';
 import { getUserLeaveBalance } from '@/lib/services/leave.service';
 import { getUserLeaveBalances } from '@/lib/services/leave-balance.service';
 import { features } from '@/lib/features';
+import { calculateWorkingDays } from '@/lib/date-utils';
+import { userDataCache, createCacheKey } from '@/lib/cache/cache-manager';
+import { logger, generateRequestId, withPerformanceLogging } from '@/lib/logger';
 
 export async function GET(req: NextRequest) {
+  const requestId = generateRequestId();
+  const start = performance.now();
+  
   try {
+    logger.apiRequest('GET', '/api/leave/balance', undefined, requestId);
+    
     const user = await getAuthenticatedUser();
+    logger.debug('User authenticated for leave balance request', {
+      userId: user.id,
+      requestId,
+      action: 'authentication_success'
+    });
 
     // Get current year
     const currentYear = new Date().getFullYear();
+    
+    // Check cache first
+    const cacheKey = createCacheKey('leave-balance', user.id, currentYear.toString());
+    const cachedBalance = userDataCache.get(cacheKey);
+    
+    if (cachedBalance) {
+      logger.cacheOperation('hit', cacheKey);
+      const duration = performance.now() - start;
+      logger.apiResponse('GET', '/api/leave/balance', 200, duration, user.id, requestId);
+      return apiSuccess(cachedBalance);
+    }
+    
+    logger.cacheOperation('miss', cacheKey);
     
     // Get user's leave balance for current year
     const balance = await getUserLeaveBalance(user.id, currentYear);
@@ -63,12 +89,34 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Cache the response data
+    userDataCache.set(cacheKey, response.data);
+    logger.cacheOperation('set', cacheKey);
+
+    const duration = performance.now() - start;
+    logger.apiResponse('GET', '/api/leave/balance', 200, duration, user.id, requestId);
+    
     return apiSuccess(response.data);
 
   } catch (error) {
+    const duration = performance.now() - start;
+    
     if (error instanceof AuthenticationError) {
+      logger.apiResponse('GET', '/api/leave/balance', error.statusCode, duration, undefined, requestId);
+      logger.securityEvent('authentication_failure', 'medium', undefined, { 
+        endpoint: '/api/leave/balance',
+        error: error.message 
+      });
       return apiError(error.message, error.statusCode as any);
     }
+    
+    logger.error('Internal server error in leave balance endpoint', {
+      requestId,
+      action: 'api_error',
+      resource: '/api/leave/balance'
+    }, error instanceof Error ? error : new Error(String(error)));
+    
+    logger.apiResponse('GET', '/api/leave/balance', 500, duration, undefined, requestId);
     return apiError('Internal server error', 500);
   }
 }
@@ -96,7 +144,7 @@ async function calculatePendingLeaveByType(userId: string, year: number) {
   };
 
   for (const request of pendingRequests) {
-    const days = calculateLeaveDays(
+    const days = calculateWorkingDays(
       new Date(request.startDate),
       new Date(request.endDate)
     );
@@ -117,19 +165,3 @@ async function calculatePendingLeaveByType(userId: string, year: number) {
   return pending;
 }
 
-// Calculate leave days helper
-function calculateLeaveDays(startDate: Date, endDate: Date): number {
-  let count = 0;
-  const current = new Date(startDate);
-  const end = new Date(endDate);
-
-  while (current <= end) {
-    const dayOfWeek = current.getDay();
-    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-      count++;
-    }
-    current.setDate(current.getDate() + 1);
-  }
-
-  return count;
-}

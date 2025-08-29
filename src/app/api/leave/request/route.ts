@@ -4,11 +4,14 @@ import { prisma } from '@/lib/prisma';
 import { getAuthenticatedUser } from '@/lib/auth-utils';
 import { z } from 'zod';
 import { ValidationError, AuthenticationError } from '@/lib/api/errors';
-import { calculateLeaveDays, checkUKAgentConflict, getUserLeaveBalance } from '@/lib/services/leave.service';
+import { checkUKAgentConflict, getUserLeaveBalance } from '@/lib/services/leave.service';
+import { calculateWorkingDays } from '@/lib/date-utils';
 import { validateLeaveRequest } from '@/lib/services/leave-balance.service';
 import { features } from '@/lib/features';
 import { sanitizeObject, sanitizationRules } from '@/lib/middleware/sanitization';
 import { UK_AGENTS } from '@/lib/config/business';
+import { invalidateOnLeaveRequestChange } from '@/lib/cache/cache-invalidation';
+import { logger, generateRequestId } from '@/lib/logger';
 
 // Enhanced validation schema with leave type support
 const createLeaveRequestSchema = z.object({
@@ -28,9 +31,19 @@ const createLeaveRequestSchema = z.object({
 
 
 export async function POST(req: NextRequest) {
+  const requestId = generateRequestId();
+  const start = performance.now();
+  
   try {
+    logger.apiRequest('POST', '/api/leave/request', undefined, requestId);
+    
     // Get authenticated user
     const user = await getAuthenticatedUser();
+    logger.debug('User authenticated for leave request creation', {
+      userId: user.id,
+      requestId,
+      action: 'authentication_success'
+    });
 
     // Parse, sanitize and validate request body
     const rawBody = await req.json();
@@ -57,7 +70,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Calculate leave days
-    const leaveDays = calculateLeaveDays(
+    const leaveDays = calculateWorkingDays(
       new Date(startDate),
       new Date(endDate)
     );
@@ -110,6 +123,27 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Invalidate cache after successful creation
+    invalidateOnLeaveRequestChange(user.id, new Date(startDate), new Date(endDate));
+
+    // Log successful leave request creation
+    logger.leaveRequest('create', leaveRequest.id, user.id);
+    logger.info('Leave request created successfully', {
+      userId: user.id,
+      requestId,
+      action: 'leave_request_created',
+      metadata: {
+        leaveType: type,
+        startDate,
+        endDate,
+        leaveDays,
+        leaveRequestId: leaveRequest.id
+      }
+    });
+
+    const duration = performance.now() - start;
+    logger.apiResponse('POST', '/api/leave/request', 201, duration, user.id, requestId);
+
     return apiSuccess(
       { 
         leaveRequest,
@@ -120,9 +154,37 @@ export async function POST(req: NextRequest) {
       201
     );
   } catch (error) {
-    if (error instanceof ValidationError || error instanceof AuthenticationError) {
+    const duration = performance.now() - start;
+    
+    if (error instanceof ValidationError) {
+      logger.warn('Leave request validation failed', {
+        requestId,
+        action: 'validation_error',
+        metadata: { 
+          error: error.message,
+          validationErrors: error.details
+        }
+      });
+      logger.apiResponse('POST', '/api/leave/request', error.statusCode, duration, undefined, requestId);
       return apiError(error, error.statusCode as any);
     }
+    
+    if (error instanceof AuthenticationError) {
+      logger.securityEvent('authentication_failure', 'medium', undefined, {
+        endpoint: '/api/leave/request',
+        error: error.message
+      });
+      logger.apiResponse('POST', '/api/leave/request', error.statusCode, duration, undefined, requestId);
+      return apiError(error, error.statusCode as any);
+    }
+    
+    logger.error('Internal server error in leave request endpoint', {
+      requestId,
+      action: 'api_error',
+      resource: '/api/leave/request'
+    }, error instanceof Error ? error : new Error(String(error)));
+    
+    logger.apiResponse('POST', '/api/leave/request', 500, duration, undefined, requestId);
     return apiError('Internal server error');
   }
 }

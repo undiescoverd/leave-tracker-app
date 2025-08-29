@@ -1,25 +1,13 @@
 import { NextRequest } from 'next/server';
-import { auth } from '@/lib/auth';
 import { apiSuccess, apiError } from '@/lib/api/response';
 import { prisma } from '@/lib/prisma';
 import { AuthenticationError } from '@/lib/api/errors';
+import { getAuthenticatedUser } from '@/lib/auth-utils';
 
 export async function GET(req: NextRequest) {
   try {
     // Check authentication
-    const session = await auth();
-    if (!session?.user?.email) {
-      throw new AuthenticationError('You must be logged in to view leave requests');
-    }
-
-    // Get user from database
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
-
-    if (!user) {
-      throw new AuthenticationError('User not found');
-    }
+    const user = await getAuthenticatedUser();
 
     // Get query parameters for filtering and pagination
     const { searchParams } = new URL(req.url);
