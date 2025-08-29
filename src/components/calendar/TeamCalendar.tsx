@@ -44,9 +44,9 @@ const LEAVE_TYPE_COLORS = {
 };
 
 const STATUS_STYLES = {
-  APPROVED: 'opacity-100',
-  PENDING: 'opacity-70 bg-stripes',
-  REJECTED: 'opacity-40',
+  APPROVED: 'opacity-100 border-0',
+  PENDING: 'opacity-90 border-2 border-dashed border-orange-500 relative !bg-opacity-50',
+  REJECTED: 'opacity-40 line-through',
 };
 
 function getStatusBadgeVariant(status: string) {
@@ -136,6 +136,26 @@ export default function TeamCalendar() {
 
   const renderLeaveEvent = (event: LeaveEvent, index: number) => {
     const color = LEAVE_TYPE_COLORS[event.type as keyof typeof LEAVE_TYPE_COLORS] || 'bg-gray-500';
+    
+    // Handle pending status with distinct styling
+    if (event.status === 'PENDING') {
+      return (
+        <div
+          key={`${event.id}-${index}`}
+          className="text-xs px-1 py-0.5 rounded mb-0.5 cursor-pointer truncate
+                     border-2 border-dashed border-orange-500 bg-orange-500/20 text-orange-900
+                     hover:bg-orange-500/30 transition-colors relative"
+          title={`${event.user.name}: ${event.type} (PENDING APPROVAL)`}
+        >
+          {event.user.name.split(' ')[0]} • {event.type}
+          <span className="absolute -top-1 -right-1 text-xs bg-orange-500 text-white px-1 rounded-full leading-none">
+            ?
+          </span>
+        </div>
+      );
+    }
+    
+    // Handle approved and rejected statuses
     const statusStyle = STATUS_STYLES[event.status as keyof typeof STATUS_STYLES] || '';
     
     return (
@@ -258,8 +278,10 @@ export default function TeamCalendar() {
             <span>Unpaid</span>
           </div>
           <div className="flex items-center space-x-1">
-            <div className="w-3 h-3 bg-muted border-2 border-muted-foreground rounded"></div>
-            <span>Pending</span>
+            <div className="w-3 h-3 bg-orange-500 bg-opacity-30 border-2 border-dashed border-orange-400 rounded relative">
+              <span className="absolute -top-1 -right-1 text-xs bg-orange-500 text-white rounded-full leading-none w-2 h-2"></span>
+            </div>
+            <span>Pending Approval</span>
           </div>
         </div>
 

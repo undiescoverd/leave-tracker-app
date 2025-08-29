@@ -16,6 +16,12 @@ export async function GET(req: NextRequest) {
     // Get user's leave balance for current year
     const balance = await getUserLeaveBalance(user.id, currentYear);
 
+    // Get pending requests data
+    const pendingRequests = await getUserLeaveBalances(user.id, currentYear);
+    
+    // Calculate pending days by type
+    const pendingData = await calculatePendingLeaveByType(user.id, currentYear);
+
     // Return appropriate response based on features
     const response: any = {
       data: {
@@ -33,7 +39,10 @@ export async function GET(req: NextRequest) {
               remaining: balance.remaining
             }
           }
-        })
+        }),
+        
+        // Include pending requests data
+        pending: pendingData
       }
     };
 
@@ -62,4 +71,65 @@ export async function GET(req: NextRequest) {
     }
     return apiError('Internal server error', 500);
   }
+}
+
+// Helper function to calculate pending leave by type
+async function calculatePendingLeaveByType(userId: string, year: number) {
+  const { prisma } = await import('@/lib/prisma');
+  
+  const pendingRequests = await prisma.leaveRequest.findMany({
+    where: {
+      userId: userId,
+      status: 'PENDING',
+      startDate: {
+        gte: new Date(year, 0, 1),
+        lte: new Date(year, 11, 31)
+      }
+    }
+  });
+
+  const pending = {
+    annual: 0,
+    toil: 0,
+    sick: 0,
+    total: 0
+  };
+
+  for (const request of pendingRequests) {
+    const days = calculateLeaveDays(
+      new Date(request.startDate),
+      new Date(request.endDate)
+    );
+    
+    const leaveType = request.type || 'ANNUAL';
+    
+    if (leaveType === 'ANNUAL') {
+      pending.annual += days;
+    } else if (leaveType === 'TOIL') {
+      pending.toil += request.hours || days;
+    } else if (leaveType === 'SICK') {
+      pending.sick += days;
+    }
+    
+    pending.total += days;
+  }
+
+  return pending;
+}
+
+// Calculate leave days helper
+function calculateLeaveDays(startDate: Date, endDate: Date): number {
+  let count = 0;
+  const current = new Date(startDate);
+  const end = new Date(endDate);
+
+  while (current <= end) {
+    const dayOfWeek = current.getDay();
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      count++;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+
+  return count;
 }

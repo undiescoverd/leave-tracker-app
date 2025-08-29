@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { Calendar, Heart, Clock } from "lucide-react";
+import { Calendar, Heart, Clock, AlertCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
 interface LeaveBalance {
@@ -29,32 +29,31 @@ interface LeaveBalance {
       remaining: number;
     };
   };
+  
+  // Pending requests data
+  pending?: {
+    annual?: number;
+    toil?: number;
+    sick?: number;
+    total?: number;
+  };
 }
 
 const leaveTypeConfigs = {
   annual: {
     icon: Calendar,
-    title: "Annual Leave",
-    color: "blue",
-    bgColor: "bg-blue-500/10",
-    iconColor: "text-blue-500",
-    progressColor: "bg-blue-500"
+    title: "Annual Leave Balance",
+    iconColor: "text-blue-500"
   },
   sick: {
     icon: Heart,
-    title: "Sick Leave", 
-    color: "emerald",
-    bgColor: "bg-emerald-500/10",
-    iconColor: "text-emerald-500",
-    progressColor: "bg-emerald-500"
+    title: "Sick Leave Balance", 
+    iconColor: "text-emerald-500"
   },
   toil: {
     icon: Clock,
-    title: "TOIL",
-    color: "violet", 
-    bgColor: "bg-violet-500/10",
-    iconColor: "text-violet-500",
-    progressColor: "bg-violet-500"
+    title: "TOIL Balance",
+    iconColor: "text-violet-500"
   }
 };
 
@@ -64,49 +63,45 @@ interface LeaveTypeCardProps {
   total: number;
   remaining: number;
   unit: string;
+  pending?: number;
 }
 
-function LeaveTypeCard({ type, used, total, remaining, unit }: LeaveTypeCardProps) {
+function LeaveTypeCard({ type, used, total, remaining, unit, pending = 0 }: LeaveTypeCardProps) {
   const config = leaveTypeConfigs[type];
   const Icon = config.icon;
-  const percentage = total > 0 ? (used / total) * 100 : 0;
   
   return (
-    <Card className="bg-card border-border hover:bg-card/80 transition-colors">
-      <CardContent className="p-6">
-        <div className="flex items-start justify-between mb-4">
-          <div className={`p-2 rounded-lg ${config.bgColor}`}>
-            <Icon className={`h-5 w-5 ${config.iconColor}`} />
-          </div>
+    <div className="bg-card border border-border rounded-lg p-6 hover:bg-card/80 transition-colors">
+      {/* Header with title and icon */}
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-medium text-muted-foreground">
+          {config.title}
+        </h3>
+        <div className="flex items-center gap-2">
+          {pending > 0 && (
+            <span className="px-2 py-1 text-xs bg-orange-500/20 text-orange-400 rounded-full">
+              {pending} pending
+            </span>
+          )}
+          <Icon className={`h-5 w-5 ${config.iconColor}`} />
         </div>
-        
-        <div className="space-y-1">
-          <p className="text-3xl font-bold text-foreground">
-            {remaining}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            {unit} remaining
-          </p>
-        </div>
-        
-        <div className="mt-4">
-          <div className="h-2 bg-secondary rounded-full overflow-hidden">
-            <div 
-              className={`h-full ${config.progressColor} transition-all duration-300`}
-              style={{ width: `${Math.min(percentage, 100)}%` }}
-            />
-          </div>
-          <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-            <span>{used} used</span>
-            <span>{total} total</span>
-          </div>
-        </div>
-        
-        <div className="mt-3">
-          <p className="text-sm font-medium text-foreground">{config.title}</p>
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+      
+      {/* Main value */}
+      <div className="mt-2">
+        <p className="text-3xl font-bold text-foreground">
+          {remaining}
+          {pending > 0 && (
+            <span className="text-lg font-normal text-muted-foreground ml-2">
+              (-{pending})
+            </span>
+          )}
+        </p>
+        <p className="text-sm text-muted-foreground mt-1">
+          {unit} remaining
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -143,14 +138,20 @@ export default function EnhancedLeaveBalanceDisplay() {
         <h3 className="text-xl font-semibold mb-4">Leave Balance</h3>
         <div className="grid gap-6 md:grid-cols-3 mb-8">
           {[1, 2, 3].map((i) => (
-            <Card key={i} className="p-6">
-              <div className="animate-pulse space-y-4">
-                <div className="h-6 w-6 bg-muted rounded-lg mb-4" />
-                <div className="h-10 w-20 bg-muted rounded" />
-                <div className="h-4 w-full bg-muted rounded mb-2" />
-                <div className="h-2 w-full bg-muted rounded" />
+            <div key={i} className="bg-card border border-border rounded-lg p-6">
+              <div className="animate-pulse">
+                {/* Header skeleton */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="h-4 w-24 bg-muted rounded" />
+                  <div className="h-5 w-5 bg-muted rounded" />
+                </div>
+                {/* Value skeleton */}
+                <div className="mt-2">
+                  <div className="h-10 w-16 bg-muted rounded mb-2" />
+                  <div className="h-4 w-20 bg-muted rounded" />
+                </div>
               </div>
-            </Card>
+            </div>
           ))}
         </div>
       </div>
@@ -161,11 +162,9 @@ export default function EnhancedLeaveBalanceDisplay() {
     return (
       <div className="space-y-4">
         <h3 className="text-xl font-semibold mb-4">Leave Balance</h3>
-        <Card className="p-6">
-          <CardContent>
-            <p className="text-destructive">Failed to load leave balance data</p>
-          </CardContent>
-        </Card>
+        <div className="bg-card border border-border rounded-lg p-6">
+          <p className="text-destructive">Failed to load leave balance data</p>
+        </div>
       </div>
     );
   }
@@ -174,11 +173,9 @@ export default function EnhancedLeaveBalanceDisplay() {
     return (
       <div className="space-y-4">
         <h3 className="text-xl font-semibold mb-4">Leave Balance</h3>
-        <Card className="p-6">
-          <CardContent>
-            <p className="text-muted-foreground">No balance information available</p>
-          </CardContent>
-        </Card>
+        <div className="bg-card border border-border rounded-lg p-6">
+          <p className="text-muted-foreground">No balance information available</p>
+        </div>
       </div>
     );
   }
@@ -205,6 +202,7 @@ export default function EnhancedLeaveBalanceDisplay() {
           total={annualBalance.total}
           remaining={annualBalance.remaining}
           unit="days"
+          pending={balance.pending?.annual || 0}
         />
 
         <LeaveTypeCard
@@ -213,6 +211,7 @@ export default function EnhancedLeaveBalanceDisplay() {
           total={sickBalance.total}
           remaining={sickBalance.remaining}
           unit="days"
+          pending={balance.pending?.sick || 0}
         />
 
         <LeaveTypeCard
@@ -221,8 +220,48 @@ export default function EnhancedLeaveBalanceDisplay() {
           total={toilBalance.total || 40}
           remaining={toilBalance.remaining}
           unit="hours"
+          pending={balance.pending?.toil || 0}
         />
       </div>
+      
+      {/* Pending Requests Summary */}
+      {balance.pending && (balance.pending.annual || balance.pending.sick || balance.pending.toil) && (
+        <div className="bg-card border border-orange-500/30 rounded-lg p-4 mt-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-orange-500" />
+              <h3 className="text-sm font-medium text-foreground">Pending Requests</h3>
+            </div>
+            <button 
+              className="text-xs text-orange-400 hover:text-orange-300"
+              onClick={() => window.location.href = '/leave/requests'}
+            >
+              View all →
+            </button>
+          </div>
+          
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
+            {balance.pending.annual && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Annual:</span>
+                <span className="text-orange-400">{balance.pending.annual} days</span>
+              </div>
+            )}
+            {balance.pending.sick && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Sick:</span>
+                <span className="text-orange-400">{balance.pending.sick} days</span>
+              </div>
+            )}
+            {balance.pending.toil && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">TOIL:</span>
+                <span className="text-orange-400">{balance.pending.toil} hours</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
