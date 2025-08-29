@@ -1,8 +1,7 @@
 import { TOILScenario, TOILRequest } from '@/lib/types/toil';
 
 /**
- * Pure function to calculate TOIL hours based on contract rules
- * Contract reference: Section 6.6(a-d)
+ * Pure function to calculate TOIL hours based on travel scenarios
  */
 export function calculateTOILHours(request: TOILRequest): number | null {
   // Validate required fields

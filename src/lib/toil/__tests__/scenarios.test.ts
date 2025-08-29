@@ -2,7 +2,7 @@ import { TOIL_SCENARIOS } from '../scenarios';
 import { ScenarioToBackendType, TOILScenario } from '@/lib/types/toil';
 
 describe('TOIL Scenarios', () => {
-  it('should have all contract scenarios defined', () => {
+  it('should have all scenarios defined', () => {
     expect(Object.keys(TOIL_SCENARIOS)).toHaveLength(4);
     expect(TOIL_SCENARIOS[TOILScenario.LOCAL_SHOW]).toBeDefined();
     expect(TOIL_SCENARIOS[TOILScenario.WORKING_DAY_PANEL]).toBeDefined();
@@ -17,10 +17,11 @@ describe('TOIL Scenarios', () => {
     expect(ScenarioToBackendType[TOILScenario.OVERNIGHT_WORKING_DAY]).toBe('TRAVEL_LATE_RETURN');
   });
 
-  it('should have contract references for all scenarios', () => {
+  it('should have help text for all scenarios', () => {
     Object.values(TOIL_SCENARIOS).forEach(scenario => {
-      expect(scenario.contractRef).toMatch(/Section 6\.6\([a-d]\)/);
+      expect(scenario.helpText).toBeTruthy();
     });
+  });
   });
 
   it('should have labels and descriptions for all scenarios', () => {

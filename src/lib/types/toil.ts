@@ -1,9 +1,9 @@
-// Policy-driven TOIL scenarios based on contract sections
+// Policy-driven TOIL scenarios
 export enum TOILScenario {
-  LOCAL_SHOW = 'local_show',           // 6.6(a) - 0 hours
-  WORKING_DAY_PANEL = 'working_day_panel', // 6.6(b) - 1pm next day
-  OVERNIGHT_DAY_OFF = 'overnight_day_off', // 6.6(c) - 4 hours
-  OVERNIGHT_WORKING_DAY = 'overnight_working_day' // 6.6(d) - Variable
+  LOCAL_SHOW = 'local_show',           // 0 hours
+  WORKING_DAY_PANEL = 'working_day_panel', // 1pm next day
+  OVERNIGHT_DAY_OFF = 'overnight_day_off', // 4 hours
+  OVERNIGHT_WORKING_DAY = 'overnight_working_day' // Variable hours
 }
 
 export interface TOILRequest {

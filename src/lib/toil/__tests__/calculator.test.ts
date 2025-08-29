@@ -2,7 +2,7 @@ import { calculateTOILHours } from '../calculator';
 import { TOILScenario } from '@/lib/types/toil';
 
 describe('TOIL Calculator', () => {
-  describe('Contract Section 6.6(a) - Local Show', () => {
+  describe('Local Show', () => {
     it('should return 0 hours', () => {
       const result = calculateTOILHours({
         scenario: TOILScenario.LOCAL_SHOW,
@@ -13,7 +13,7 @@ describe('TOIL Calculator', () => {
     });
   });
 
-  describe('Contract Section 6.6(b) - Working Day Panel', () => {
+  describe('Working Day Panel', () => {
     it('should return 4 hours for panel day', () => {
       const result = calculateTOILHours({
         scenario: TOILScenario.WORKING_DAY_PANEL,
@@ -24,7 +24,7 @@ describe('TOIL Calculator', () => {
     });
   });
 
-  describe('Contract Section 6.6(c) - Overnight Day Off', () => {
+  describe('Overnight Day Off', () => {
     it('should return 4 hours for weekend travel', () => {
       const result = calculateTOILHours({
         scenario: TOILScenario.OVERNIGHT_DAY_OFF,
@@ -36,7 +36,7 @@ describe('TOIL Calculator', () => {
     });
   });
 
-  describe('Contract Section 6.6(d) - Late Return', () => {
+  describe('Late Return', () => {
     it.each([
       ['18:30', 0],  // Before 7pm
       ['19:00', 1],  // 7pm
