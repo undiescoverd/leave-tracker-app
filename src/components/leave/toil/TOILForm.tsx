@@ -21,9 +21,10 @@ interface TOILFormProps {
   onSubmit: (data: TOILFormData & { calculatedHours: number }) => Promise<void>;
   onCancel: () => void;
   availableUsers?: Array<{ id: string; name: string }>;
+  loading?: boolean;
 }
 
-export function TOILForm({ onSubmit, onCancel, availableUsers = [] }: TOILFormProps) {
+export function TOILForm({ onSubmit, onCancel, availableUsers = [], loading = false }: TOILFormProps) {
   const [calculatedHours, setCalculatedHours] = useState<number | null>(null);
   
   const form = useForm<TOILFormData>({
@@ -160,16 +161,27 @@ export function TOILForm({ onSubmit, onCancel, availableUsers = [] }: TOILFormPr
           <Select
             value={form.watch('coveringUserId')}
             onValueChange={(value) => form.setValue('coveringUserId', value)}
+            disabled={loading}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Select a colleague" />
+              <SelectValue placeholder={loading ? "Loading users..." : "Select a colleague"} />
             </SelectTrigger>
             <SelectContent>
-              {availableUsers.map((user) => (
-                <SelectItem key={user.id} value={user.id}>
-                  {user.name}
+              {loading ? (
+                <SelectItem value="" disabled>
+                  Loading users...
                 </SelectItem>
-              ))}
+              ) : availableUsers.length === 0 ? (
+                <SelectItem value="" disabled>
+                  No users available
+                </SelectItem>
+              ) : (
+                availableUsers.map((user) => (
+                  <SelectItem key={user.id} value={user.id}>
+                    {user.name}
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
           {(form.formState.errors as any).coveringUserId && (

@@ -32,11 +32,39 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
     type: "ANNUAL" as "ANNUAL" | "TOIL" | "SICK",
     hours: "" as string | number,
   });
+  const [availableUsers, setAvailableUsers] = useState<Array<{id: string, name: string}>>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const showSuccess = (message: string) => toast.success(message);
   const showError = (message: string) => toast.error(message);
 
   // Get available leave types based on feature flags
   const availableLeaveTypes = features.getAvailableLeaveTypes();
+
+  // Fetch available users for TOIL form
+  useEffect(() => {
+    const fetchUsers = async () => {
+      setLoadingUsers(true);
+      try {
+        const response = await fetch('/api/users');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data.users) {
+            setAvailableUsers(data.data.users.map((user: any) => ({
+              id: user.id,
+              name: user.name
+            })));
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching users:', error);
+        showError('Failed to load available users');
+      } finally {
+        setLoadingUsers(false);
+      }
+    };
+
+    fetchUsers();
+  }, []);
 
   // Calculate leave days for preview
   const calculatePreviewDays = () => {
@@ -303,7 +331,8 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
                 <TOILForm
                   onSubmit={handleTOILSubmit}
                   onCancel={() => setIsOpen(false)}
-                  availableUsers={[]} // TODO: Get from API
+                  availableUsers={availableUsers}
+                  loading={loadingUsers}
                 />
               </TabsContent>
             </Tabs>
