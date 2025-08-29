@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getStatusVariant } from "@/lib/theme-utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -134,14 +135,6 @@ export default function PendingRequestsPage() {
     });
   };
 
-  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
-    switch (status) {
-      case 'PENDING': return 'secondary';
-      case 'APPROVED': return 'default';
-      case 'REJECTED': return 'destructive';
-      default: return 'outline';
-    }
-  };
 
   if (status === "loading" || loading) {
     return (
@@ -234,6 +227,7 @@ export default function PendingRequestsPage() {
                           </div>
                           <div className="flex space-x-2 ml-4">
                             <Button
+                              variant="success"
                               onClick={() => handleApprove(request.id)}
                               disabled={processing === request.id}
                               size="sm"
@@ -241,7 +235,7 @@ export default function PendingRequestsPage() {
                               {processing === request.id ? "Processing..." : "Approve"}
                             </Button>
                             <Button
-                              variant="destructive"
+                              variant="error"
                               size="sm"
                               onClick={() => setShowRejectModal(request.id)}
                               disabled={processing === request.id}

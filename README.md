@@ -15,6 +15,7 @@ This is a [Next.js](https://nextjs.org) project for managing employee leave requ
 - **Leave Request CRUD** - POST and GET endpoints with business logic
 - **Business Logic** - Leave calculations, balance checking, conflict detection
 - **Security** - Environment validation and route protection
+- **UI/UX Design System** - shadcn Blue theme with smart status colors and dark mode
 
 ### 🔄 In Progress
 - **Leave Requests List Page** - User's leave history with filtering
@@ -143,6 +144,41 @@ npm run db:seed
 - **Migration conflicts**: Remove migrations folder and use `db push` instead
 - **Connection issues**: Verify your `DATABASE_URL` in `.env.local`
 
+## 🎨 Design System & Theming
+
+### Theme Features
+- **shadcn Blue Theme**: Professional blue color palette with excellent contrast
+- **Smart Status Colors**: Intelligent color coding for leave request statuses
+  - 🟢 **Green**: Approved requests and success actions
+  - 🟠 **Orange**: Pending requests and warnings  
+  - 🔴 **Red**: Rejected requests and errors
+  - 🔵 **Blue**: Information and neutral states
+- **Dark Mode Support**: Complete light/dark theme switching with system preference detection
+- **Inter Typography**: Professional font family for enhanced readability
+- **Responsive Design**: Optimized for desktop, tablet, and mobile devices
+
+### Component Variants
+All UI components include smart variants:
+```jsx
+// Button variants
+<Button variant="success">Approve</Button>
+<Button variant="warning">Review</Button>
+<Button variant="error">Reject</Button>
+<Button variant="info">View Details</Button>
+
+// Badge variants for status display
+<Badge variant={getStatusVariant(status)}>{status}</Badge>
+
+// Theme toggle component
+<ThemeToggle />
+```
+
+### Theme Utilities
+The app includes utility functions for consistent theming:
+- `getStatusVariant(status)`: Returns appropriate color variant based on leave status
+- `getStatusClassName(status)`: Returns CSS classes for status styling
+- Smart component variants with automatic dark mode adaptation
+
 ## 🔐 Security Features
 
 - **Route Protection**: Middleware automatically protects all routes except public ones
@@ -155,8 +191,17 @@ npm run db:seed
 ```
 src/
 ├── app/                 # Next.js App Router pages
+│   ├── globals.css     # Global styles with theme CSS variables
+│   └── layout.tsx      # Root layout with Inter font and providers
 ├── components/          # Reusable React components
-├── lib/                 # Utility libraries (auth, prisma, env)
+│   ├── theme-provider.tsx    # Theme context provider
+│   ├── theme-toggle.tsx      # Dark/light mode toggle
+│   └── ui/             # shadcn UI components with smart variants
+├── lib/                 # Utility libraries
+│   ├── theme-utils.ts  # Theme helper functions and status mapping
+│   ├── auth.ts         # Authentication configuration
+│   ├── prisma.ts       # Database client
+│   └── utils.ts        # General utilities
 ├── middleware.ts        # Route protection middleware
 └── types/              # TypeScript type definitions
 ```

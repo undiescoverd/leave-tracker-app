@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
@@ -49,6 +50,7 @@ export default function DashboardPage() {
               <span className="text-sm text-muted-foreground">
                 Welcome, {session.user?.name || session.user?.email}
               </span>
+              <ThemeToggle />
               <Button
                 variant="destructive"
                 size="sm"

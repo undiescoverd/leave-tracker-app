@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getStatusVariant } from "@/lib/theme-utils";
 
 interface LeaveRequest {
   id: string;
@@ -100,14 +101,6 @@ export default function LeaveRequestsPage() {
     }
   };
 
-  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
-    switch (status) {
-      case 'PENDING': return 'secondary';
-      case 'APPROVED': return 'default';
-      case 'REJECTED': return 'destructive';
-      default: return 'outline';
-    }
-  };
 
   if (status === "loading") {
     return (
