@@ -71,8 +71,9 @@ export default function LeaveRequestsPage() {
         setRequests([]); // Set empty array on error
       }
     } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
       setError("Network error: Unable to fetch leave requests");
-      console.error("Error fetching requests:", err);
+      console.error("Error fetching requests:", errorMessage);
       setRequests([]); // Set empty array on error
     } finally {
       setLoading(false);

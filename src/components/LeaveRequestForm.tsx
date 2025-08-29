@@ -11,7 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { DatePicker } from "@/components/ui/date-picker";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { DateRange } from "react-day-picker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TOILForm } from "@/components/leave/toil/TOILForm";
 import ErrorBoundary from "@/components/ErrorBoundary";
@@ -26,8 +27,7 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
   const { balance: leaveBalance, loading: isLoadingBalance, error: balanceError, refetch: refetchBalance } = useLeaveBalance();
   const [leaveType, setLeaveType] = useState<'ANNUAL' | 'TOIL' | 'SICK'>('ANNUAL');
   const [formData, setFormData] = useState({
-    startDate: undefined as Date | undefined,
-    endDate: undefined as Date | undefined,
+    dateRange: undefined as DateRange | undefined,
     comments: "",
     type: "ANNUAL" as "ANNUAL" | "TOIL" | "SICK",
     hours: "" as string | number,
@@ -68,11 +68,11 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
 
   // Calculate leave days for preview
   const calculatePreviewDays = () => {
-    if (!formData.startDate || !formData.endDate) return 0;
+    if (!formData.dateRange?.from || !formData.dateRange?.to) return 0;
     
-    if (formData.endDate < formData.startDate) return 0;
+    if (formData.dateRange.to < formData.dateRange.from) return 0;
     
-    return calculateWorkingDays(formData.startDate, formData.endDate);
+    return calculateWorkingDays(formData.dateRange.from, formData.dateRange.to);
   };
 
   // Get remaining balance for selected leave type
@@ -99,22 +99,24 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
     setIsSubmitting(true);
 
     // Enhanced client-side validation
-    if (!formData.startDate || !formData.endDate) {
-      showError("Please select both start and end dates");
+    if (!formData.dateRange?.from || !formData.dateRange?.to) {
+      showError("Please select your leave dates");
       setIsSubmitting(false);
       return;
     }
 
+    const startDate = formData.dateRange.from;
+    const endDate = formData.dateRange.to;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    if (formData.startDate < today) {
+    if (startDate < today) {
       showError("Start date cannot be in the past");
       setIsSubmitting(false);
       return;
     }
     
-    if (formData.endDate < formData.startDate) {
+    if (endDate < startDate) {
       showError("End date must be after or equal to start date");
       setIsSubmitting(false);
       return;
@@ -139,8 +141,8 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
 
     try {
       const requestData = {
-        startDate: formData.startDate.toISOString(),
-        endDate: formData.endDate.toISOString(),
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
         reason: formData.comments,
         type: formData.type,
         ...(formData.type === 'TOIL' && formData.hours && { hours: Number(formData.hours) })
@@ -159,8 +161,7 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
       if (response.ok) {
         showSuccess(result.data.message || `${formData.type} leave request submitted successfully!`);
         setFormData({
-          startDate: undefined,
-          endDate: undefined,
+          dateRange: undefined,
           comments: "",
           type: "ANNUAL",
           hours: "",
@@ -252,22 +253,15 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
                 <form onSubmit={handleSubmit} className="space-y-4">
                   {/* Date Selection */}
                   <div className="space-y-2">
-                    <Label>Start Date</Label>
-                    <DatePicker
-                      date={formData.startDate}
-                      onDateChange={(date) => setFormData(prev => ({ ...prev, startDate: date }))}
-                      placeholder="Select start date"
+                    <Label>Leave Dates</Label>
+                    <DateRangePicker
+                      dateRange={formData.dateRange}
+                      onDateRangeChange={(dateRange) => 
+                        setFormData(prev => ({ ...prev, dateRange }))
+                      }
+                      placeholder="Select start and end dates"
                       minDate={new Date()}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>End Date</Label>
-                    <DatePicker
-                      date={formData.endDate}
-                      onDateChange={(date) => setFormData(prev => ({ ...prev, endDate: date }))}
-                      placeholder="Select end date"
-                      minDate={formData.startDate || new Date()}
+                      className="w-full"
                     />
                   </div>
 
@@ -375,22 +369,15 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
 
               {/* Date Selection */}
               <div className="space-y-2">
-                <Label>Start Date</Label>
-                <DatePicker
-                  date={formData.startDate}
-                  onDateChange={(date) => setFormData(prev => ({ ...prev, startDate: date }))}
-                  placeholder="Select start date"
+                <Label>Leave Dates</Label>
+                <DateRangePicker
+                  dateRange={formData.dateRange}
+                  onDateRangeChange={(dateRange) => 
+                    setFormData(prev => ({ ...prev, dateRange }))
+                  }
+                  placeholder="Select start and end dates"
                   minDate={new Date()}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>End Date</Label>
-                <DatePicker
-                  date={formData.endDate}
-                  onDateChange={(date) => setFormData(prev => ({ ...prev, endDate: date }))}
-                  placeholder="Select end date"
-                  minDate={formData.startDate || new Date()}
+                  className="w-full"
                 />
               </div>
 
