@@ -140,7 +140,7 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
         setIsOpen(false);
         if (onSuccess) onSuccess();
       } else {
-        showError(result.error || "Failed to submit leave request");
+        showError(result.error?.message || result.error || "Failed to submit leave request");
       }
     } catch (error) {
       console.error("Error submitting leave request:", error);
@@ -180,7 +180,7 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
         setIsOpen(false);
         if (onSuccess) onSuccess();
       } else {
-        showError(result.error || "Failed to submit TOIL request");
+        showError(result.error?.message || result.error || "Failed to submit TOIL request");
       }
     } catch (error) {
       console.error("Error submitting TOIL request:", error);
