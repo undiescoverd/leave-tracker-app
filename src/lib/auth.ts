@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { prisma } from "./prisma";
 import bcrypt from "bcryptjs";
+import { logger } from "./logger";
 
 // Environment configuration
 const requiredEnvVars = {
@@ -43,7 +44,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          console.log("Missing credentials");
+          logger.warn("Authentication failed: Missing credentials");
           return null;
         }
 
@@ -58,18 +59,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           });
 
           if (!user) {
-            console.log("User not found:", email);
+            logger.warn("Authentication failed: User not found", { email });
             return null;
           }
 
           const isPasswordValid = await bcrypt.compare(password, user.password);
 
           if (!isPasswordValid) {
-            console.log("Invalid password for:", email);
+            logger.warn("Authentication failed: Invalid password", { email });
             return null;
           }
 
-          console.log("Authentication successful for:", email);
+          logger.info("Authentication successful", { email });
           return {
             id: user.id,
             email: user.email,

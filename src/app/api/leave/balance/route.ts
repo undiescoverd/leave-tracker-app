@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { apiSuccess, apiError } from '@/lib/api/response';
+import { apiSuccess, apiError, TypedApiError } from '@/lib/api/response';
 import { getAuthenticatedUser } from '@/lib/auth-utils';
 import { AuthenticationError } from '@/lib/api/errors';
 import { getUserLeaveBalance } from '@/lib/services/leave.service';
@@ -107,7 +107,7 @@ export async function GET(_req: NextRequest) {
         endpoint: '/api/leave/balance',
         error: error.message 
       });
-      return apiError(error.message, error.statusCode as any);
+      return apiError(error.message, (error as TypedApiError).statusCode);
     }
     
     logger.error('Internal server error in leave balance endpoint', {

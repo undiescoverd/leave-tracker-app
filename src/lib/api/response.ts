@@ -213,3 +213,29 @@ export const StandardErrors = {
     HttpStatus.TOO_MANY_REQUESTS
   ),
 };
+/**
+ * Typed error for API operations with proper status codes
+ */
+export interface TypedApiError extends Error {
+  statusCode: HttpStatusCode;
+  code?: string;
+  details?: any;
+  timestamp?: string;
+}
+
+/**
+ * Create a typed API error
+ */
+export function createTypedError(
+  message: string,
+  statusCode: HttpStatusCode = HttpStatus.INTERNAL_SERVER_ERROR,
+  code?: string,
+  details?: any
+): TypedApiError {
+  const error = new Error(message) as TypedApiError;
+  error.statusCode = statusCode;
+  error.code = code;
+  error.details = details;
+  error.timestamp = new Date().toISOString();
+  return error;
+}

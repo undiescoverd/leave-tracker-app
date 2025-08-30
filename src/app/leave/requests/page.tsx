@@ -53,7 +53,7 @@ export default function LeaveRequestsPage() {
       
       if (response.ok) {
         const data = await response.json();
-        console.log('API Response:', data); // Debug log
+
         
         // Ensure we have an array, even if the API returns unexpected data
         const requestsArray = Array.isArray(data.data?.requests) 
