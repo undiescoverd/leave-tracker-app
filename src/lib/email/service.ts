@@ -39,7 +39,7 @@ export class EmailService {
         subject: options.subject,
         html: options.html,
         text: options.text,
-        reply_to: env.EMAIL_REPLY_TO,
+        replyTo: env.EMAIL_REPLY_TO,
       });
 
       if (error) {
@@ -177,6 +177,90 @@ export class EmailService {
       subject, 
       html 
     });
+  }
+
+  static async sendBulkApprovalNotification(
+    userEmail: string,
+    userName: string,
+    requests: any[],
+    approvedBy: string
+  ): Promise<EmailResult> {
+    const subject = `✅ ${requests.length} Leave Request${requests.length > 1 ? 's' : ''} Approved`;
+    
+    const requestsList = requests.map(req => {
+      const startDate = new Date(req.startDate).toLocaleDateString('en-GB');
+      const endDate = new Date(req.endDate).toLocaleDateString('en-GB');
+      return `
+        <li style="margin-bottom: 8px;">
+          <strong>${req.type}</strong>: ${startDate} to ${endDate}
+          ${req.comments ? `<br><em>Notes: ${req.comments}</em>` : ''}
+        </li>
+      `;
+    }).join('');
+
+    const html = `
+      <div style="font-family: Inter, system-ui, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #059669; margin-bottom: 20px;">✅ Leave Requests Approved</h2>
+        <p>Hi ${userName},</p>
+        <p>Great news! Your leave requests have been approved.</p>
+        
+        <div style="background: #ecfdf5; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #059669;">
+          <h3 style="margin-top: 0; color: #065f46;">Approved Requests:</h3>
+          <ul style="padding-left: 20px;">
+            ${requestsList}
+          </ul>
+          <p style="margin-bottom: 0;"><strong>Approved by:</strong> ${approvedBy}</p>
+        </div>
+        
+        <p>Enjoy your time off!</p>
+        <p>Best regards,<br><strong>TDH Agency</strong></p>
+      </div>
+    `;
+
+    return this.send({ to: userEmail, subject, html });
+  }
+
+  static async sendBulkRejectionNotification(
+    userEmail: string,
+    userName: string,
+    requests: any[],
+    rejectedBy: string,
+    reason: string
+  ): Promise<EmailResult> {
+    const subject = `❌ ${requests.length} Leave Request${requests.length > 1 ? 's' : ''} Rejected`;
+    
+    const requestsList = requests.map(req => {
+      const startDate = new Date(req.startDate).toLocaleDateString('en-GB');
+      const endDate = new Date(req.endDate).toLocaleDateString('en-GB');
+      return `
+        <li style="margin-bottom: 8px;">
+          <strong>${req.type}</strong>: ${startDate} to ${endDate}
+          ${req.comments ? `<br><em>Notes: ${req.comments}</em>` : ''}
+        </li>
+      `;
+    }).join('');
+
+    const html = `
+      <div style="font-family: Inter, system-ui, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #dc2626; margin-bottom: 20px;">❌ Leave Requests Rejected</h2>
+        <p>Hi ${userName},</p>
+        <p>Unfortunately, your leave requests have been rejected.</p>
+        
+        <div style="background: #fef2f2; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #dc2626;">
+          <h3 style="margin-top: 0; color: #991b1b;">Rejected Requests:</h3>
+          <ul style="padding-left: 20px;">
+            ${requestsList}
+          </ul>
+          <p style="margin-bottom: 8px;"><strong>Rejected by:</strong> ${rejectedBy}</p>
+          <p style="margin-bottom: 0;"><strong>Reason:</strong> ${reason}</p>
+        </div>
+        
+        <p>Please speak with ${rejectedBy} if you have questions about these decisions.</p>
+        <p>Best regards,<br><strong>TDH Agency</strong></p>
+      </div>
+    `;
+
+    return this.send({ to: userEmail, subject, html });
   }
 }
 
