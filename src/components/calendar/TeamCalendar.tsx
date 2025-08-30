@@ -54,6 +54,7 @@ export default function TeamCalendar() {
   const [calendarData, setCalendarData] = useState<CalendarData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [dataCache, setDataCache] = useState<Map<string, CalendarData>>(new Map());
 
   const currentMonth = currentDate.getMonth();
   const currentYear = currentDate.getFullYear();
@@ -69,7 +70,17 @@ export default function TeamCalendar() {
   const fetchCalendarData = async () => {
     try {
       setLoading(true);
-      setError(null); // Clear any previous errors
+      setError(null);
+      
+      // Check cache first
+      const cacheKey = `${currentMonth}-${currentYear}`;
+      const cachedData = dataCache.get(cacheKey);
+      
+      if (cachedData) {
+        setCalendarData(cachedData);
+        setLoading(false);
+        return;
+      }
       
       // Fetch data for both current and next month
       const [currentResponse, nextResponse] = await Promise.all([
@@ -84,8 +95,12 @@ export default function TeamCalendar() {
         throw new Error(`Failed to fetch calendar data - ${errorMsg}`);
       }
       
-      const currentData = await currentResponse.json();
-      const nextData = await nextResponse.json();
+      const currentResponse_json = await currentResponse.json();
+      const nextResponse_json = await nextResponse.json();
+      
+      // Extract data from API response wrapper
+      const currentData = currentResponse_json.data || currentResponse_json;
+      const nextData = nextResponse_json.data || nextResponse_json;
       
       // Validate data structure and provide fallbacks
       const currentEvents = Array.isArray(currentData?.events) ? currentData.events : [];
@@ -104,6 +119,9 @@ export default function TeamCalendar() {
         totalEvents: currentTotalEvents + nextTotalEvents,
         nextMonthData: nextData
       };
+      
+      // Cache the data for this month
+      setDataCache(prev => new Map(prev).set(cacheKey, combinedData));
       
       setCalendarData(combinedData);
     } catch (err) {
@@ -175,7 +193,7 @@ export default function TeamCalendar() {
         <div
           key={`${event.id}-${index}`}
           className="text-xs px-1 py-0.5 rounded mb-0.5 cursor-pointer truncate
-                     border-2 border-dashed border-orange-500 bg-orange-500/20 text-orange-900
+                     border-2 border-dashed border-orange-500 bg-orange-500/20 text-orange-800 dark:text-orange-100
                      hover:bg-orange-500/30 transition-colors relative"
           title={`${event.user.name}: ${event.type} (PENDING APPROVAL)`}
         >
@@ -229,7 +247,7 @@ export default function TeamCalendar() {
             className={`
               min-h-[70px] p-1 border rounded transition-colors
               ${day.isCurrentMonth ? 'bg-background' : 'bg-muted/30'}
-              ${day.isToday ? 'ring-2 ring-primary' : 'border-border'}
+              ${day.isToday ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-950 border-blue-500' : 'border-border'}
               hover:bg-accent/50
             `}
           >
@@ -242,7 +260,7 @@ export default function TeamCalendar() {
             </div>
             
             <div className="space-y-0.5">
-              {day.events.slice(0, 2).map((event, eventIndex) => 
+              {day.events.slice(0, 2).map((event: LeaveEvent, eventIndex: number) => 
                 renderLeaveEvent(event, eventIndex)
               )}
               {day.events.length > 2 && (

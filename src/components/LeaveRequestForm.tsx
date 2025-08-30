@@ -169,7 +169,7 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
         setIsOpen(false);
         if (onSuccess) onSuccess();
       } else {
-        showError(result.error?.message || result.error || "Failed to submit leave request");
+        showError(result.error?.message || (typeof result.error === 'string' ? result.error : JSON.stringify(result.error)) || "Failed to submit leave request");
       }
     } catch (error) {
       console.error("Error submitting leave request:", error);
@@ -209,7 +209,7 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
         setIsOpen(false);
         if (onSuccess) onSuccess();
       } else {
-        showError(result.error?.message || result.error || "Failed to submit TOIL request");
+        showError(result.error?.message || (typeof result.error === 'string' ? result.error : JSON.stringify(result.error)) || "Failed to submit TOIL request");
       }
     } catch (error) {
       console.error("Error submitting TOIL request:", error);
@@ -341,7 +341,7 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableLeaveTypes.map((type: string) => (
+                      {availableLeaveTypes.filter(type => type && type.trim()).map((type: string) => (
                         <SelectItem key={type} value={type}>
                           {type.charAt(0) + type.slice(1).toLowerCase()}
                         </SelectItem>

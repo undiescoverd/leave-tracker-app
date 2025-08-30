@@ -10,21 +10,36 @@ export async function GET(req: NextRequest) {
     await getAuthenticatedUser();
     const { searchParams } = new URL(req.url);
     
-    // Get query parameters
-    const month = searchParams.get('month') || new Date().getMonth().toString();
-    const year = searchParams.get('year') || new Date().getFullYear().toString();
+    // Get query parameters - support both month/year and date range
+    const monthParam = searchParams.get('month');
+    const yearParam = searchParams.get('year');
+    const startDateParam = searchParams.get('startDate');
+    const endDateParam = searchParams.get('endDate');
+    
+    let startDate: Date;
+    let endDate: Date;
+    let cacheKey: string;
+    
+    if (startDateParam && endDateParam) {
+      // Date range mode
+      startDate = new Date(startDateParam);
+      endDate = new Date(endDateParam + 'T23:59:59');
+      cacheKey = createCacheKey('team-calendar-range', startDateParam, endDateParam);
+    } else {
+      // Month/year mode (fallback)
+      const month = monthParam || new Date().getMonth().toString();
+      const year = yearParam || new Date().getFullYear().toString();
+      startDate = new Date(parseInt(year), parseInt(month), 1);
+      endDate = new Date(parseInt(year), parseInt(month) + 1, 0, 23, 59, 59);
+      cacheKey = createCacheKey('team-calendar', year, month);
+    }
     
     // Check cache first
-    const cacheKey = createCacheKey('team-calendar', year, month);
     const cachedData = calendarCache.get(cacheKey);
     
     if (cachedData) {
       return apiSuccess(cachedData);
     }
-    
-    // Calculate date range for the month
-    const startDate = new Date(parseInt(year), parseInt(month), 1);
-    const endDate = new Date(parseInt(year), parseInt(month) + 1, 0, 23, 59, 59);
     
     // Get all leave requests for the month
     // Admins see all requests, users see all requests (for team visibility)
@@ -99,8 +114,8 @@ export async function GET(req: NextRequest) {
     });
 
     const responseData = {
-      month: parseInt(month),
-      year: parseInt(year),
+      month: startDateParam ? startDate.getMonth() : parseInt(monthParam || new Date().getMonth().toString()),
+      year: startDateParam ? startDate.getFullYear() : parseInt(yearParam || new Date().getFullYear().toString()),
       events: calendarEvents,
       eventsByDate,
       totalEvents: calendarEvents.length,
