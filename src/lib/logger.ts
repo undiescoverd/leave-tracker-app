@@ -23,6 +23,18 @@ type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 class Logger {
   private isDevelopment = process.env.NODE_ENV === 'development';
   private isProduction = process.env.NODE_ENV === 'production';
+  // Add a flag to control verbose logging
+  private verboseLogging = process.env.VERBOSE_LOGGING === 'true';
+  // Add log level control
+  private logLevel: LogLevel = (process.env.LOG_LEVEL as LogLevel) || 'info';
+
+  private shouldLog(level: LogLevel): boolean {
+    const levels: LogLevel[] = ['debug', 'info', 'warn', 'error'];
+    const currentLevelIndex = levels.indexOf(this.logLevel);
+    const messageLevelIndex = levels.indexOf(level);
+    
+    return messageLevelIndex >= currentLevelIndex;
+  }
 
   private formatLog(level: LogLevel, message: string, context?: LogContext, error?: Error): LogEntry {
     const entry: LogEntry = {
@@ -44,14 +56,29 @@ class Logger {
   }
 
   private writeLog(entry: LogEntry) {
+    // Check if we should log this level
+    if (!this.shouldLog(entry.level)) {
+      return;
+    }
+    
+    // Only show debug logs if verbose logging is enabled
+    if (entry.level === 'debug' && !this.verboseLogging) {
+      return;
+    }
+    
+    // In development, only show warnings and errors by default
+    if (this.isDevelopment && !this.verboseLogging && entry.level === 'info') {
+      return;
+    }
+    
     const logString = JSON.stringify(entry, null, this.isDevelopment ? 2 : 0);
     
     switch (entry.level) {
       case 'debug':
-        if (this.isDevelopment) console.debug(logString);
+        if (this.isDevelopment && this.verboseLogging) console.debug(logString);
         break;
       case 'info':
-        console.info(logString);
+        if (this.verboseLogging || this.isProduction) console.info(logString);
         break;
       case 'warn':
         console.warn(logString);
@@ -84,6 +111,9 @@ class Logger {
 
   // Specialized logging methods for common use cases
   apiRequest(method: string, path: string, userId?: string, requestId?: string) {
+    // Only log API requests in verbose mode or if log level is debug
+    if (!this.verboseLogging && this.logLevel !== 'debug') return;
+    
     this.info('API request received', {
       userId,
       requestId,
@@ -93,6 +123,11 @@ class Logger {
   }
 
   apiResponse(method: string, path: string, statusCode: number, duration: number, userId?: string, requestId?: string) {
+    // Only log slow responses (>1000ms) or errors unless verbose mode is enabled
+    if (!this.verboseLogging && statusCode < 400 && duration < 1000) {
+      return;
+    }
+    
     const level: LogLevel = statusCode >= 400 ? 'warn' : 'info';
     this[level]('API response sent', {
       userId,
@@ -107,6 +142,11 @@ class Logger {
   }
 
   authAttempt(email: string, success: boolean, requestId?: string) {
+    // Only log failed auth attempts unless verbose mode is enabled
+    if (!this.verboseLogging && success) {
+      return;
+    }
+    
     const level: LogLevel = success ? 'info' : 'warn';
     this[level]('Authentication attempt', {
       requestId,
@@ -133,6 +173,11 @@ class Logger {
   }
 
   cacheOperation(operation: 'hit' | 'miss' | 'set' | 'delete', key: string, ttl?: number) {
+    // Only log cache misses unless verbose mode is enabled
+    if (!this.verboseLogging && operation === 'hit') {
+      return;
+    }
+    
     this.debug(`Cache ${operation}`, {
       action: `cache_${operation}`,
       resource: 'cache',
@@ -144,6 +189,11 @@ class Logger {
   }
 
   performanceMetric(operation: string, duration: number, metadata?: Record<string, any>) {
+    // Only log slow operations (>1000ms) unless verbose mode is enabled
+    if (!this.verboseLogging && duration < 1000) {
+      return;
+    }
+    
     const level: LogLevel = duration > 1000 ? 'warn' : 'debug';
     this[level]('Performance metric', {
       action: 'performance_metric',

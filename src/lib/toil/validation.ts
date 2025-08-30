@@ -33,7 +33,10 @@ export const toilFormSchema = z.discriminatedUnion('scenario', [
   // Overnight + Working Day - needs return date and time
   baseSchema.extend({
     scenario: z.literal(TOILScenario.OVERNIGHT_WORKING_DAY),
-    returnDate: z.date(),
+    returnDate: z.date().refine(
+      (val) => val != null,
+      'Return date is required for overnight travel'
+    ),
     returnTime: z.string().regex(
       /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/,
       'Please enter a valid time (HH:MM)'

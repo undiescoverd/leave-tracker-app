@@ -121,12 +121,9 @@ export async function validateLeaveRequest(
       if (!features.TOIL_ENABLED) {
         return { valid: false, error: 'TOIL requests are not enabled' };
       }
-      if (!balances.toil || balances.toil.remaining < days) {
-        return { 
-          valid: false, 
-          error: `Insufficient TOIL balance. You have ${balances.toil?.remaining ?? 0} days remaining.` 
-        };
-      }
+      // For TOIL, we don't validate against balance since TOIL is earned through travel
+      // The hours are calculated based on the scenario, not deducted from a balance
+      // TOIL requests are always valid as long as the feature is enabled
       break;
       
     case 'SICK':

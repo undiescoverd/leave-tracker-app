@@ -14,6 +14,8 @@ import { invalidateOnLeaveRequestChange } from '@/lib/cache/cache-invalidation';
 import { logger, generateRequestId } from '@/lib/logger';
 import { TOILScenario } from '@/lib/types/toil';
 import { TOIL_SCENARIOS } from '@/lib/toil/scenarios';
+import { EmailService } from '@/lib/email/service';
+import { format } from 'date-fns';
 
 // Enhanced validation schema with leave type support
 const createLeaveRequestSchema = z.object({
@@ -144,7 +146,20 @@ Coverage: ${coveringUserId}`;
     });
 
     // Invalidate cache after successful creation
-    invalidateOnLeaveRequestChange(user.id, new Date(startDate), new Date(endDate));
+    try {
+      invalidateOnLeaveRequestChange(user.id, new Date(startDate), new Date(endDate));
+    } catch (cacheError) {
+      console.warn('Cache invalidation failed:', cacheError);
+    }
+
+    // Send confirmation email
+    await EmailService.sendLeaveRequestConfirmation(
+      user.email,
+      user.name || 'Employee',
+      format(new Date(startDate), 'PPP'),
+      format(new Date(endDate), 'PPP'),
+      type
+    );
 
     // Log successful leave request creation
     logger.leaveRequest('create', leaveRequest.id, user.id);

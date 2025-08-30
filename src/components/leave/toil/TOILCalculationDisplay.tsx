@@ -16,10 +16,10 @@ export function TOILCalculationDisplay({ hours, scenario }: TOILCalculationDispl
 
   return (
     <div className={`
-      p-4 rounded-lg border-2 transition-all
-      ${isCalculating ? 'border-gray-200 bg-gray-50' : ''}
-      ${hasToil ? 'border-green-200 bg-green-50' : ''}
-      ${hours === 0 ? 'border-yellow-200 bg-yellow-50' : ''}
+      p-4 rounded-lg border-2 transition-all bg-white
+      ${isCalculating ? 'border-gray-200' : ''}
+      ${hasToil ? 'border-green-200' : ''}
+      ${hours === 0 ? 'border-yellow-200' : ''}
     `}>
       <div className="flex items-center gap-3">
         <Calculator className={`h-5 w-5 ${

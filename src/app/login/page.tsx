@@ -117,6 +117,11 @@ function LoginForm() {
           </form>
         </CardContent>
         <CardFooter className="flex flex-col space-y-2">
+          <div className="text-sm text-muted-foreground text-center">
+            <Link href="/forgot-password" className="text-primary hover:underline">
+              Forgot your password?
+            </Link>
+          </div>
           <div className="text-sm text-muted-foreground">
             Don&apos;t have an account?{" "}
             <Link href="/register" className="text-primary hover:underline">

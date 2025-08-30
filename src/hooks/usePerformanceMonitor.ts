@@ -20,16 +20,12 @@ export function usePerformanceMonitor(componentName: string, enabled: boolean = 
     const logPerformance = () => {
       const renderTime = performance.now() - renderStartRef.current;
       
-      if (renderTime > 16) { // Warn if render takes longer than one frame (16ms at 60fps)
+      // Only log if render takes longer than one frame (16ms at 60fps) or if verbose logging is enabled
+      if (renderTime > 16 || process.env.VERBOSE_LOGGING === 'true') {
         logger.performanceMetric(`render-${componentName}`, renderTime, {
           renderCount: renderCountRef.current,
           threshold: '16ms',
-          performance: 'slow'
-        });
-      } else {
-        logger.performanceMetric(`render-${componentName}`, renderTime, {
-          renderCount: renderCountRef.current,
-          performance: 'normal'
+          performance: renderTime > 16 ? 'slow' : 'normal'
         });
       }
     };
@@ -55,10 +51,15 @@ export function useOperationTimer() {
     return {
       end: () => {
         const duration = performance.now() - startTime;
-        logger.performanceMetric(`operation-${operationName}`, duration, {
-          performance: duration > 100 ? 'slow' : 'normal',
-          threshold: '100ms'
-        });
+        
+        // Only log if operation is slow (>100ms) or if verbose logging is enabled
+        if (duration > 100 || process.env.VERBOSE_LOGGING === 'true') {
+          logger.performanceMetric(`operation-${operationName}`, duration, {
+            performance: duration > 100 ? 'slow' : 'normal',
+            threshold: '100ms'
+          });
+        }
+        
         return duration;
       }
     };

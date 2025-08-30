@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { apiSuccess, apiError } from '@/lib/api/response';
 import { requireAdmin } from '@/lib/auth-utils';
 import { AuthenticationError, AuthorizationError, NotFoundError, ValidationError } from '@/lib/api/errors';
+import { EmailService } from '@/lib/email/service';
+import { format } from 'date-fns';
 
 export async function POST(
   request: NextRequest,
@@ -55,6 +57,9 @@ export async function POST(
       }, 409);
     }
 
+    // Get admin user for rejection tracking
+    const admin = await requireAdmin();
+
     // Update the leave request
     const updated = await prisma.leaveRequest.update({
       where: { id },
@@ -65,6 +70,16 @@ export async function POST(
       },
       include: { user: true }
     });
+
+    // Send rejection email notification
+    await EmailService.sendRejectionNotification(
+      updated.user.email,
+      updated.user.name || 'Employee',
+      format(new Date(updated.startDate), 'PPP'),
+      format(new Date(updated.endDate), 'PPP'),
+      admin.name || 'Admin',
+      rejectionReason
+    );
 
     return apiSuccess({
       message: 'Leave request rejected successfully',

@@ -40,9 +40,6 @@ export function ScenarioSelector({ value, onChange, error }: ScenarioSelectorPro
             <p className="font-medium text-blue-900">
               {TOIL_SCENARIOS[value].description}
             </p>
-            <p className="text-blue-700 text-xs mt-1">
-              {TOIL_SCENARIOS[value].contractRef}
-            </p>
           </div>
         </div>
       )}

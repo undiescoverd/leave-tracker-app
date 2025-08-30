@@ -22,13 +22,19 @@ describe('TOIL Scenarios', () => {
       expect(scenario.helpText).toBeTruthy();
     });
   });
-  });
 
   it('should have labels and descriptions for all scenarios', () => {
     Object.values(TOIL_SCENARIOS).forEach(scenario => {
       expect(scenario.label).toBeTruthy();
       expect(scenario.description).toBeTruthy();
       expect(scenario.helpText).toBeTruthy();
+    });
+  });
+
+  it('should have contract references for all scenarios', () => {
+    Object.values(TOIL_SCENARIOS).forEach(scenario => {
+      expect(scenario.contractRef).toBeTruthy();
+      expect(scenario.contractRef).toMatch(/Section \d+\.\d+\([a-z]\)/);
     });
   });
 });
