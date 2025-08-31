@@ -220,6 +220,24 @@ export default function AdminPage() {
 
             <Card>
               <CardHeader>
+                <CardTitle>Employee Balances</CardTitle>
+                <CardDescription>
+                  View leave balances for all team members
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button 
+                  className="w-full"
+                  onClick={() => router.push("/admin/employee-balances")}
+                >
+                  <Users className="mr-2 h-4 w-4" />
+                  View Balances
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
                 <CardTitle>User Management</CardTitle>
                 <CardDescription>
                   Manage user accounts and permissions

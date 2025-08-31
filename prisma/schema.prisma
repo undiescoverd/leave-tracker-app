@@ -34,6 +34,8 @@ model LeaveRequest {
   comments  String?
   type      LeaveType   @default(ANNUAL)
   hours     Float?
+  approvedBy String?
+  approvedAt DateTime?
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
   userId    String

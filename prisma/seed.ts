@@ -58,9 +58,62 @@ async function main() {
     }
   }
   
-  // Count total users
+  // Create sample leave requests
+  const createdUsers = await prisma.user.findMany()
+  const sampleLeaveRequests = [
+    {
+      userId: createdUsers[0].id,
+      startDate: new Date('2025-09-15'),
+      endDate: new Date('2025-09-20'),
+      type: 'ANNUAL',
+      status: 'PENDING',
+      comments: 'Family vacation'
+    },
+    {
+      userId: createdUsers[1].id,
+      startDate: new Date('2025-09-10'),
+      endDate: new Date('2025-09-12'),
+      type: 'SICK',
+      status: 'APPROVED',
+      comments: 'Medical appointment',
+      approvedBy: 'Senay Taormina',
+      approvedAt: new Date()
+    },
+    {
+      userId: createdUsers[2].id,
+      startDate: new Date('2025-10-01'),
+      endDate: new Date('2025-10-05'),
+      type: 'ANNUAL',
+      status: 'PENDING',
+      comments: 'Personal time off'
+    },
+    {
+      userId: createdUsers[3].id,
+      startDate: new Date('2025-08-25'),
+      endDate: new Date('2025-08-30'),
+      type: 'TOIL',
+      status: 'APPROVED',
+      comments: 'Time off in lieu for overtime',
+      approvedBy: 'Ian Vincent',
+      approvedAt: new Date()
+    }
+  ]
+
+  for (const leaveData of sampleLeaveRequests) {
+    try {
+      await prisma.leaveRequest.create({
+        data: leaveData
+      })
+      console.log(`✅ Created leave request for ${createdUsers.find(u => u.id === leaveData.userId)?.name}`)
+    } catch (error) {
+      console.error(`❌ Error creating leave request:`, error)
+    }
+  }
+
+  // Count total users and leave requests
   const userCount = await prisma.user.count()
-  console.log(`\n📊 Database seeding complete! Total users: ${userCount}`)
+  const leaveRequestCount = await prisma.leaveRequest.count()
+  console.log(`\n📊 Database seeding complete! Total users: ${userCount}, Leave requests: ${leaveRequestCount}`)
   console.log(`🔑 Default password for all users: ${DEFAULT_PASSWORD}`)
   console.log('\n👥 Seeded users:')
   users.forEach(user => {

@@ -106,7 +106,7 @@ export default function PendingRequestsPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          adminComment: rejectComment.trim()
+          reason: rejectComment.trim()
         }),
       });
       
