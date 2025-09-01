@@ -4,6 +4,30 @@ interface LogContext {
   action?: string;
   resource?: string;
   metadata?: Record<string, any>;
+  // Security and monitoring properties
+  endpoint?: string;
+  method?: string;
+  email?: string;
+  adminId?: string;
+  conflictDetails?: any;
+  // Additional properties found in usage
+  role?: string;
+  targetResourceUserId?: string;
+  ip?: string;
+  userAgent?: string;
+  employeeCount?: number;
+  userEmail?: string;
+  leaveType?: string;
+  ukAgentCount?: number;
+  statsRequested?: boolean;
+  recordCount?: number;
+  name?: string;
+  hasToken?: boolean;
+  warningCount?: number;
+  error?: string;
+  startDate?: string;
+  endDate?: string;
+  rejectionReason?: string;
 }
 
 interface LogEntry {

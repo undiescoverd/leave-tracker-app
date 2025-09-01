@@ -1,10 +1,15 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { ChevronLeft, ChevronRight, Calendar, Users, Clock } from "lucide-react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { ChevronLeft, ChevronRight, Calendar, Users, Clock, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { CalendarLoadingSkeleton } from "@/components/ui/loading-states";
+import { toast } from "sonner";
+import { calendarApi } from "@/lib/api-client";
+import { useApiError } from "@/hooks/use-api-error";
 
 interface LeaveEvent {
   id: string;
@@ -49,12 +54,15 @@ const STATUS_STYLES = {
   REJECTED: 'opacity-40 line-through',
 };
 
-export default function TeamCalendar() {
+function TeamCalendarComponent() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [calendarData, setCalendarData] = useState<CalendarData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [dataCache, setDataCache] = useState<Map<string, CalendarData>>(new Map());
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const dataCache = useRef<Map<string, { data: CalendarData; timestamp: number }>>(new Map());
+  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
+  const { handleAsyncOperation } = useApiError();
 
   const currentMonth = currentDate.getMonth();
   const currentYear = currentDate.getFullYear();
@@ -63,52 +71,56 @@ export default function TeamCalendar() {
   const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
   const nextYear = currentMonth === 11 ? currentYear + 1 : currentYear;
 
-  useEffect(() => {
-    fetchCalendarData();
-  }, [currentMonth, currentYear]);
-
-  const fetchCalendarData = async () => {
+  const fetchCalendarData = useCallback(async (forceRefresh = false) => {
     try {
-      setLoading(true);
+      if (forceRefresh) {
+        setIsRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       setError(null);
       
-      // Check cache first
+      // Check cache first (unless force refresh)
       const cacheKey = `${currentMonth}-${currentYear}`;
-      const cachedData = dataCache.get(cacheKey);
+      const cachedEntry = dataCache.current.get(cacheKey);
       
-      if (cachedData) {
-        setCalendarData(cachedData);
-        setLoading(false);
-        return;
+      if (!forceRefresh && cachedEntry) {
+        const { data: cachedData, timestamp } = cachedEntry;
+        const isExpired = Date.now() - timestamp > CACHE_DURATION;
+        
+        if (!isExpired) {
+          setCalendarData(cachedData);
+          setLoading(false);
+          return;
+        }
       }
       
-      // Fetch data for both current and next month
-      const [currentResponse, nextResponse] = await Promise.all([
-        fetch(`/api/calendar/team-leave?month=${currentMonth}&year=${currentYear}`),
-        fetch(`/api/calendar/team-leave?month=${nextMonth}&year=${nextYear}`)
+      // Fetch data for both current and next month using new API client
+      const [currentResult, nextResult] = await Promise.all([
+        handleAsyncOperation(
+          () => calendarApi.getTeamLeave(currentMonth, currentYear),
+          { errorMessage: 'Failed to load current month calendar' }
+        ),
+        handleAsyncOperation(
+          () => calendarApi.getTeamLeave(nextMonth, nextYear),
+          { errorMessage: 'Failed to load next month calendar' }
+        )
       ]);
-      
-      if (!currentResponse.ok || !nextResponse.ok) {
-        const errorMsg = !currentResponse.ok ? 
-          `Current month error: ${currentResponse.status}` : 
-          `Next month error: ${nextResponse.status}`;
-        throw new Error(`Failed to fetch calendar data - ${errorMsg}`);
+
+      if (!currentResult.success || !nextResult.success) {
+        throw new Error('Failed to fetch calendar data for one or both months');
       }
       
-      const currentResponse_json = await currentResponse.json();
-      const nextResponse_json = await nextResponse.json();
-      
-      // Extract data from API response wrapper
-      const currentData = currentResponse_json.data || currentResponse_json;
-      const nextData = nextResponse_json.data || nextResponse_json;
+      const currentData = currentResult.data || {};
+      const nextData = nextResult.data || {};
       
       // Validate data structure and provide fallbacks
-      const currentEvents = Array.isArray(currentData?.events) ? currentData.events : [];
-      const nextEvents = Array.isArray(nextData?.events) ? nextData.events : [];
-      const currentEventsByDate = currentData?.eventsByDate || {};
-      const nextEventsByDate = nextData?.eventsByDate || {};
-      const currentTotalEvents = currentData?.totalEvents || 0;
-      const nextTotalEvents = nextData?.totalEvents || 0;
+      const currentEvents = Array.isArray((currentData as any)?.events) ? (currentData as any).events : [];
+      const nextEvents = Array.isArray((nextData as any)?.events) ? (nextData as any).events : [];
+      const currentEventsByDate = (currentData as any)?.eventsByDate || {};
+      const nextEventsByDate = (nextData as any)?.eventsByDate || {};
+      const currentTotalEvents = (currentData as any)?.totalEvents || 0;
+      const nextTotalEvents = (nextData as any)?.totalEvents || 0;
       
       // Combine data from both months
       const combinedData = {
@@ -120,18 +132,31 @@ export default function TeamCalendar() {
         nextMonthData: nextData
       };
       
-      // Cache the data for this month
-      setDataCache(prev => new Map(prev).set(cacheKey, combinedData));
+      // Cache the data for this month with timestamp
+      dataCache.current.set(cacheKey, {
+        data: combinedData,
+        timestamp: Date.now()
+      });
       
       setCalendarData(combinedData);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
       console.error('Calendar fetch error:', errorMessage);
       setError('Failed to load calendar: ' + errorMessage);
+      toast.error('Failed to load team calendar');
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
-  };
+  }, [currentMonth, currentYear, nextMonth, nextYear, CACHE_DURATION, handleAsyncOperation]);
+
+  useEffect(() => {
+    fetchCalendarData();
+  }, [fetchCalendarData]);
+
+  const handleRefresh = useCallback(() => {
+    fetchCalendarData(true);
+  }, [fetchCalendarData]);
 
   const navigateMonth = useCallback((direction: 'prev' | 'next') => {
     const newDate = new Date(currentDate);
@@ -275,7 +300,7 @@ export default function TeamCalendar() {
     </div>
   );
 
-  if (loading) {
+  if (loading && !isRefreshing) {
     return (
       <Card>
         <CardHeader>
@@ -285,26 +310,7 @@ export default function TeamCalendar() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="animate-pulse space-y-4">
-            <div className="flex space-x-4">
-              <div className="flex-1 space-y-2">
-                <div className="h-6 bg-muted rounded w-1/3 mx-auto"></div>
-                <div className="grid grid-cols-7 gap-2">
-                  {Array.from({ length: 35 }).map((_, i) => (
-                    <div key={i} className="h-16 bg-muted rounded"></div>
-                  ))}
-                </div>
-              </div>
-              <div className="flex-1 space-y-2">
-                <div className="h-6 bg-muted rounded w-1/3 mx-auto"></div>
-                <div className="grid grid-cols-7 gap-2">
-                  {Array.from({ length: 35 }).map((_, i) => (
-                    <div key={i} className="h-16 bg-muted rounded"></div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
+          <CalendarLoadingSkeleton />
         </CardContent>
       </Card>
     );
@@ -320,11 +326,20 @@ export default function TeamCalendar() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-destructive text-center py-8">
-            <p>Error loading calendar: {error}</p>
-            <Button onClick={fetchCalendarData} variant="outline" className="mt-2">
-              Try Again
-            </Button>
+          <div className="text-center py-8">
+            <div className="text-destructive mb-4">
+              <p className="font-medium">Failed to load calendar</p>
+              <p className="text-sm text-muted-foreground mt-1">{error}</p>
+            </div>
+            <div className="space-x-2">
+              <Button onClick={() => fetchCalendarData()} variant="outline" size="sm">
+                Try Again
+              </Button>
+              <Button onClick={handleRefresh} variant="secondary" size="sm">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Force Refresh
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -351,6 +366,7 @@ export default function TeamCalendar() {
               variant="outline"
               size="sm"
               onClick={() => navigateMonth('prev')}
+              disabled={loading || isRefreshing}
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -359,8 +375,19 @@ export default function TeamCalendar() {
               variant="outline"
               size="sm"
               onClick={() => navigateMonth('next')}
+              disabled={loading || isRefreshing}
             >
               <ChevronRight className="h-4 w-4" />
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={loading || isRefreshing}
+              title="Refresh calendar data"
+            >
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             </Button>
           </div>
         </div>
@@ -418,5 +445,14 @@ export default function TeamCalendar() {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+// Export with Error Boundary
+export default function TeamCalendar() {
+  return (
+    <ErrorBoundary>
+      <TeamCalendarComponent />
+    </ErrorBoundary>
   );
 }

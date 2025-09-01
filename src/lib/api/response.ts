@@ -23,6 +23,9 @@ export interface ApiError {
   message: string;
   details?: any;
   timestamp?: string;
+  errorId?: string;
+  suggestions?: string[];
+  context?: any;
 }
 
 /**

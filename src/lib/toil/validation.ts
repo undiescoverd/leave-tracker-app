@@ -45,3 +45,7 @@ export const toilFormSchema = z.discriminatedUnion('scenario', [
 ]);
 
 export type TOILFormData = z.infer<typeof toilFormSchema>;
+
+export function validateTOILRequest(data: unknown): TOILFormData {
+  return toilFormSchema.parse(data);
+}

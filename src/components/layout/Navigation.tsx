@@ -4,6 +4,7 @@ import { signOut } from "next-auth/react";
 import { Session } from "next-auth";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { BackButton } from "@/components/ui/back-button";
 
 interface NavigationProps {
   session: Session;
@@ -26,7 +27,8 @@ export default function Navigation({ session }: NavigationProps) {
     <nav className="border-b">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
-          <div className="flex items-center">
+          <div className="flex items-center gap-4">
+            <BackButton />
             <h1 className="text-xl font-semibold text-foreground">
               TDH Agency Leave Tracker
             </h1>

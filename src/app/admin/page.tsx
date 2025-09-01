@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, Clock, FileCheck, Settings } from "lucide-react";
+import BusinessAdminDashboard from "@/components/admin/BusinessAdminDashboard";
 
 export default function AdminPage() {
   const { data: session, status } = useSession();
@@ -72,6 +73,12 @@ export default function AdminPage() {
     return null;
   }
 
+  // Role-specific dashboard rendering
+  if (session.user?.email === "senay@tdhagency.com") {
+    return <BusinessAdminDashboard />;
+  }
+
+  // Technical admin dashboard for Ian and other admins
   return (
     <div className="min-h-screen bg-background">
       <nav className="border-b">

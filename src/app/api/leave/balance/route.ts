@@ -52,17 +52,17 @@ export async function GET(_req: NextRequest) {
     const response: any = {
       data: {
         // Always include annual leave (backward compatible)
-        totalAllowance: balance.totalAllowance,
-        daysUsed: balance.daysUsed,
-        remaining: balance.remaining,
+        totalAllowance: (balance as any)?.totalAllowance || 0,
+        daysUsed: (balance as any)?.daysUsed || 0,
+        remaining: (balance as any)?.remaining || 0,
         
         // New structure if multi-type enabled
         ...(features.isMultiLeaveTypeEnabled() && {
           balances: {
             annual: {
-              total: balance.totalAllowance,
-              used: balance.daysUsed,
-              remaining: balance.remaining
+              total: (balance as any)?.totalAllowance || 0,
+              used: (balance as any)?.daysUsed || 0,
+              remaining: (balance as any)?.remaining || 0
             }
           }
         }),

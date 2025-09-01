@@ -1,9 +1,8 @@
-import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api/response';
 import { getAuthenticatedUser } from '@/lib/auth-utils';
 import { prisma } from '@/lib/prisma';
 
-export async function POST(req: NextRequest) {
+export async function POST() {
   try {
     const user = await getAuthenticatedUser();
     
@@ -34,7 +33,6 @@ export async function POST(req: NextRequest) {
     });
 
     let totalRequests = 0;
-    let totalToilEntries = 0;
 
     // Generate dummy data for each user
     for (let userIndex = 0; userIndex < users.length; userIndex++) {

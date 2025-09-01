@@ -46,15 +46,19 @@ export async function GET(
     // Calculate balances for current year
     const annualLeaveUsed = currentYearRequests
       .filter(req => req.type === 'ANNUAL' && req.status === 'APPROVED')
-      .reduce((sum, req) => sum + req.days, 0);
+      .reduce((sum, req) => {
+        const days = Math.ceil((new Date(req.endDate).getTime() - new Date(req.startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        return sum + days;
+      }, 0);
     
     const sickLeaveUsed = currentYearRequests
       .filter(req => req.type === 'SICK' && req.status === 'APPROVED')
-      .reduce((sum, req) => sum + req.days, 0);
+      .reduce((sum, req) => {
+        const days = Math.ceil((new Date(req.endDate).getTime() - new Date(req.startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        return sum + days;
+      }, 0);
     
-    const unpaidLeaveUsed = currentYearRequests
-      .filter(req => req.type === 'UNPAID' && req.status === 'APPROVED')
-      .reduce((sum, req) => sum + req.days, 0);
+    // Note: UNPAID is not a valid LeaveType in the schema, removing this calculation
 
     // Calculate TOIL balance from TOIL entries (more accurate than leave requests)
     const toilBalance = employee.toilBalance || 0;
@@ -81,27 +85,24 @@ export async function GET(
         name: employee.name,
         email: employee.email,
         department: employee.email?.includes('@tdh') ? 'UK Agent' : 'Other',
-        annualLeaveEntitlement: employee.annualLeaveEntitlement || 32,
+        annualLeaveEntitlement: employee.annualLeaveBalance || 32,
         toilBalance: employee.toilBalance || 0,
         createdAt: employee.createdAt
       },
       balances: {
         annualLeave: {
           used: annualLeaveUsed,
-          total: employee.annualLeaveEntitlement || 32,
-          remaining: (employee.annualLeaveEntitlement || 32) - annualLeaveUsed,
-          percentage: Math.round((annualLeaveUsed / (employee.annualLeaveEntitlement || 32)) * 100)
+          total: employee.annualLeaveBalance || 32,
+          remaining: (employee.annualLeaveBalance || 32) - annualLeaveUsed,
+          percentage: Math.round((annualLeaveUsed / (employee.annualLeaveBalance || 32)) * 100)
         },
         sickLeave: {
           used: sickLeaveUsed,
-          total: 3,
-          remaining: 3 - sickLeaveUsed,
-          percentage: Math.round((sickLeaveUsed / 3) * 100)
+          total: employee.sickLeaveBalance || 3,
+          remaining: (employee.sickLeaveBalance || 3) - sickLeaveUsed,
+          percentage: Math.round((sickLeaveUsed / (employee.sickLeaveBalance || 3)) * 100)
         },
-        unpaidLeave: {
-          used: unpaidLeaveUsed,
-          year: currentYear
-        },
+        // Note: Unpaid leave not supported in current schema
         toil: {
           balance: toilBalance,
           entries: employee.toilEntries.length,
@@ -128,7 +129,14 @@ export async function GET(
 }
 
 // Helper functions
-function getPreferredMonths(requests: any[]) {
+interface LeaveRequest {
+  status: string;
+  startDate: Date;
+  type: string;
+  days?: number;
+}
+
+function getPreferredMonths(requests: LeaveRequest[]) {
   const monthCounts: { [key: number]: number } = {};
   
   requests.forEach(req => {
@@ -149,7 +157,7 @@ function getPreferredMonths(requests: any[]) {
   }));
 }
 
-function getAverageRequestLength(requests: any[]) {
+function getAverageRequestLength(requests: LeaveRequest[]) {
   const approvedRequests = requests.filter(req => req.status === 'APPROVED');
   if (approvedRequests.length === 0) return 0;
   
@@ -157,7 +165,7 @@ function getAverageRequestLength(requests: any[]) {
   return Math.round((totalDays / approvedRequests.length) * 10) / 10;
 }
 
-function getMostCommonLeaveType(requests: any[]) {
+function getMostCommonLeaveType(requests: LeaveRequest[]) {
   const typeCounts: { [key: string]: number } = {};
   
   requests.forEach(req => {

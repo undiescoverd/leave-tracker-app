@@ -8,7 +8,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ['@prisma/client'],
   
   // Log webpack compilation errors
-  webpack: (config, { dev, isServer }) => {
+  webpack: (config, { dev }) => {
     if (dev) {
       config.infrastructureLogging = {
         level: 'error',

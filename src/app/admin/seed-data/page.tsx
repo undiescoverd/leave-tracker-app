@@ -2,17 +2,29 @@
 
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Database, Loader2, CheckCircle, AlertTriangle } from "lucide-react";
 
 export default function SeedDataPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+interface SeedResult {
+    message: string;
+    summary: {
+      usersProcessed: number;
+      totalLeaveRequests: number;
+      totalToilEntries: number;
+      pendingRequests: number;
+      pendingToilEntries: number;
+    };
+    users: string[];
+  }
+
+  const [result, setResult] = useState<SeedResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const seedComprehensiveData = async () => {
@@ -34,14 +46,29 @@ export default function SeedDataPage() {
         setError(data.message || 'Failed to seed data');
       }
     } catch (err) {
+      console.error('Seed data error:', err);
       setError('An unexpected error occurred');
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    if (status === "loading") return;
+    if (!session || session.user?.role !== "ADMIN") {
+      router.push("/login");
+    }
+  }, [session, router, status]);
+
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   if (!session || session.user?.role !== "ADMIN") {
-    router.push("/login");
     return null;
   }
 

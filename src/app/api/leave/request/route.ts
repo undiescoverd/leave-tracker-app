@@ -2,13 +2,13 @@ import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api/response';
 import { prisma } from '@/lib/prisma';
 import { getAuthenticatedUser } from '@/lib/auth-utils';
-import { z } from 'zod';
+import { withUserAuth } from '@/lib/middleware/auth';
+import { withCompleteSecurity, validationSchemas } from '@/lib/middleware/security';
 import { ValidationError, AuthenticationError } from '@/lib/api/errors';
 import { checkUKAgentConflict } from '@/lib/services/leave.service';
 import { calculateWorkingDays } from '@/lib/date-utils';
 import { validateLeaveRequest } from '@/lib/services/leave-balance.service';
 import { features } from '@/lib/features';
-import { sanitizeObject, sanitizationRules } from '@/lib/middleware/sanitization';
 import { UK_AGENTS } from '@/lib/config/business';
 import { invalidateOnLeaveRequestChange } from '@/lib/cache/cache-invalidation';
 import { logger, generateRequestId } from '@/lib/logger';
@@ -17,56 +17,22 @@ import { TOIL_SCENARIOS } from '@/lib/toil/scenarios';
 import { EmailService } from '@/lib/email/service';
 import { format } from 'date-fns';
 
-// Enhanced validation schema with leave type support
-const createLeaveRequestSchema = z.object({
-  startDate: z.string().datetime(),
-  endDate: z.string().datetime(),
-  reason: z.string().min(1, 'Reason is required').max(500),
-  type: z.enum(['ANNUAL', 'TOIL', 'SICK']).optional().default('ANNUAL'),
-  hours: z.number().optional(), // For TOIL requests
-  
-  // TOIL-specific fields
-  scenario: z.string().optional(), // TOIL scenario
-  coveringUserId: z.string().optional(), // For panel days
-}).refine((data) => {
-  const start = new Date(data.startDate);
-  const end = new Date(data.endDate);
-  return end >= start;
-}, {
-  message: "End date must be after or equal to start date",
-  path: ["endDate"],
-});
-
-
-export async function POST(req: NextRequest) {
+async function createLeaveRequestHandler(req: NextRequest, context: { user: any }) {
   const requestId = generateRequestId();
   const start = performance.now();
   
   try {
+    const { user } = context;
     logger.apiRequest('POST', '/api/leave/request', undefined, requestId);
     
-    // Get authenticated user
-    const user = await getAuthenticatedUser();
-    logger.debug('User authenticated for leave request creation', {
-      userId: user.id,
-      requestId,
-      action: 'authentication_success'
-    });
-
-    // Parse, sanitize and validate request body
-    const rawBody = await req.json();
-    const sanitizedBody = sanitizeObject(rawBody, sanitizationRules.leaveRequest);
+    // Get validated and sanitized data from middleware
+    const validatedData = (req as any).validatedData;
     
-    const validationResult = createLeaveRequestSchema.safeParse(sanitizedBody);
-    
-    if (!validationResult.success) {
-      throw new ValidationError(
-        'Invalid request data',
-        validationResult.error.flatten().fieldErrors
-      );
+    if (!validatedData) {
+      throw new ValidationError('Request validation failed');
     }
 
-    const { startDate, endDate, reason, type, hours, scenario, coveringUserId } = validationResult.data;
+    const { startDate, endDate, reason, type, hours, scenario, coveringUserId } = validatedData;
 
     // Check if requested type is enabled
     if (type === 'TOIL' && !features.TOIL_ENABLED) {
@@ -120,8 +86,7 @@ export async function POST(req: NextRequest) {
       
       // Add coverage info for panel days
       if (scenario === TOILScenario.WORKING_DAY_PANEL && coveringUserId) {
-        comments += `
-Coverage: ${coveringUserId}`;
+        comments += `\nCoverage: ${coveringUserId}`;
       }
     }
 
@@ -149,7 +114,7 @@ Coverage: ${coveringUserId}`;
     try {
       invalidateOnLeaveRequestChange(user.id, new Date(startDate), new Date(endDate));
     } catch (cacheError) {
-      console.warn('Cache invalidation failed:', cacheError);
+      logger.warn('Cache invalidation failed:', undefined, cacheError as Error);
     }
 
     // Send confirmation email
@@ -224,28 +189,90 @@ Coverage: ${coveringUserId}`;
   }
 }
 
-// GET endpoint to list leave requests
-export async function GET() {
+// GET endpoint to list leave requests with authentication
+async function getLeaveRequestsHandler(req: NextRequest, context: { user: any }) {
   try {
+    const { user } = context;
+    
+    // Get query parameters for filtering and pagination
+    const { searchParams } = new URL(req.url);
+    const status = searchParams.get('status');
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '10'))); // Security: Limit max results
+    const offset = (page - 1) * limit;
+
+    // Build query - users can only see their own requests (security)
+    const where: any = { userId: user.id };
+    if (status && ['PENDING', 'APPROVED', 'REJECTED'].includes(status)) {
+      where.status = status;
+    }
+
+    // Get total count for pagination
+    const totalCount = await prisma.leaveRequest.count({ where });
+
+    // Get leave requests with pagination
     const leaveRequests = await prisma.leaveRequest.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      skip: offset,
       include: {
         user: {
           select: {
-            id: true,
             name: true,
             email: true,
           },
         },
       },
-      orderBy: {
-        createdAt: "desc",
-      },
     });
 
-    return apiSuccess(
-      { leaveRequests }
-    );
-  } catch (_error) {
+    // Calculate days for each request
+    const requestsWithDays = leaveRequests.map(request => {
+      const start = new Date(request.startDate);
+      const end = new Date(request.endDate);
+      const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      
+      return {
+        ...request,
+        days,
+        // Fix: Map comments field to reason for frontend compatibility
+        reason: request.comments || 'No reason provided',
+        // Keep original comments field for admin functionality
+        comments: request.comments,
+      };
+    });
+
+    return apiSuccess({
+      requests: requestsWithDays,
+      total: totalCount,
+      page,
+      limit,
+      totalPages: Math.ceil(totalCount / limit)
+    });
+  } catch (error) {
+    if (error instanceof AuthenticationError) {
+      return apiError(error, error.statusCode as any);
+    }
     return apiError('Internal server error');
   }
 }
+
+// Apply comprehensive security with input validation for POST
+export const POST = withCompleteSecurity(
+  withUserAuth(createLeaveRequestHandler),
+  {
+    validateInput: true,
+    schema: validationSchemas.leaveRequest,
+    sanitizationRule: 'leaveRequest',
+    skipCSRF: false
+  }
+);
+
+// Apply security for GET without input validation
+export const GET = withCompleteSecurity(
+  withUserAuth(getLeaveRequestsHandler),
+  {
+    validateInput: false,
+    skipCSRF: true // GET request, CSRF not applicable
+  }
+);

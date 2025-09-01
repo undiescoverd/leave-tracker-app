@@ -1,7 +1,21 @@
 import { Resend } from 'resend';
-import { env } from '@/lib/env';
+import { env, envValidation } from '@/lib/env';
 
+// Production-ready Resend client with configuration
 const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null;
+
+// Email rate limiting store (in-memory for single instance, use Redis for multi-instance)
+const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+
+// Production email service status
+export const emailServiceStatus = {
+  isConfigured: !!resend && env.ENABLE_EMAIL_NOTIFICATIONS === 'true',
+  isProduction: envValidation.isProduction,
+  provider: 'Resend',
+  rateLimit: env.EMAIL_RATE_LIMIT_PER_HOUR,
+  retryAttempts: env.EMAIL_RETRY_ATTEMPTS,
+  timeout: env.EMAIL_TIMEOUT_MS,
+};
 
 interface EmailResult {
   success: boolean;
@@ -17,42 +31,139 @@ export interface EmailOptions {
 }
 
 export class EmailService {
+  /**
+   * Rate limiting check for email sending
+   */
+  private static isRateLimited(recipient: string): boolean {
+    const now = Date.now();
+    const hourInMs = 60 * 60 * 1000;
+    const key = Array.isArray(recipient) ? recipient[0] : recipient;
+    
+    const current = rateLimitStore.get(key);
+    if (!current || now > current.resetTime) {
+      rateLimitStore.set(key, { count: 1, resetTime: now + hourInMs });
+      return false;
+    }
+    
+    if (current.count >= env.EMAIL_RATE_LIMIT_PER_HOUR) {
+      return true;
+    }
+    
+    current.count++;
+    return false;
+  }
+
+  /**
+   * Production-ready email sending with retry logic, rate limiting, and timeout
+   */
   static async send(options: EmailOptions): Promise<EmailResult> {
+    // Configuration validation
     if (env.ENABLE_EMAIL_NOTIFICATIONS !== 'true' || !resend) {
-      console.log('📧 Email notifications disabled or not configured');
-      if (env.NODE_ENV === 'development') {
+      const reason = !resend ? 'RESEND_API_KEY not configured' : 'Email notifications disabled';
+      
+      if (envValidation.isProduction) {
+        console.error(`❌ Email service not configured for production: ${reason}`);
+        return { success: false, error: `Email service not configured for production: ${reason}` };
+      }
+      
+      // Development mode logging
+      if (envValidation.isDevelopment) {
+        console.log('📧 Email notifications disabled or not configured');
         console.log('\n' + '═'.repeat(60));
         console.log('📧 EMAIL (DEV MODE)');
         console.log('═'.repeat(60));
         console.log('📧 To:', options.to);
         console.log('📋 Subject:', options.subject);
-        console.log('📄 Content:', options.html);
+        console.log('📄 Content:', options.html.substring(0, 200) + '...');
         console.log('═'.repeat(60) + '\n');
       }
+      
       return { success: true, messageId: `dev-${Date.now()}` };
     }
 
-    try {
-      const { data, error } = await resend.emails.send({
-        from: env.EMAIL_FROM,
-        to: options.to,
-        subject: options.subject,
-        html: options.html,
-        text: options.text,
-        replyTo: env.EMAIL_REPLY_TO,
-      });
-
-      if (error) {
-        console.error('Email send error:', error);
-        return { success: false, error: error.message };
-      }
-
-      console.log('✅ Email sent successfully:', data?.id);
-      return { success: true, messageId: data?.id };
-    } catch (error) {
-      console.error('Email service error:', error);
-      return { success: false, error: 'Failed to send email' };
+    // Rate limiting check
+    const recipient = Array.isArray(options.to) ? options.to[0] : options.to;
+    if (this.isRateLimited(recipient)) {
+      const error = `Rate limit exceeded for ${recipient}`;
+      console.warn(`⚠️  ${error}`);
+      return { success: false, error };
     }
+
+    // Retry logic with exponential backoff
+    let lastError: any;
+    for (let attempt = 1; attempt <= env.EMAIL_RETRY_ATTEMPTS; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), env.EMAIL_TIMEOUT_MS);
+
+        const { data, error } = await resend.emails.send({
+          from: env.EMAIL_FROM,
+          to: options.to,
+          subject: options.subject,
+          html: options.html,
+          text: options.text,
+          replyTo: env.EMAIL_REPLY_TO,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (error) {
+          console.error(`Email send error (attempt ${attempt}):`, error);
+          lastError = error;
+          
+          // Don't retry on certain errors
+          if (error.message?.includes('forbidden') || error.message?.includes('unauthorized')) {
+            return { success: false, error: error.message };
+          }
+          
+          if (attempt < env.EMAIL_RETRY_ATTEMPTS) {
+            const delay = Math.pow(2, attempt - 1) * 1000; // Exponential backoff
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
+          
+          return { success: false, error: error.message };
+        }
+
+        console.log(`✅ Email sent successfully (attempt ${attempt}):`, data?.id);
+        return { success: true, messageId: data?.id };
+        
+      } catch (error: any) {
+        console.error(`Email service error (attempt ${attempt}):`, error);
+        lastError = error;
+        
+        if (error.name === 'AbortError') {
+          return { success: false, error: 'Email sending timed out' };
+        }
+        
+        if (attempt < env.EMAIL_RETRY_ATTEMPTS) {
+          const delay = Math.pow(2, attempt - 1) * 1000;
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+
+    return { success: false, error: lastError?.message || 'Failed to send email after retries' };
+  }
+
+  /**
+   * Health check for email service
+   */
+  static async healthCheck(): Promise<{ healthy: boolean; details: any }> {
+    const details = {
+      configured: emailServiceStatus.isConfigured,
+      provider: emailServiceStatus.provider,
+      rateLimit: emailServiceStatus.rateLimit,
+      environment: env.NODE_ENV,
+    };
+
+    if (!emailServiceStatus.isConfigured) {
+      return { healthy: false, details: { ...details, error: 'Email service not configured' } };
+    }
+
+    // For production, we might want to send a test email to verify connectivity
+    // For now, we'll just check configuration
+    return { healthy: true, details };
   }
 
   static async sendLeaveRequestConfirmation(

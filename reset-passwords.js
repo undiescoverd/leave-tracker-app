@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-const { PrismaClient } = require('@prisma/client');
-const bcrypt = require('bcryptjs');
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 async function resetPasswords() {
   const prisma = new PrismaClient();

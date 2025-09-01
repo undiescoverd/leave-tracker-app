@@ -1,5 +1,31 @@
 import { NextRequest } from 'next/server';
-import DOMPurify from 'isomorphic-dompurify';
+
+// Check if we're on the server side
+const isServer = typeof window === 'undefined';
+
+// Import DOMPurify only on client side or provide fallback
+let DOMPurify: any = null;
+
+if (!isServer) {
+  try {
+    DOMPurify = require('isomorphic-dompurify');
+  } catch (error) {
+    console.warn('DOMPurify not available, using fallback sanitization');
+  }
+}
+
+// Fallback sanitization function for server-side
+function fallbackSanitize(value: string): string {
+  if (typeof value !== 'string') return '';
+  
+  // Basic XSS protection - remove script tags and dangerous attributes
+  return value
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/javascript:/gi, '')
+    .replace(/on\w+\s*=/gi, '')
+    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
+    .trim();
+}
 
 // Sanitization options for different contexts
 const sanitizeOptions = {
@@ -47,7 +73,12 @@ export function sanitizeString(value: string, type: 'text' | 'html' | 'url' = 't
     }
   }
   
-  return DOMPurify.sanitize(value, sanitizeOptions[type]);
+  // Use DOMPurify if available, otherwise use fallback
+  if (DOMPurify && !isServer) {
+    return DOMPurify.sanitize(value, sanitizeOptions[type]);
+  } else {
+    return fallbackSanitize(value);
+  }
 }
 
 /**

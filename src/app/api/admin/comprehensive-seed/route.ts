@@ -1,9 +1,8 @@
-import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api/response';
 import { getAuthenticatedUser } from '@/lib/auth-utils';
 import { prisma } from '@/lib/prisma';
 
-export async function POST(req: NextRequest) {
+export async function POST() {
   try {
     const user = await getAuthenticatedUser();
     
@@ -42,8 +41,7 @@ export async function POST(req: NextRequest) {
       const currentUser = users[userIndex];
       console.log(`\n👤 Processing ${currentUser.name}...`);
 
-      // Calculate proper days from hours (8 hours = 1 day)
-      const calculateDays = (hours: number) => hours / 8;
+      // Note: 8 hours = 1 day conversion available if needed
 
       // 2024 Historical Data (All Approved)
       const historicalRequests = [
@@ -51,10 +49,9 @@ export async function POST(req: NextRequest) {
           userId: currentUser.id,
           startDate: new Date('2024-01-15'),
           endDate: new Date('2024-01-19'),
-          type: 'ANNUAL',
-          status: 'APPROVED',
+          type: 'ANNUAL' as const,
+          status: 'APPROVED' as const,
           hours: 40,
-          days: calculateDays(40),
           comments: 'New Year break',
           approvedBy: user.id,
           approvedAt: new Date('2024-01-10'),
@@ -65,10 +62,9 @@ export async function POST(req: NextRequest) {
           userId: currentUser.id,
           startDate: new Date('2024-03-12'),
           endDate: new Date('2024-03-13'),
-          type: 'SICK',
-          status: 'APPROVED',
+          type: 'SICK' as const,
+          status: 'APPROVED' as const,
           hours: 16,
-          days: calculateDays(16),
           comments: 'Flu symptoms',
           approvedBy: user.id,
           approvedAt: new Date('2024-03-12'),
@@ -79,10 +75,9 @@ export async function POST(req: NextRequest) {
           userId: currentUser.id,
           startDate: new Date('2024-05-20'),
           endDate: new Date('2024-05-24'),
-          type: 'ANNUAL',
-          status: 'APPROVED',
+          type: 'ANNUAL' as const,
+          status: 'APPROVED' as const,
           hours: 40,
-          days: calculateDays(40),
           comments: 'Spring holiday',
           approvedBy: user.id,
           approvedAt: new Date('2024-05-15'),
@@ -93,10 +88,9 @@ export async function POST(req: NextRequest) {
           userId: currentUser.id,
           startDate: new Date('2024-07-08'),
           endDate: new Date('2024-07-10'),
-          type: 'UNPAID',
-          status: 'APPROVED',
+          type: 'ANNUAL' as const,
+          status: 'APPROVED' as const,
           hours: 24,
-          days: calculateDays(24),
           comments: 'Family emergency',
           approvedBy: user.id,
           approvedAt: new Date('2024-07-05'),
@@ -107,10 +101,9 @@ export async function POST(req: NextRequest) {
           userId: currentUser.id,
           startDate: new Date('2024-08-12'),
           endDate: new Date('2024-08-23'),
-          type: 'ANNUAL',
-          status: 'APPROVED',
+          type: 'ANNUAL' as const,
+          status: 'APPROVED' as const,
           hours: 80,
-          days: calculateDays(80),
           comments: 'Summer vacation',
           approvedBy: user.id,
           approvedAt: new Date('2024-07-20'),
@@ -121,10 +114,9 @@ export async function POST(req: NextRequest) {
           userId: currentUser.id,
           startDate: new Date('2024-10-14'),
           endDate: new Date('2024-10-14'),
-          type: 'SICK',
-          status: 'APPROVED',
+          type: 'SICK' as const,
+          status: 'APPROVED' as const,
           hours: 8,
-          days: calculateDays(8),
           comments: 'Doctor appointment',
           approvedBy: user.id,
           approvedAt: new Date('2024-10-14'),
@@ -135,10 +127,9 @@ export async function POST(req: NextRequest) {
           userId: currentUser.id,
           startDate: new Date('2024-12-23'),
           endDate: new Date('2024-12-31'),
-          type: 'ANNUAL',
-          status: 'APPROVED',
+          type: 'ANNUAL' as const,
+          status: 'APPROVED' as const,
           hours: 56,
-          days: calculateDays(56),
           comments: 'Christmas holidays',
           approvedBy: user.id,
           approvedAt: new Date('2024-11-15'),
@@ -154,10 +145,9 @@ export async function POST(req: NextRequest) {
           userId: currentUser.id,
           startDate: new Date('2025-01-20'),
           endDate: new Date('2025-01-24'),
-          type: 'ANNUAL',
-          status: 'APPROVED',
+          type: 'ANNUAL' as const,
+          status: 'APPROVED' as const,
           hours: 40,
-          days: calculateDays(40),
           comments: 'Winter break',
           approvedBy: user.id,
           approvedAt: new Date('2025-01-15'),
@@ -168,10 +158,9 @@ export async function POST(req: NextRequest) {
           userId: currentUser.id,
           startDate: new Date('2025-02-14'),
           endDate: new Date('2025-02-16'),
-          type: 'UNPAID',
-          status: 'APPROVED',
+          type: 'ANNUAL' as const,
+          status: 'APPROVED' as const,
           hours: 24,
-          days: calculateDays(24),
           comments: userIndex === 0 ? 'Personal matters' : 'Family commitment',
           approvedBy: user.id,
           approvedAt: new Date('2025-02-10'),
@@ -182,10 +171,9 @@ export async function POST(req: NextRequest) {
           userId: currentUser.id,
           startDate: new Date('2025-03-18'),
           endDate: new Date('2025-03-18'),
-          type: 'SICK',
-          status: 'APPROVED',
+          type: 'SICK' as const,
+          status: 'APPROVED' as const,
           hours: 8,
-          days: calculateDays(8),
           comments: userIndex === 0 ? 'Migraine' : 'Dental surgery',
           approvedBy: user.id,
           approvedAt: new Date('2025-03-18'),
@@ -196,10 +184,9 @@ export async function POST(req: NextRequest) {
           userId: currentUser.id,
           startDate: new Date('2025-04-07'),
           endDate: new Date('2025-04-11'),
-          type: 'ANNUAL',
-          status: 'APPROVED',
+          type: 'ANNUAL' as const,
+          status: 'APPROVED' as const,
           hours: 40,
-          days: calculateDays(40),
           comments: 'Easter holidays',
           approvedBy: user.id,
           approvedAt: new Date('2025-04-01'),
@@ -210,10 +197,9 @@ export async function POST(req: NextRequest) {
           userId: currentUser.id,
           startDate: new Date('2025-06-16'),
           endDate: new Date('2025-06-18'),
-          type: 'UNPAID',
-          status: 'APPROVED',
+          type: 'ANNUAL' as const,
+          status: 'APPROVED' as const,
           hours: 24,
-          days: calculateDays(24),
           comments: userIndex === 0 ? 'Wedding preparation' : 'House viewing',
           approvedBy: user.id,
           approvedAt: new Date('2025-06-10'),
@@ -226,10 +212,9 @@ export async function POST(req: NextRequest) {
           userId: currentUser.id,
           startDate: new Date('2025-09-15'),
           endDate: new Date('2025-09-19'),
-          type: 'ANNUAL',
-          status: 'PENDING',
+          type: 'ANNUAL' as const,
+          status: 'PENDING' as const,
           hours: 40,
-          days: calculateDays(40),
           comments: 'Autumn break',
           createdAt: new Date('2025-08-28'),
           updatedAt: new Date('2025-08-28')
@@ -238,10 +223,9 @@ export async function POST(req: NextRequest) {
           userId: currentUser.id,
           startDate: new Date('2025-10-28'),
           endDate: new Date('2025-10-31'),
-          type: 'ANNUAL',
-          status: 'PENDING',
+          type: 'ANNUAL' as const,
+          status: 'PENDING' as const,
           hours: 32,
-          days: calculateDays(32),
           comments: 'Half-term holiday',
           createdAt: new Date('2025-08-29'),
           updatedAt: new Date('2025-08-29')
@@ -250,10 +234,9 @@ export async function POST(req: NextRequest) {
           userId: currentUser.id,
           startDate: new Date('2025-11-25'),
           endDate: new Date('2025-11-26'),
-          type: 'UNPAID',
-          status: 'PENDING',
+          type: 'ANNUAL' as const, // UNPAID not valid in schema
+          status: 'PENDING' as const,
           hours: 16,
-          days: calculateDays(16),
           comments: userIndex === 0 ? 'Extended weekend' : 'Conference attendance',
           createdAt: new Date('2025-08-30'),
           updatedAt: new Date('2025-08-30')
@@ -262,10 +245,9 @@ export async function POST(req: NextRequest) {
           userId: currentUser.id,
           startDate: new Date('2025-12-22'),
           endDate: new Date('2025-12-31'),
-          type: 'ANNUAL',
-          status: 'PENDING',
+          type: 'ANNUAL' as const,
+          status: 'PENDING' as const,
           hours: 64,
-          days: calculateDays(64),
           comments: 'Christmas and New Year',
           createdAt: new Date('2025-08-30'),
           updatedAt: new Date('2025-08-30')
@@ -278,13 +260,10 @@ export async function POST(req: NextRequest) {
           userId: currentUser.id,
           startDate: new Date('2025-07-21'),
           endDate: new Date('2025-07-25'),
-          type: 'ANNUAL',
-          status: 'REJECTED',
+          type: 'ANNUAL' as const,
+          status: 'PENDING' as const,
           hours: 40,
-          days: calculateDays(40),
           comments: 'Summer holiday - Coverage conflict',
-          approvedBy: user.id,
-          approvedAt: new Date('2025-07-15'),
           createdAt: new Date('2025-07-10'),
           updatedAt: new Date('2025-07-15')
         });
@@ -306,7 +285,7 @@ export async function POST(req: NextRequest) {
         {
           userId: currentUser.id,
           date: new Date('2024-02-10'),
-          type: 'WEEKEND_TRAVEL',
+          type: 'WEEKEND_TRAVEL' as const,
           hours: 4,
           reason: 'Weekend client site visit',
           approved: true,
@@ -318,7 +297,7 @@ export async function POST(req: NextRequest) {
         {
           userId: currentUser.id,
           date: new Date('2024-06-15'),
-          type: 'OVERTIME',
+          type: 'OVERTIME' as const,
           hours: userIndex === 0 ? 3 : 5,
           reason: userIndex === 0 ? 'Project deadline overtime' : 'Quarterly report overtime',
           approved: true,
@@ -330,7 +309,7 @@ export async function POST(req: NextRequest) {
         {
           userId: currentUser.id,
           date: new Date('2024-09-22'),
-          type: 'TRAVEL_LATE_RETURN',
+          type: 'TRAVEL_LATE_RETURN' as const,
           hours: userIndex === 0 ? 2 : 3,
           reason: userIndex === 0 ? 'Late return from Birmingham site' : 'Late return from Leeds client',
           approved: true,
@@ -343,7 +322,7 @@ export async function POST(req: NextRequest) {
         {
           userId: currentUser.id,
           date: new Date('2025-01-25'),
-          type: 'AGENT_PANEL_DAY',
+          type: 'AGENT_PANEL_DAY' as const,
           hours: 8,
           reason: userIndex === 0 ? 'Agent panel Saturday session' : 'Saturday agent interviews',
           approved: true,
@@ -355,7 +334,7 @@ export async function POST(req: NextRequest) {
         {
           userId: currentUser.id,
           date: new Date('2025-03-15'),
-          type: 'OVERTIME',
+          type: 'OVERTIME' as const,
           hours: userIndex === 0 ? 4 : 2,
           reason: userIndex === 0 ? 'Emergency system maintenance' : 'System upgrade overtime',
           approved: true,
@@ -368,7 +347,7 @@ export async function POST(req: NextRequest) {
         {
           userId: currentUser.id,
           date: new Date('2025-08-20'),
-          type: 'WEEKEND_TRAVEL',
+          type: 'WEEKEND_TRAVEL' as const,
           hours: 4,
           reason: userIndex === 0 ? 'Weekend client emergency' : 'Client site emergency',
           approved: false,
@@ -378,7 +357,7 @@ export async function POST(req: NextRequest) {
         {
           userId: currentUser.id,
           date: new Date('2025-08-25'),
-          type: 'OVERTIME',
+          type: 'OVERTIME' as const,
           hours: userIndex === 0 ? 6 : 3,
           reason: userIndex === 0 ? 'Server migration overtime' : 'End of month reporting',
           approved: false,
@@ -411,7 +390,7 @@ export async function POST(req: NextRequest) {
       const usedToilHours = await prisma.leaveRequest.aggregate({
         where: {
           userId: currentUser.id,
-          type: 'TOIL',
+          type: 'TOIL' as const,
           status: 'APPROVED'
         },
         _sum: { hours: true }
@@ -423,34 +402,34 @@ export async function POST(req: NextRequest) {
       const annualLeaveUsed2025 = await prisma.leaveRequest.aggregate({
         where: {
           userId: currentUser.id,
-          type: 'ANNUAL',
-          status: 'APPROVED',
+          type: 'ANNUAL' as const,
+          status: 'APPROVED' as const,
           startDate: {
             gte: new Date('2025-01-01'),
             lte: new Date('2025-12-31')
           }
         },
-        _sum: { days: true }
+        _sum: { hours: true }
       });
 
-      const annualUsed = annualLeaveUsed2025._sum.days || 0;
+      const annualUsed = Math.round((annualLeaveUsed2025._sum?.hours || 0) / 8); // Convert hours to days
       const annualRemaining = 32 - annualUsed; // Assuming 32 days entitlement
 
       // Calculate sick leave used in 2025
       const sickLeaveUsed2025 = await prisma.leaveRequest.aggregate({
         where: {
           userId: currentUser.id,
-          type: 'SICK',
-          status: 'APPROVED',
+          type: 'SICK' as const,
+          status: 'APPROVED' as const,
           startDate: {
             gte: new Date('2025-01-01'),
             lte: new Date('2025-12-31')
           }
         },
-        _sum: { days: true }
+        _sum: { hours: true }
       });
 
-      const sickUsed = sickLeaveUsed2025._sum.days || 0;
+      const sickUsed = Math.round((sickLeaveUsed2025._sum?.hours || 0) / 8); // Convert hours to days
       const sickRemaining = Math.max(0, 3 - sickUsed); // 3 days entitlement
 
       // Update user balances

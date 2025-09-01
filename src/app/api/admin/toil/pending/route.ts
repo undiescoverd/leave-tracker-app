@@ -22,7 +22,7 @@ export async function GET() {
 
   } catch (error) {
     if (error instanceof AuthenticationError || error instanceof AuthorizationError) {
-      return apiError(error.message, (error.statusCode as any) || HttpStatus.INTERNAL_SERVER_ERROR);
+      return apiError(error.message, (error.statusCode as number) || HttpStatus.INTERNAL_SERVER_ERROR);
     }
     return apiError('Internal server error', HttpStatus.INTERNAL_SERVER_ERROR);
   }

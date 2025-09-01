@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { useRouter, useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -53,9 +53,39 @@ interface EmployeeDetailsData {
     mostCommonLeaveType: string;
     totalRequests: number;
   };
-  recentActivity: any[];
-  leaveHistory: any[];
-  toilHistory: any[];
+  recentActivity: Array<{
+    id: string;
+    type: string;
+    days: number;
+    startDate: string;
+    endDate: string;
+    status: string;
+  }>;
+  leaveHistory: Array<{
+    id: string;
+    startDate: string;
+    endDate: string;
+    type: string;
+    days: number;
+    status: string;
+    createdAt: string;
+    comments?: string;
+    approvedBy?: {
+      name: string;
+    };
+  }>;
+  toilHistory: Array<{
+    id: string;
+    date: string;
+    type: string;
+    hours: number;
+    approved: boolean;
+    createdAt: string;
+    reason: string;
+    approvedByUser?: {
+      name: string;
+    };
+  }>;
   stats: {
     joinDate: string;
     totalLeaveRequests: number;
@@ -72,20 +102,7 @@ export default function EmployeeDetailsPage() {
   const [data, setData] = useState<EmployeeDetailsData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (status === "loading") return;
-    if (!session) {
-      router.push("/login");
-      return;
-    }
-    if (session.user?.role !== "ADMIN") {
-      router.push("/dashboard");
-      return;
-    }
-    fetchEmployeeDetails();
-  }, [status, session, router, params.employeeId]);
-
-  const fetchEmployeeDetails = async () => {
+  const fetchEmployeeDetails = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/admin/employee-details/${params.employeeId}`);
@@ -100,7 +117,20 @@ export default function EmployeeDetailsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [params.employeeId]);
+
+  useEffect(() => {
+    if (status === "loading") return;
+    if (!session) {
+      router.push("/login");
+      return;
+    }
+    if (session.user?.role !== "ADMIN") {
+      router.push("/dashboard");
+      return;
+    }
+    fetchEmployeeDetails();
+  }, [status, session, router, fetchEmployeeDetails]);
 
   const getStatusBadge = (percentage: number, type: 'annual' | 'sick') => {
     if (type === 'annual') {

@@ -43,7 +43,7 @@ export async function GET(
     return new Response(html, {
       headers: {
         'Content-Type': 'text/html',
-        'Content-Disposition': `inline; filename="employee-leave-report-${employee.name.replace(' ', '-')}.html"`
+        'Content-Disposition': `inline; filename="employee-leave-report-${(employee.name || 'unknown').replace(' ', '-')}.html"`
       }
     });
 
@@ -53,27 +53,60 @@ export async function GET(
   }
 }
 
-function generateEmployeeReportHTML(employee: any): string {
+interface Employee {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: Date;
+  annualLeaveBalance?: number;
+  toilBalance?: number;
+  leaveRequests: LeaveRequest[];
+  toilEntries: ToilEntry[];
+}
+
+interface LeaveRequest {
+  id: string;
+  startDate: Date;
+  endDate: Date;
+  type: string;
+  status: string;
+  hours?: number;
+  comments?: string;
+  createdAt: Date;
+  approvedBy?: string;
+}
+
+interface ToilEntry {
+  id: string;
+  date: Date;
+  type: string;
+  hours: number;
+  reason: string;
+  approved: boolean;
+  createdAt: Date;
+}
+
+function generateEmployeeReportHTML(employee: Employee): string {
   const currentYear = new Date().getFullYear();
   const yearStart = new Date(currentYear, 0, 1);
   const yearEnd = new Date(currentYear, 11, 31);
 
   // Calculate current year data
-  const currentYearRequests = employee.leaveRequests.filter((req: any) => 
+  const currentYearRequests = employee.leaveRequests.filter((req) => 
     new Date(req.startDate) >= yearStart && new Date(req.startDate) <= yearEnd
   );
 
   const annualLeaveUsed = currentYearRequests
-    .filter((req: any) => req.type === 'ANNUAL' && req.status === 'APPROVED')
-    .reduce((sum: number, req: any) => sum + (req.hours || 0) / 8, 0); // Convert hours to days
+    .filter((req) => req.type === 'ANNUAL' && req.status === 'APPROVED')
+    .reduce((sum, req) => sum + (req.hours || 0) / 8, 0); // Convert hours to days
 
   const sickLeaveUsed = currentYearRequests
-    .filter((req: any) => req.type === 'SICK' && req.status === 'APPROVED')
-    .reduce((sum: number, req: any) => sum + (req.hours || 0) / 8, 0);
+    .filter((req) => req.type === 'SICK' && req.status === 'APPROVED')
+    .reduce((sum, req) => sum + (req.hours || 0) / 8, 0);
 
   const unpaidLeaveUsed = currentYearRequests
-    .filter((req: any) => req.type === 'UNPAID' && req.status === 'APPROVED')
-    .reduce((sum: number, req: any) => sum + (req.hours || 0) / 8, 0);
+    .filter((req) => req.type === 'UNPAID' && req.status === 'APPROVED')
+    .reduce((sum, req) => sum + (req.hours || 0) / 8, 0);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-GB');
@@ -247,7 +280,7 @@ function generateEmployeeReportHTML(employee: any): string {
             </tr>
           </thead>
           <tbody>
-            ${currentYearRequests.map((req: any) => `
+            ${currentYearRequests.map((req) => `
               <tr>
                 <td>${formatDate(req.startDate)} - ${formatDate(req.endDate)}</td>
                 <td>
@@ -281,7 +314,7 @@ function generateEmployeeReportHTML(employee: any): string {
             </tr>
           </thead>
           <tbody>
-            ${employee.toilEntries.map((entry: any) => `
+            ${employee.toilEntries.map((entry) => `
               <tr>
                 <td>${formatDate(entry.date)}</td>
                 <td>${entry.type}</td>
@@ -304,15 +337,15 @@ function generateEmployeeReportHTML(employee: any): string {
             <div class="balance-label">Total Leave Requests</div>
           </div>
           <div class="balance-card">
-            <div class="balance-value">${employee.leaveRequests.filter((req: any) => req.status === 'APPROVED').length}</div>
+            <div class="balance-value">${employee.leaveRequests.filter((req) => req.status === 'APPROVED').length}</div>
             <div class="balance-label">Approved Requests</div>
           </div>
           <div class="balance-card">
-            <div class="balance-value">${employee.leaveRequests.filter((req: any) => req.status === 'PENDING').length}</div>
+            <div class="balance-value">${employee.leaveRequests.filter((req) => req.status === 'PENDING').length}</div>
             <div class="balance-label">Pending Requests</div>
           </div>
           <div class="balance-card">
-            <div class="balance-value">${employee.toilEntries.filter((entry: any) => !entry.approved).length}</div>
+            <div class="balance-value">${employee.toilEntries.filter((entry) => !entry.approved).length}</div>
             <div class="balance-label">Pending TOIL Entries</div>
           </div>
         </div>
