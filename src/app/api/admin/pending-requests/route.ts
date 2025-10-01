@@ -6,6 +6,7 @@ import { withCompleteSecurity } from '@/lib/middleware/security';
 import { AuthenticationError, AuthorizationError } from '@/lib/api/errors';
 import { apiCache, createCacheKey } from '@/lib/cache/cache-manager';
 import { logger, generateRequestId } from '@/lib/logger';
+import { withCacheHeaders } from '@/lib/middleware/cache-headers';
 
 async function getPendingRequestsHandler(req: NextRequest, context: { user: unknown }): Promise<NextResponse> {
   const requestId = generateRequestId();
@@ -121,9 +122,11 @@ async function getPendingRequestsHandler(req: NextRequest, context: { user: unkn
   }
 }
 
-// Apply comprehensive admin security
+// Apply comprehensive admin security with caching
 export const GET = withCompleteSecurity(
-  withAdminAuth(getPendingRequestsHandler),
+  withCacheHeaders(
+    withAdminAuth(getPendingRequestsHandler)
+  ),
   { 
     validateInput: false, // GET request, no input validation needed
     skipCSRF: true // GET request, CSRF not applicable

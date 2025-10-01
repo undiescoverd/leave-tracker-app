@@ -10,6 +10,7 @@ import { userDataCache, createCacheKey } from '@/lib/cache/cache-manager';
 import { logger, generateRequestId } from '@/lib/logger';
 import { withUserAuth } from '@/lib/middleware/auth';
 import { withCompleteSecurity } from '@/lib/middleware/security';
+import { withCacheHeaders } from '@/lib/middleware/cache-headers';
 
 async function getLeaveBalanceHandler(
   req: NextRequest,
@@ -123,7 +124,9 @@ async function getLeaveBalanceHandler(
 }
 
 export const GET = withCompleteSecurity(
-  withUserAuth(getLeaveBalanceHandler),
+  withCacheHeaders(
+    withUserAuth(getLeaveBalanceHandler)
+  ),
   {
     validateInput: false,
     skipCSRF: true
