@@ -1,13 +1,18 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api/response';
 import { prisma } from '@/lib/prisma';
 import { AuthenticationError } from '@/lib/api/errors';
 import { getAuthenticatedUser } from '@/lib/auth-utils';
+import { withUserAuth } from '@/lib/middleware/auth';
+import { withCompleteSecurity } from '@/lib/middleware/security';
 
-export async function GET(req: NextRequest) {
+async function getLeaveRequestsHandler(
+  req: NextRequest,
+  context: { user: any }
+): Promise<NextResponse> {
   try {
-    // Check authentication
-    const user = await getAuthenticatedUser();
+    // User from middleware
+    const user = context.user;
 
     // Get query parameters for filtering and pagination
     const { searchParams } = new URL(req.url);
@@ -65,9 +70,15 @@ export async function GET(req: NextRequest) {
       totalPages: Math.ceil(totalCount / limit)
     });
   } catch (error) {
-    if (error instanceof AuthenticationError) {
-      return apiError(error, error.statusCode as any);
-    }
-    return apiError('Internal server error');
+    console.error('Get leave requests error:', error);
+    return apiError('Failed to fetch leave requests', 500);
   }
 }
+
+export const GET = withCompleteSecurity(
+  withUserAuth(getLeaveRequestsHandler),
+  {
+    validateInput: false,
+    skipCSRF: true
+  }
+);

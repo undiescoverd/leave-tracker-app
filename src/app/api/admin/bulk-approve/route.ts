@@ -7,6 +7,14 @@ import { withCompleteSecurity } from '@/lib/middleware/security';
 import { logger } from '@/lib/logger';
 import { ValidationError } from '@/lib/api/errors';
 
+// Helper function to calculate days between dates
+function calculateDays(startDate: Date, endDate: Date): number {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const diffTime = Math.abs(end.getTime() - start.getTime());
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+}
+
 interface AuthContext {
   user: {
     id: string;
@@ -108,11 +116,21 @@ async function bulkApproveHandler(req: NextRequest, context: AuthContext): Promi
       const userId = request.userId;
       if (!acc[userId]) {
         acc[userId] = {
-          user: request.user,
+          user: {
+            ...request.user,
+            name: request.user.name || 'Unknown User'
+          },
           requests: []
         };
       }
-      acc[userId].requests.push(request);
+      acc[userId].requests.push({
+        ...request,
+        user: {
+          ...request.user,
+          name: request.user.name || 'Unknown User'
+        },
+        days: calculateDays(request.startDate, request.endDate)
+      });
       return acc;
     }, {} as Record<string, RequestsByUser>);
 
@@ -170,7 +188,7 @@ async function bulkApproveHandler(req: NextRequest, context: AuthContext): Promi
     }, error instanceof Error ? error : new Error(String(error)));
     
     if (error instanceof ValidationError) {
-      return apiError(error.message, error.statusCode as HttpStatus);
+      return apiError(error.message, 400);
     }
     
     return apiError('Failed to bulk approve requests', 500);

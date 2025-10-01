@@ -6,21 +6,26 @@ import { logger } from '@/lib/logger';
 import { NotFoundError, ValidationError, AuthenticationError, AuthorizationError } from '@/lib/api/errors';
 import { EmailService } from '@/lib/email/service';
 import { format } from 'date-fns';
+import { withAdminAuth } from '@/lib/middleware/auth';
+import { withCompleteSecurity } from '@/lib/middleware/security';
 
-export async function POST(
+async function approveLeaveRequestHandler(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+  context: { user: any }
+): Promise<NextResponse> {
   try {
-    // Require admin authentication
-    const admin = await requireAdmin();
+    // Admin from middleware
+    const admin = context.user;
 
-    // Await the params Promise (Next.js 15 requirement)
-    const { id: requestId } = await params;
+    // Extract request ID from URL
+    const url = new URL(req.url);
+    const pathParts = url.pathname.split('/');
+    const requestId = pathParts[pathParts.length - 2]; // Get the ID before '/approve'
 
-    // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(requestId)) {
+    // Validate CUID format (Prisma uses cuid() by default)
+    // CUID format: starts with 'c' followed by 24 alphanumeric characters
+    const cuidRegex = /^c[a-z0-9]{24}$/i;
+    if (!requestId || !cuidRegex.test(requestId)) {
       return apiError('Invalid request ID format', 400);
     }
 
@@ -120,18 +125,17 @@ export async function POST(
     });
 
   } catch (error) {
-    logger.error('Leave request approval error:', undefined, error as Error);
-    
-    if (error instanceof AuthenticationError || error instanceof AuthorizationError) {
-      return apiError(error.message, error.statusCode as any);
-    }
-    
-    if (error instanceof ValidationError) {
-      return apiError(error.message, error.statusCode as any);
-    }
-    
-    return apiError('Failed to approve leave request', HttpStatus.INTERNAL_SERVER_ERROR);
+    console.error('Leave request approval error:', error);
+    return apiError('Failed to approve leave request', 500);
   }
 }
+
+export const POST = withCompleteSecurity(
+  withAdminAuth(approveLeaveRequestHandler),
+  {
+    validateInput: false,
+    skipCSRF: false
+  }
+);
 
 export const PATCH = POST;

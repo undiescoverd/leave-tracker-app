@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { apiSuccess, apiError, TypedApiError } from '@/lib/api/response';
 import { getAuthenticatedUser } from '@/lib/auth-utils';
 import { AuthenticationError } from '@/lib/api/errors';
@@ -8,15 +8,20 @@ import { features } from '@/lib/features';
 import { calculateWorkingDays } from '@/lib/date-utils';
 import { userDataCache, createCacheKey } from '@/lib/cache/cache-manager';
 import { logger, generateRequestId } from '@/lib/logger';
+import { withUserAuth } from '@/lib/middleware/auth';
+import { withCompleteSecurity } from '@/lib/middleware/security';
 
-export async function GET(_req: NextRequest) {
+async function getLeaveBalanceHandler(
+  req: NextRequest,
+  context: { user: any }
+): Promise<NextResponse> {
   const requestId = generateRequestId();
   const start = performance.now();
   
   try {
     logger.apiRequest('GET', '/api/leave/balance', undefined, requestId);
     
-    const user = await getAuthenticatedUser();
+    const user = context.user;
     logger.debug('User authenticated for leave balance request', {
       userId: user.id,
       requestId,
@@ -120,6 +125,14 @@ export async function GET(_req: NextRequest) {
     return apiError('Internal server error', 500);
   }
 }
+
+export const GET = withCompleteSecurity(
+  withUserAuth(getLeaveBalanceHandler),
+  {
+    validateInput: false,
+    skipCSRF: true
+  }
+);
 
 // Helper function to calculate pending leave by type
 async function calculatePendingLeaveByType(userId: string, year: number) {

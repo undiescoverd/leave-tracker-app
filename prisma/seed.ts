@@ -65,16 +65,16 @@ async function main() {
       userId: createdUsers[0].id,
       startDate: new Date('2025-09-15'),
       endDate: new Date('2025-09-20'),
-      type: 'ANNUAL',
-      status: 'PENDING',
+      type: 'ANNUAL' as const,
+      status: 'PENDING' as const,
       comments: 'Family vacation'
     },
     {
       userId: createdUsers[1].id,
       startDate: new Date('2025-09-10'),
       endDate: new Date('2025-09-12'),
-      type: 'SICK',
-      status: 'APPROVED',
+      type: 'SICK' as const,
+      status: 'APPROVED' as const,
       comments: 'Medical appointment',
       approvedBy: 'Senay Taormina',
       approvedAt: new Date()
@@ -83,16 +83,16 @@ async function main() {
       userId: createdUsers[2].id,
       startDate: new Date('2025-10-01'),
       endDate: new Date('2025-10-05'),
-      type: 'ANNUAL',
-      status: 'PENDING',
+      type: 'ANNUAL' as const,
+      status: 'PENDING' as const,
       comments: 'Personal time off'
     },
     {
       userId: createdUsers[3].id,
       startDate: new Date('2025-08-25'),
       endDate: new Date('2025-08-30'),
-      type: 'TOIL',
-      status: 'APPROVED',
+      type: 'TOIL' as const,
+      status: 'APPROVED' as const,
       comments: 'Time off in lieu for overtime',
       approvedBy: 'Ian Vincent',
       approvedAt: new Date()

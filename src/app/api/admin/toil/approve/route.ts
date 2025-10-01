@@ -1,18 +1,31 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { apiSuccess, apiError } from '@/lib/api/response';
-import { requireAdmin } from '@/lib/auth-utils';
 import { prisma } from '@/lib/prisma';
 import { features } from '@/lib/features';
+import { withAdminAuth } from '@/lib/middleware/auth';
+import { withCompleteSecurity } from '@/lib/middleware/security';
 
-export async function POST(req: NextRequest) {
+const toilApproveSchema = z.object({
+  requestId: z.string().uuid('Invalid request ID format')
+});
+
+async function toilApproveHandler(req: NextRequest, context: { user: { id: string; email: string; name: string } }): Promise<NextResponse> {
   try {
     // Check if TOIL is enabled
     if (!features.TOIL_ENABLED || !features.TOIL_ADMIN_ENABLED) {
       return apiError('TOIL admin features are not enabled', 400);
     }
 
-    const admin = await requireAdmin();
-    const { requestId } = await req.json();
+    const admin = context.user;
+    
+    // Get validated data from middleware
+    const validatedData = (req as { validatedData?: { requestId: string } }).validatedData;
+    if (!validatedData) {
+      return apiError('Request validation failed', 400);
+    }
+    
+    const { requestId } = validatedData;
     
     // Get the TOIL request
     const request = await prisma.leaveRequest.findUnique({
@@ -71,3 +84,13 @@ export async function POST(req: NextRequest) {
     return apiError('Failed to approve TOIL request');
   }
 }
+
+// Apply comprehensive admin security with validation
+export const POST = withCompleteSecurity(
+  withAdminAuth(toilApproveHandler),
+  {
+    validateInput: true,
+    schema: toilApproveSchema,
+    sanitizationRule: 'general'
+  }
+);

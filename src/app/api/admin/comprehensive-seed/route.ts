@@ -1,14 +1,13 @@
+import { NextRequest, NextResponse } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api/response';
-import { getAuthenticatedUser } from '@/lib/auth-utils';
-import { prisma } from '@/lib/prisma';
 
-export async function POST() {
+import { prisma } from '@/lib/prisma';
+import { withAdminAuth } from '@/lib/middleware/auth';
+import { withCompleteSecurity } from '@/lib/middleware/security';
+
+async function comprehensiveSeedHandler(req: NextRequest, context: { user: unknown }): Promise<NextResponse> {
   try {
-    const user = await getAuthenticatedUser();
-    
-    if (user.role !== 'ADMIN') {
-      return apiError('Unauthorized', 403);
-    }
+    const user = context.user;
 
     console.log('🚀 Starting comprehensive data seeding...');
 
@@ -488,3 +487,12 @@ export async function POST() {
     return apiError('Failed to seed comprehensive data', 500);
   }
 }
+
+// Apply comprehensive admin security
+export const POST = withCompleteSecurity(
+  withAdminAuth(comprehensiveSeedHandler),
+  { 
+    validateInput: false, // Seed operation doesn't need input validation
+    skipCSRF: false 
+  }
+);

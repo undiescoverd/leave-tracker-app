@@ -1,19 +1,17 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api/response';
-import { getAuthenticatedUser } from '@/lib/auth-utils';
 import { prisma } from '@/lib/prisma';
+import { withAdminAuth } from '@/lib/middleware/auth';
+import { withCompleteSecurity } from '@/lib/middleware/security';
 
-export async function GET(
+async function getEmployeeDetailsHandler(
   req: NextRequest,
+  context: { user: unknown },
   { params }: { params: Promise<{ employeeId: string }> }
-) {
+): Promise<NextResponse> {
   try {
     const { employeeId } = await params;
-    const user = await getAuthenticatedUser();
-    
-    if (user.role !== 'ADMIN') {
-      return apiError('Unauthorized', 403);
-    }
+    // Admin user is available in context if needed
 
     const employee = await prisma.user.findUnique({
       where: { 
@@ -128,6 +126,15 @@ export async function GET(
   }
 }
 
+// Apply comprehensive admin security
+export const GET = withCompleteSecurity(
+  withAdminAuth(getEmployeeDetailsHandler),
+  { 
+    validateInput: false, // GET request, no input validation needed
+    skipCSRF: true // GET request, CSRF not applicable
+  }
+);
+
 // Helper functions
 interface LeaveRequest {
   status: string;
@@ -161,7 +168,7 @@ function getAverageRequestLength(requests: LeaveRequest[]) {
   const approvedRequests = requests.filter(req => req.status === 'APPROVED');
   if (approvedRequests.length === 0) return 0;
   
-  const totalDays = approvedRequests.reduce((sum, req) => sum + req.days, 0);
+  const totalDays = approvedRequests.reduce((sum, req) => sum + (req.days || 0), 0);
   return Math.round((totalDays / approvedRequests.length) * 10) / 10;
 }
 

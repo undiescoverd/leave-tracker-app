@@ -1,13 +1,13 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api/response';
 import { prisma } from '@/lib/prisma';
-import { requireAdmin } from '@/lib/auth-utils';
+import { withAdminAuth } from '@/lib/middleware/auth';
+import { withCompleteSecurity } from '@/lib/middleware/security';
 import { AuthenticationError, AuthorizationError } from '@/lib/api/errors';
 
-export async function GET(req: NextRequest) {
+async function getPendingRequestsHandler(req: NextRequest, context: { user: unknown }): Promise<NextResponse> {
   try {
-    // Require admin authentication
-    await requireAdmin();
+    // Admin user is available in context if needed
 
     // Get query parameters for filtering and pagination
     const { searchParams } = new URL(req.url);
@@ -83,3 +83,12 @@ export async function GET(req: NextRequest) {
     return apiError('Failed to fetch pending requests', 500);
   }
 }
+
+// Apply comprehensive admin security
+export const GET = withCompleteSecurity(
+  withAdminAuth(getPendingRequestsHandler),
+  { 
+    validateInput: false, // GET request, no input validation needed
+    skipCSRF: true // GET request, CSRF not applicable
+  }
+);

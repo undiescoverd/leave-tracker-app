@@ -195,10 +195,10 @@ describe('Security Tests', () => {
         .mockReturnValueOnce({ allowed: false, remaining: 0, resetTime: Date.now() + 900000 });
 
       // Mock failed login payload for rate limit testing
-      const _failedLoginPayload = {
-        email: 'user@example.com',
-        password: 'wrongpassword'
-      };
+      // const _failedLoginPayload = {
+      //   email: 'user@example.com',
+      //   password: 'wrongpassword'
+      // };
 
       // Simulate 5 failed login attempts
       for (let i = 0; i < 5; i++) {

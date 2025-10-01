@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { apiSuccess } from '@/lib/api/response';
-import { getAuthenticatedUser } from '@/lib/auth-utils';
+import { withAdminAuth } from '@/lib/middleware/auth';
+import { withCompleteSecurity } from '@/lib/middleware/security';
 import { AuthorizationError } from '@/lib/api/errors';
 import { withErrorHandler, composeMiddleware, withPerformanceMonitoring } from '@/middleware/error-handler';
 import { 
@@ -13,12 +14,8 @@ import {
 import { getQueryStats, detectNPlusOneQueries } from '@/lib/prisma-middleware';
 import { logger } from '@/lib/logger';
 
-async function getPerformanceMetrics(req: NextRequest) {
-  const user = await getAuthenticatedUser();
-  
-  if (user.role !== 'ADMIN') {
-    throw new AuthorizationError('Admin access required to view performance metrics');
-  }
+async function getPerformanceMetrics(req: NextRequest, context: { user: { id: string; email: string; name: string; role: string } }) {
+  const user = context.user;
 
   const { searchParams } = new URL(req.url);
   const includeDetails = searchParams.get('details') === 'true';
@@ -162,12 +159,8 @@ async function getPerformanceMetrics(req: NextRequest) {
 }
 
 // Cache management endpoints
-async function resetCacheStats() {
-  const user = await getAuthenticatedUser();
-  
-  if (user.role !== 'ADMIN') {
-    throw new AuthorizationError('Admin access required to reset cache statistics');
-  }
+async function resetCacheStats(req: NextRequest, context: { user: { id: string; email: string; name: string; role: string } }) {
+  const user = context.user;
 
   // Reset cache statistics
   [apiCache, userDataCache, calendarCache, leaveBalanceCache, statsCache].forEach(cache => {
@@ -185,12 +178,8 @@ async function resetCacheStats() {
   return apiSuccess({ message: 'Cache statistics reset successfully' });
 }
 
-async function clearCaches(req: NextRequest) {
-  const user = await getAuthenticatedUser();
-  
-  if (user.role !== 'ADMIN') {
-    throw new AuthorizationError('Admin access required to clear caches');
-  }
+async function clearCaches(req: NextRequest, context: { user: { id: string; email: string; name: string; role: string } }) {
+  const user = context.user;
 
   const { searchParams } = new URL(req.url);
   const cacheType = searchParams.get('type'); // 'all', 'api', 'user', 'calendar', etc.
@@ -245,24 +234,24 @@ async function clearCaches(req: NextRequest) {
 }
 
 // Route handlers with different HTTP methods
-export const GET = composeMiddleware(
-  withErrorHandler,
-  withPerformanceMonitoring
-)(getPerformanceMetrics);
+export const GET = withCompleteSecurity(
+  withAdminAuth(getPerformanceMetrics),
+  { validateInput: false, skipCSRF: true }
+);
 
-export const POST = composeMiddleware(
-  withErrorHandler,
-  withPerformanceMonitoring
-)((req: NextRequest) => {
-  const { searchParams } = new URL(req.url);
-  const action = searchParams.get('action');
-  
-  switch (action) {
-    case 'reset-stats':
-      return resetCacheStats(req);
-    case 'clear-cache':
-      return clearCaches(req);
-    default:
-      throw new Error(`Invalid action: ${action}`);
-  }
-});
+export const POST = withCompleteSecurity(
+  withAdminAuth((req: NextRequest, context: { user: { id: string; email: string; name: string; role: string } }) => {
+    const { searchParams } = new URL(req.url);
+    const action = searchParams.get('action');
+
+    switch (action) {
+      case 'reset-stats':
+        return resetCacheStats(req, context);
+      case 'clear-cache':
+        return clearCaches(req, context);
+      default:
+        throw new Error(`Invalid action: ${action}`);
+    }
+  }),
+  { validateInput: false, skipCSRF: false }
+);

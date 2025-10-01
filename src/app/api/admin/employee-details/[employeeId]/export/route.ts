@@ -1,19 +1,18 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { apiError } from '@/lib/api/response';
-import { getAuthenticatedUser } from '@/lib/auth-utils';
-import { prisma } from '@/lib/prisma';
 
-export async function GET(
+import { prisma } from '@/lib/prisma';
+import { withAdminAuth } from '@/lib/middleware/auth';
+import { withCompleteSecurity } from '@/lib/middleware/security';
+
+async function exportEmployeeDetailsHandler(
   req: NextRequest,
+  context: { user: unknown },
   { params }: { params: Promise<{ employeeId: string }> }
-) {
+): Promise<NextResponse> {
   try {
     const { employeeId } = await params;
-    const user = await getAuthenticatedUser();
-    
-    if (user.role !== 'ADMIN') {
-      return apiError('Unauthorized', 403);
-    }
+    // Admin user is available in context if needed
 
     // Get employee data (reuse logic from details endpoint)
     const employee = await prisma.user.findUnique({
@@ -52,6 +51,15 @@ export async function GET(
     return apiError('Failed to generate report', 500);
   }
 }
+
+// Apply comprehensive admin security
+export const GET = withCompleteSecurity(
+  withAdminAuth(exportEmployeeDetailsHandler),
+  { 
+    validateInput: false, // GET request, no input validation needed
+    skipCSRF: true // GET request, CSRF not applicable
+  }
+);
 
 interface Employee {
   id: string;

@@ -1,18 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { sendPasswordResetEmail } from '@/lib/email/service';
+import { withAuthRateLimit } from '@/lib/middleware/auth';
+import { withCompleteSecurity } from '@/lib/middleware/security';
+import { apiSuccess, apiError } from '@/lib/api/response';
 
-export async function POST(request: NextRequest) {
+const forgotPasswordSchema = z.object({
+  email: z.string().email('Invalid email format')
+});
+
+async function forgotPasswordHandler(req: NextRequest): Promise<NextResponse> {
   try {
-    const { email } = await request.json();
-
-    if (!email) {
-      return NextResponse.json(
-        { error: 'Email is required' },
-        { status: 400 }
-      );
+    // Get validated data from middleware
+    const validatedData = (req as any).validatedData;
+    
+    if (!validatedData) {
+      return apiError('Request validation failed', 400);
     }
+    
+    const { email } = validatedData;
 
     // Check if user exists
     const user = await prisma.user.findUnique({ 
@@ -54,9 +62,16 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Forgot password error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return apiError('Internal server error', 500);
   }
 }
+
+// Apply comprehensive security with rate limiting for auth operations
+export const POST = withCompleteSecurity(
+  withAuthRateLimit(forgotPasswordHandler),
+  {
+    validateInput: true,
+    schema: forgotPasswordSchema,
+    sanitizationRule: 'general'
+  }
+);

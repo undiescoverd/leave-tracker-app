@@ -1,16 +1,20 @@
-import { apiSuccess, apiError, HttpStatus } from '@/lib/api/response';
-import { AuthenticationError, AuthorizationError } from '@/lib/api/errors';
+import { NextRequest, NextResponse } from 'next/server';
+import { apiSuccess, apiError } from '@/lib/api/response';
 import { features } from '@/lib/features';
 import { getPendingToilEntries } from '@/lib/services/toil.service';
-import { requireAdmin } from '@/lib/auth-utils';
+import { withAdminAuth } from '@/lib/middleware/auth';
+import { withCompleteSecurity } from '@/lib/middleware/security';
 
-export async function GET() {
+async function getPendingToilHandler(
+  req: NextRequest,
+  context: { user: any }
+): Promise<NextResponse> {
   try {
     if (!features.TOIL_ENABLED) {
       return apiError('TOIL feature is not enabled', 400);
     }
 
-    await requireAdmin();
+    const admin = context.user;
 
     // Get pending TOIL entries
     const pendingEntries = await getPendingToilEntries();
@@ -21,9 +25,15 @@ export async function GET() {
     });
 
   } catch (error) {
-    if (error instanceof AuthenticationError || error instanceof AuthorizationError) {
-      return apiError(error.message, (error.statusCode as number) || HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-    return apiError('Internal server error', HttpStatus.INTERNAL_SERVER_ERROR);
+    console.error('Pending TOIL error:', error);
+    return apiError('Failed to fetch pending TOIL entries', 500);
   }
 }
+
+export const GET = withCompleteSecurity(
+  withAdminAuth(getPendingToilHandler),
+  { 
+    validateInput: false, 
+    skipCSRF: true 
+  }
+);

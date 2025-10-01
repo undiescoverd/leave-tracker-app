@@ -3,12 +3,10 @@ import { calculateTOILHours, getTOILDisplayText } from '@/lib/toil/calculator';
 import { validateTOILRequest } from '@/lib/toil/validation';
 import { TOILScenario, TOILRequest } from '@/lib/types/toil';
 import './setup';
-
 describe('TOIL Comprehensive Tests', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
-
   describe('TOIL Calculator Business Rules', () => {
     describe('Local Show Scenario', () => {
       it('should return 0 hours for local shows (Section 6.6a)', () => {
@@ -17,17 +15,14 @@ describe('TOIL Comprehensive Tests', () => {
           travelDate: new Date('2024-06-01'),
           reason: 'Local theatre performance'
         };
-
         const result = calculateTOILHours(request);
         expect(result).toBe(0);
       });
-
       it('should return appropriate display text for local shows', () => {
         const displayText = getTOILDisplayText(0, TOILScenario.LOCAL_SHOW);
         expect(displayText).toBe('No TOIL will be allocated');
       });
     });
-
     describe('Working Day Panel Scenario', () => {
       it('should return 4 hours for agent panel on working day (Section 6.6b)', () => {
         const request: TOILRequest = {
@@ -35,16 +30,13 @@ describe('TOIL Comprehensive Tests', () => {
           travelDate: new Date('2024-06-01'), // Monday
           reason: 'Agent panel meeting in London'
         };
-
         const result = calculateTOILHours(request);
         expect(result).toBe(4);
       });
-
       it('should return specific display text for panel day', () => {
         const displayText = getTOILDisplayText(4, TOILScenario.WORKING_DAY_PANEL);
         expect(displayText).toBe('You will be able to start at 1pm on the following day');
       });
-
       it('should validate panel date is a working day', () => {
         // Mock validation would check working day logic
         expect(validateTOILRequest).toBeDefined();
@@ -59,7 +51,6 @@ describe('TOIL Comprehensive Tests', () => {
         expect(testWeekend).toBeInstanceOf(Date);
       });
     });
-
     describe('Overnight Day Off Scenario', () => {
       it('should return 4 hours for weekend travel (Section 6.6c)', () => {
         const request: TOILRequest = {
@@ -68,11 +59,9 @@ describe('TOIL Comprehensive Tests', () => {
           returnDate: new Date('2024-06-02'), // Sunday
           reason: 'Weekend client meeting'
         };
-
         const result = calculateTOILHours(request);
         expect(result).toBe(4);
       });
-
       it('should apply to both Saturday and Sunday travel', () => {
         const saturdayTravel: TOILRequest = {
           scenario: TOILScenario.OVERNIGHT_DAY_OFF,
@@ -80,19 +69,16 @@ describe('TOIL Comprehensive Tests', () => {
           returnDate: new Date('2024-06-02'),
           reason: 'Weekend work'
         };
-
         const sundayTravel: TOILRequest = {
           scenario: TOILScenario.OVERNIGHT_DAY_OFF,
           travelDate: new Date('2024-06-02'), // Sunday
           returnDate: new Date('2024-06-03'),
           reason: 'Weekend work'
         };
-
         expect(calculateTOILHours(saturdayTravel)).toBe(4);
         expect(calculateTOILHours(sundayTravel)).toBe(4);
       });
     });
-
     describe('Late Return Scenario', () => {
       it('should calculate hours based on return time (Section 6.6d)', () => {
         const testCases = [
@@ -107,7 +93,6 @@ describe('TOIL Comprehensive Tests', () => {
           { returnTime: '23:30', expectedHours: 4, description: '11:30pm' },
           { returnTime: '00:15', expectedHours: 4, description: 'After midnight' }
         ];
-
         testCases.forEach(({ returnTime, expectedHours, description }) => {
           const request: TOILRequest = {
             scenario: TOILScenario.OVERNIGHT_WORKING_DAY,
@@ -116,12 +101,10 @@ describe('TOIL Comprehensive Tests', () => {
             returnTime: returnTime,
             reason: `Business trip - return ${description}`
           };
-
           const result = calculateTOILHours(request);
           expect(result).toBe(expectedHours);
         });
       });
-
       it('should require return time for overnight working day', () => {
         const requestWithoutReturnTime: TOILRequest = {
           scenario: TOILScenario.OVERNIGHT_WORKING_DAY,
@@ -130,11 +113,9 @@ describe('TOIL Comprehensive Tests', () => {
           reason: 'Business trip'
           // Missing returnTime
         };
-
         const result = calculateTOILHours(requestWithoutReturnTime);
         expect(result).toBeNull();
       });
-
       it('should handle edge cases in time parsing', () => {
         const edgeCases = [
           '19:00:00', // With seconds
@@ -142,7 +123,6 @@ describe('TOIL Comprehensive Tests', () => {
           '7:00 PM',  // 12-hour format (should be normalized)
           '19:00 GMT' // With timezone (should extract time)
         ];
-
         // Mock time parsing to handle various formats (not used in this test)
         // edgeCases.forEach(_timeFormat => {
         // Test actual time parsing with normalized format
@@ -153,14 +133,12 @@ describe('TOIL Comprehensive Tests', () => {
             returnTime: '19:00', // Normalized format
             reason: 'Business trip'
           };
-
           const result = calculateTOILHours(request);
           expect(result).toBe(1); // 7pm = 1 hour
         });
       });
     });
   });
-
   describe('TOIL Validation Rules', () => {
     it('should validate required fields', () => {
       const validRequests = [
@@ -188,13 +166,11 @@ describe('TOIL Comprehensive Tests', () => {
           reason: 'Business trip'
         }
       ];
-
       validRequests.forEach(request => {
         const result = calculateTOILHours(request as TOILRequest);
         expect(result).not.toBeNull();
       });
     });
-
     it('should validate travel dates are not in the past', () => {
       const pastDate = new Date('2020-01-01');
       const request: TOILRequest = {
@@ -202,13 +178,11 @@ describe('TOIL Comprehensive Tests', () => {
         travelDate: pastDate,
         reason: 'Past travel'
       };
-
       // In a real implementation, validation would check date validity
       const result = calculateTOILHours(request);
       // For calculator, we only care about the calculation logic
       expect(result).toBe(0); // Local show = 0 hours regardless of date
     });
-
     it('should validate return date is after travel date', () => {
       const invalidRequest: TOILRequest = {
         scenario: TOILScenario.OVERNIGHT_DAY_OFF,
@@ -216,13 +190,11 @@ describe('TOIL Comprehensive Tests', () => {
         returnDate: new Date('2024-06-01'), // Before travel date
         reason: 'Invalid date range'
       };
-
       // Validation would catch this in a real implementation
       // Calculator still processes the request
       const result = calculateTOILHours(invalidRequest);
       expect(result).toBe(4); // Still calculates based on scenario
     });
-
     it('should validate reason field is not empty', () => {
       const requests = [
         {
@@ -241,7 +213,6 @@ describe('TOIL Comprehensive Tests', () => {
           // Missing reason
         }
       ];
-
       requests.forEach(request => {
         // Calculator doesn't validate reason, but validation layer would
         const result = calculateTOILHours(request as TOILRequest);
@@ -249,7 +220,6 @@ describe('TOIL Comprehensive Tests', () => {
       });
     });
   });
-
   describe('TOIL Display Text Generation', () => {
     it('should generate appropriate messages for each scenario', () => {
       const testCases = [
@@ -279,18 +249,15 @@ describe('TOIL Comprehensive Tests', () => {
           expected: '3 hours of TOIL will be allocated'
         }
       ];
-
       testCases.forEach(({ hours, scenario, expected }) => {
         const result = getTOILDisplayText(hours, scenario);
         expect(result).toBe(expected);
       });
     });
-
     it('should handle calculating state', () => {
       const result = getTOILDisplayText(null, TOILScenario.LOCAL_SHOW);
       expect(result).toBe('Calculating...');
     });
-
     it('should handle singular vs plural hours', () => {
       expect(getTOILDisplayText(1, TOILScenario.OVERNIGHT_WORKING_DAY))
         .toBe('1 hour of TOIL will be allocated');
@@ -299,7 +266,6 @@ describe('TOIL Comprehensive Tests', () => {
         .toBe('2 hours of TOIL will be allocated');
     });
   });
-
   describe('Complex TOIL Scenarios', () => {
     it('should handle multi-day trips correctly', () => {
       // Day 1: Travel on working day, return late
@@ -310,7 +276,6 @@ describe('TOIL Comprehensive Tests', () => {
         returnTime: '22:00',
         reason: 'Multi-day client visit - Day 1'
       };
-
       // Day 2: Continue on working day, return late
       const day2Request: TOILRequest = {
         scenario: TOILScenario.OVERNIGHT_WORKING_DAY,
@@ -319,11 +284,9 @@ describe('TOIL Comprehensive Tests', () => {
         returnTime: '21:30',
         reason: 'Multi-day client visit - Day 2'
       };
-
       expect(calculateTOILHours(day1Request)).toBe(4); // 10pm+ return
       expect(calculateTOILHours(day2Request)).toBe(3); // 9:30pm return
     });
-
     it('should calculate weekly TOIL accumulation', () => {
       const weeklyRequests = [
         {
@@ -345,7 +308,6 @@ describe('TOIL Comprehensive Tests', () => {
           expectedHours: 4
         }
       ];
-
       let totalHours = 0;
       weeklyRequests.forEach(({ scenario, returnTime, expectedHours }) => {
         const request: TOILRequest = {
@@ -355,16 +317,13 @@ describe('TOIL Comprehensive Tests', () => {
           returnTime,
           reason: 'Weekly travel'
         };
-
         const hours = calculateTOILHours(request);
         expect(hours).toBe(expectedHours);
         totalHours += hours || 0;
       });
-
       expect(totalHours).toBe(11); // 1 + 2 + 4 + 4 = 11 hours total
     });
   });
-
   describe('TOIL Business Logic Edge Cases', () => {
     it('should handle UK bank holidays appropriately', () => {
       // Travel on a bank holiday (treated as weekend)
@@ -374,11 +333,9 @@ describe('TOIL Comprehensive Tests', () => {
         returnDate: new Date('2024-12-26'), // Boxing Day
         reason: 'Holiday period work'
       };
-
       const result = calculateTOILHours(bankHolidayRequest);
       expect(result).toBe(4); // Same as weekend travel
     });
-
     it('should handle different time zones consistently', () => {
       // Times should be processed in local time zone
       const timeZoneRequests = [
@@ -391,7 +348,6 @@ describe('TOIL Comprehensive Tests', () => {
           expectedHours: 3
         }
       ];
-
       timeZoneRequests.forEach(({ returnTime, expectedHours }) => {
         const request: TOILRequest = {
           scenario: TOILScenario.OVERNIGHT_WORKING_DAY,
@@ -400,12 +356,10 @@ describe('TOIL Comprehensive Tests', () => {
           returnTime,
           reason: 'Timezone test'
         };
-
         const result = calculateTOILHours(request);
         expect(result).toBe(expectedHours);
       });
     });
-
     it('should validate realistic travel scenarios', () => {
       // Same day return should not be "overnight"
       const sameDayRequest: TOILRequest = {
@@ -415,12 +369,10 @@ describe('TOIL Comprehensive Tests', () => {
         returnTime: '22:00',
         reason: 'Same day return'
       };
-
       // Calculator processes as requested, validation layer would catch this
       const result = calculateTOILHours(sameDayRequest);
       expect(result).toBe(4); // Still calculates based on return time
     });
-
     it('should handle fractional hours appropriately', () => {
       // TOIL is allocated in whole hours only
       const request: TOILRequest = {
@@ -430,13 +382,11 @@ describe('TOIL Comprehensive Tests', () => {
         returnTime: '19:30', // Between 7pm and 8pm
         reason: 'Fractional hour test'
       };
-
       const result = calculateTOILHours(request);
       expect(result).toBe(1); // Should round down to 1 hour (7pm bracket)
       expect(Number.isInteger(result)).toBe(true);
     });
   });
-
   describe('Performance and Reliability', () => {
     it('should handle large numbers of calculations efficiently', () => {
       const startTime = Date.now();
@@ -450,19 +400,16 @@ describe('TOIL Comprehensive Tests', () => {
           returnTime: `${19 + (i % 4)}:00`, // Vary between 19:00 and 22:00
           reason: `Performance test ${i}`
         };
-
         const result = calculateTOILHours(request);
         expect(result).toBeGreaterThanOrEqual(1);
         expect(result).toBeLessThanOrEqual(4);
       }
-
       const endTime = Date.now();
       const duration = endTime - startTime;
       
       // Should complete 1000 calculations in under 100ms
       expect(duration).toBeLessThan(100);
     });
-
     it('should be deterministic for same inputs', () => {
       const request: TOILRequest = {
         scenario: TOILScenario.OVERNIGHT_WORKING_DAY,
@@ -471,7 +418,6 @@ describe('TOIL Comprehensive Tests', () => {
         returnTime: '20:30',
         reason: 'Deterministic test'
       };
-
       // Run the same calculation multiple times
       const results = Array(10).fill(null).map(() => calculateTOILHours(request));
       
@@ -480,7 +426,6 @@ describe('TOIL Comprehensive Tests', () => {
         expect(result).toBe(2); // 8:30pm = 2 hours
       });
     });
-
     it('should handle invalid input gracefully', () => {
       const invalidRequests = [
         null,
@@ -494,7 +439,6 @@ describe('TOIL Comprehensive Tests', () => {
           returnTime: '20:00'
         }
       ];
-
       invalidRequests.forEach(request => {
         const result = calculateTOILHours(request as TOILRequest);
         expect(result).toBeNull();

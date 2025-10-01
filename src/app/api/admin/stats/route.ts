@@ -1,13 +1,14 @@
+import { NextRequest, NextResponse } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api/response';
-import { requireAdmin } from '@/lib/auth-utils';
+import { withAdminAuth } from '@/lib/middleware/auth';
+import { withCompleteSecurity } from '@/lib/middleware/security';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { AuthenticationError, AuthorizationError } from '@/lib/api/errors';
 
-export async function GET() {
+async function getAdminStatsHandler(req: NextRequest, context: { user: { id: string; email: string; name: string } }): Promise<NextResponse> {
   try {
-    // Require admin authentication with proper error handling
-    const admin = await requireAdmin();
+    const admin = context.user;
 
     // Audit log for admin stats access
     logger.securityEvent('admin_data_access', 'medium', admin.id, {
@@ -85,3 +86,12 @@ export async function GET() {
     return apiError('Failed to fetch admin statistics', 500);
   }
 }
+
+// Apply comprehensive admin security
+export const GET = withCompleteSecurity(
+  withAdminAuth(getAdminStatsHandler),
+  { 
+    validateInput: false, // GET request, no input validation needed
+    skipCSRF: true // GET request, CSRF not applicable
+  }
+);

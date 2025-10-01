@@ -33,6 +33,7 @@ export default function LeaveRequestsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [pageSize, setPageSize] = useState(10);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   // Ensure requests is always an array
   const safeRequests = Array.isArray(requests) ? requests : [];
@@ -109,6 +110,59 @@ export default function LeaveRequestsPage() {
     }
   };
 
+  const canCancelRequest = (request: LeaveRequest) => {
+    if (request.status !== 'PENDING' && request.status !== 'APPROVED') {
+      return false;
+    }
+    
+    // Allow cancellation until the leave has ended (not just before it starts)
+    const endDate = new Date(request.endDate);
+    const now = new Date();
+    // Set end date to end of day for comparison
+    endDate.setHours(23, 59, 59, 999);
+    return endDate >= now;
+  };
+
+  const handleCancelRequest = async (requestId: string) => {
+    if (!confirm('Are you sure you want to cancel this leave request? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setCancellingId(requestId);
+      
+      // Optimistically update UI - mark as cancelled immediately
+      setRequests(prevRequests => 
+        prevRequests.map(req => 
+          req.id === requestId ? { ...req, status: 'CANCELLED' } : req
+        )
+      );
+
+      const response = await fetch(`/api/leave/request/${requestId}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        // Refresh to ensure data is in sync
+        await fetchRequests();
+      } else {
+        // Revert optimistic update on error
+        await fetchRequests();
+        const errorData = await response.json();
+        alert(errorData.error?.message || 'Failed to cancel request');
+      }
+    } catch (err) {
+      // Revert optimistic update on error
+      await fetchRequests();
+      console.error('Error cancelling request:', err);
+      alert('Network error: Unable to cancel request');
+    } finally {
+      setCancellingId(null);
+    }
+  };
 
   if (status === "loading") {
     return (
@@ -155,6 +209,7 @@ export default function LeaveRequestsPage() {
                     <SelectItem value="PENDING">Pending</SelectItem>
                     <SelectItem value="APPROVED">Approved</SelectItem>
                     <SelectItem value="REJECTED">Rejected</SelectItem>
+                    <SelectItem value="CANCELLED">Cancelled</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -244,6 +299,18 @@ export default function LeaveRequestsPage() {
                           <strong>Admin Comment:</strong> {request.adminComment}
                         </div>
                       )}
+                      
+                      {canCancelRequest(request) && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="w-full mt-3"
+                          onClick={() => handleCancelRequest(request.id)}
+                          disabled={cancellingId === request.id}
+                        >
+                          {cancellingId === request.id ? 'Cancelling...' : 'Cancel Request'}
+                        </Button>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
@@ -259,6 +326,7 @@ export default function LeaveRequestsPage() {
                       <TableHead>Reason</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Submitted</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -283,6 +351,18 @@ export default function LeaveRequestsPage() {
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                           {formatDate(request.createdAt)}
+                        </TableCell>
+                        <TableCell>
+                          {canCancelRequest(request) && (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleCancelRequest(request.id)}
+                              disabled={cancellingId === request.id}
+                            >
+                              {cancellingId === request.id ? 'Cancelling...' : 'Cancel'}
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}

@@ -1,14 +1,12 @@
 import { apiSuccess, apiError } from '@/lib/api/response';
-import { getAuthenticatedUser } from '@/lib/auth-utils';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { withAdminAuth } from '@/lib/middleware/auth';
+import { withCompleteSecurity } from '@/lib/middleware/security';
 
-export async function POST() {
+async function seedDummyDataHandler(req: NextRequest, context: { user: unknown }): Promise<NextResponse> {
   try {
-    const user = await getAuthenticatedUser();
-    
-    if (user.role !== 'ADMIN') {
-      return apiError('Unauthorized', 403);
-    }
+    // Admin user is available in context if needed
 
     // Get existing users (non-admin)
     const users = await prisma.user.findMany({
@@ -284,3 +282,12 @@ export async function POST() {
     return apiError('Failed to prepare dummy data', 500);
   }
 }
+
+// Apply comprehensive admin security
+export const POST = withCompleteSecurity(
+  withAdminAuth(seedDummyDataHandler),
+  { 
+    validateInput: false, // Seed operation doesn't need input validation
+    skipCSRF: false 
+  }
+);
