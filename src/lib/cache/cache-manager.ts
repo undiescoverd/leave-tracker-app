@@ -337,27 +337,27 @@ class EnhancedCacheManager extends CacheManager {
 // Create global cache instances with enhanced features
 export const apiCache = new EnhancedCacheManager({
   ttl: 2 * 60 * 1000, // 2 minutes for API responses
-  maxSize: 100,
+  maxSize: 200, // Increased size for better hit rates
 });
 
 export const userDataCache = new EnhancedCacheManager({
   ttl: 5 * 60 * 1000, // 5 minutes for user data
-  maxSize: 50,
+  maxSize: 100, // Increased size for better hit rates
 });
 
 export const calendarCache = new EnhancedCacheManager({
   ttl: 1 * 60 * 1000, // 1 minute for calendar data (more frequent updates)
-  maxSize: 75,
+  maxSize: 150, // Increased size for better hit rates
 });
 
 export const leaveBalanceCache = new EnhancedCacheManager({
   ttl: 10 * 60 * 1000, // 10 minutes for leave balances (less frequent updates)
-  maxSize: 25,
+  maxSize: 50, // Increased size for better hit rates
 });
 
 export const statsCache = new EnhancedCacheManager({
   ttl: 5 * 60 * 1000, // 5 minutes for dashboard stats
-  maxSize: 10,
+  maxSize: 25, // Increased size for better hit rates
 });
 
 /**

@@ -44,14 +44,12 @@ async function getLeaveBalanceHandler(
     
     logger.cacheOperation('miss', cacheKey);
     
-    // Get user's leave balance for current year
-    const balance = await getUserLeaveBalance(user.id, currentYear);
-
-    // Get pending requests data
-    await getUserLeaveBalances(user.id, currentYear);
-    
-    // Calculate pending days by type
-    const pendingData = await calculatePendingLeaveByType(user.id, currentYear);
+    // Get all user data in parallel for better performance
+    const [balance, multiBalances, pendingData] = await Promise.all([
+      getUserLeaveBalance(user.id, currentYear),
+      getUserLeaveBalances(user.id, currentYear),
+      calculatePendingLeaveByType(user.id, currentYear)
+    ]);
 
     // Return appropriate response based on features
     const response: any = {
@@ -77,10 +75,8 @@ async function getLeaveBalanceHandler(
       }
     };
 
-    // Add TOIL and sick leave if enabled
+    // Add TOIL and sick leave if enabled (multiBalances already fetched above)
     if (features.TOIL_ENABLED || features.SICK_LEAVE_ENABLED) {
-      const multiBalances = await getUserLeaveBalances(user.id, currentYear);
-      
       if (features.TOIL_ENABLED && multiBalances.toil) {
         if (response.data.balances) {
           response.data.balances.toil = multiBalances.toil;

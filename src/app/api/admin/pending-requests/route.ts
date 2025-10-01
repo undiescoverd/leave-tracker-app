@@ -4,42 +4,60 @@ import { prisma } from '@/lib/prisma';
 import { withAdminAuth } from '@/lib/middleware/auth';
 import { withCompleteSecurity } from '@/lib/middleware/security';
 import { AuthenticationError, AuthorizationError } from '@/lib/api/errors';
+import { apiCache, createCacheKey } from '@/lib/cache/cache-manager';
+import { logger, generateRequestId } from '@/lib/logger';
 
 async function getPendingRequestsHandler(req: NextRequest, context: { user: unknown }): Promise<NextResponse> {
+  const requestId = generateRequestId();
+  const start = performance.now();
+  
   try {
-    // Admin user is available in context if needed
+    logger.apiRequest('GET', '/api/admin/pending-requests', undefined, requestId);
 
     // Get query parameters for filtering and pagination
     const { searchParams } = new URL(req.url);
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    // Get all pending leave requests with user details
-    const pendingRequests = await prisma.leaveRequest.findMany({
-      where: {
-        status: 'PENDING'
-      },
-      orderBy: [
-        { createdAt: 'asc' }, // Oldest requests first for better prioritization
-      ],
-      take: limit,
-      skip: offset,
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
+    // Create cache key for this specific request
+    const cacheKey = createCacheKey('admin-pending-requests', limit.toString(), offset.toString());
+    const cachedData = apiCache.get(cacheKey);
+    
+    if (cachedData) {
+      logger.cacheOperation('hit', cacheKey);
+      const duration = performance.now() - start;
+      logger.apiResponse('GET', '/api/admin/pending-requests', 200, duration, undefined, requestId);
+      return apiSuccess(cachedData);
+    }
+    
+    logger.cacheOperation('miss', cacheKey);
+
+    // Execute both queries in parallel for better performance
+    const [pendingRequests, totalCount] = await Promise.all([
+      prisma.leaveRequest.findMany({
+        where: {
+          status: 'PENDING'
+        },
+        orderBy: [
+          { createdAt: 'asc' }, // Oldest requests first for better prioritization
+        ],
+        take: limit,
+        skip: offset,
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+            },
           },
         },
-      },
-    });
-
-    // Get total count for pagination
-    const totalCount = await prisma.leaveRequest.count({
-      where: { status: 'PENDING' }
-    });
+      }),
+      prisma.leaveRequest.count({
+        where: { status: 'PENDING' }
+      })
+    ]);
 
     // Transform data to match frontend expectations
     const enhancedRequests = pendingRequests.map(request => {
@@ -67,19 +85,38 @@ async function getPendingRequestsHandler(req: NextRequest, context: { user: unkn
       };
     });
 
-    return apiSuccess({
+    const responseData = {
       requests: enhancedRequests,
       total: totalCount,
       limit,
       offset,
       hasMore: totalCount > offset + limit
-    });
+    };
+
+    // Cache the response for 2 minutes (admin data changes frequently)
+    apiCache.set(cacheKey, responseData, 2 * 60 * 1000);
+    logger.cacheOperation('set', cacheKey);
+
+    const duration = performance.now() - start;
+    logger.apiResponse('GET', '/api/admin/pending-requests', 200, duration, undefined, requestId);
+    
+    return apiSuccess(responseData);
 
   } catch (error) {
+    const duration = performance.now() - start;
+    
     if (error instanceof AuthenticationError || error instanceof AuthorizationError) {
+      logger.apiResponse('GET', '/api/admin/pending-requests', error.statusCode, duration, undefined, requestId);
       return apiError(error.message, error.statusCode as number);
     }
-    console.error('Admin pending requests error:', error);
+    
+    logger.error('Admin pending requests error:', {
+      requestId,
+      action: 'api_error',
+      resource: '/api/admin/pending-requests'
+    }, error instanceof Error ? error : new Error(String(error)));
+    
+    logger.apiResponse('GET', '/api/admin/pending-requests', 500, duration, undefined, requestId);
     return apiError('Failed to fetch pending requests', 500);
   }
 }

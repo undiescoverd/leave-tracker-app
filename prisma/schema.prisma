@@ -23,6 +23,10 @@ model User {
   leaveRequests      LeaveRequest[]
   toilEntries        ToilEntry[]
 
+  // Performance indexes for common queries
+  @@index([role, createdAt])
+  @@index([email])
+  @@index([resetToken])
   @@map("users")
 }
 
@@ -41,9 +45,14 @@ model LeaveRequest {
   userId    String
   user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // Enhanced indexes for better query performance
   @@index([userId, status])
   @@index([startDate, endDate])
   @@index([status, createdAt])
+  @@index([type, status])
+  @@index([userId, type, status])
+  @@index([approvedBy, approvedAt])
+  @@index([createdAt])
   @@map("leave_requests")
 }
 
@@ -64,8 +73,12 @@ model ToilEntry {
   newBalance       Float?
   user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // Enhanced indexes for better query performance
   @@index([userId, date])
   @@index([approved, createdAt])
+  @@index([userId, approved])
+  @@index([type, approved])
+  @@index([approvedBy, approvedAt])
   @@map("toil_entries")
 }
 
