@@ -5,12 +5,20 @@ import { AuthenticationError } from '@/lib/api/errors';
 import { getAuthenticatedUser } from '@/lib/auth-utils';
 import { withUserAuth } from '@/lib/middleware/auth';
 import { withCompleteSecurity } from '@/lib/middleware/security';
+import { userDataCache, createCacheKey } from '@/lib/cache/cache-manager';
+import { logger, generateRequestId } from '@/lib/logger';
+import { withCacheHeaders } from '@/lib/middleware/cache-headers';
 
 async function getLeaveRequestsHandler(
   req: NextRequest,
   context: { user: any }
 ): Promise<NextResponse> {
+  const requestId = generateRequestId();
+  const start = performance.now();
+  
   try {
+    logger.apiRequest('GET', '/api/leave/requests', undefined, requestId);
+    
     // User from middleware
     const user = context.user;
 
@@ -27,24 +35,37 @@ async function getLeaveRequestsHandler(
       where.status = status;
     }
 
-    // Get total count for pagination
-    const totalCount = await prisma.leaveRequest.count({ where });
+    // Create cache key
+    const cacheKey = createCacheKey('leave-requests', user.id, status || 'all', page.toString(), limit.toString());
+    const cachedData = userDataCache.get(cacheKey);
+    
+    if (cachedData) {
+      logger.cacheOperation('hit', cacheKey);
+      const duration = performance.now() - start;
+      logger.apiResponse('GET', '/api/leave/requests', 200, duration, user.id, requestId);
+      return apiSuccess(cachedData);
+    }
+    
+    logger.cacheOperation('miss', cacheKey);
 
-    // Get leave requests with pagination
-    const leaveRequests = await prisma.leaveRequest.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-      skip: offset,
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
+    // Execute both queries in parallel for better performance
+    const [totalCount, leaveRequests] = await Promise.all([
+      prisma.leaveRequest.count({ where }),
+      prisma.leaveRequest.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip: offset,
+        include: {
+          user: {
+            select: {
+              name: true,
+              email: true,
+            },
           },
         },
-      },
-    });
+      })
+    ]);
 
     // Calculate days for each request
     const requestsWithDays = leaveRequests.map(request => {
@@ -62,21 +83,40 @@ async function getLeaveRequestsHandler(
       };
     });
 
-    return apiSuccess({
+    const responseData = {
       requests: requestsWithDays,
       total: totalCount,
       page,
       limit,
       totalPages: Math.ceil(totalCount / limit)
-    });
+    };
+
+    // Cache the response for 4 minutes
+    userDataCache.set(cacheKey, responseData, 4 * 60 * 1000);
+    logger.cacheOperation('set', cacheKey);
+
+    const duration = performance.now() - start;
+    logger.apiResponse('GET', '/api/leave/requests', 200, duration, user.id, requestId);
+    
+    return apiSuccess(responseData);
   } catch (error) {
-    console.error('Get leave requests error:', error);
+    const duration = performance.now() - start;
+    
+    logger.error('Get leave requests error:', {
+      requestId,
+      action: 'api_error',
+      resource: '/api/leave/requests'
+    }, error instanceof Error ? error : new Error(String(error)));
+    
+    logger.apiResponse('GET', '/api/leave/requests', 500, duration, undefined, requestId);
     return apiError('Failed to fetch leave requests', 500);
   }
 }
 
 export const GET = withCompleteSecurity(
-  withUserAuth(getLeaveRequestsHandler),
+  withCacheHeaders(
+    withUserAuth(getLeaveRequestsHandler)
+  ),
   {
     validateInput: false,
     skipCSRF: true
