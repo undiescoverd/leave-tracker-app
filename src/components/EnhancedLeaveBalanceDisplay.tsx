@@ -4,7 +4,7 @@ import { useMemo, memo } from "react";
 import { useSession } from "next-auth/react";
 import { Calendar, Heart, Clock, AlertCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { useLeaveBalance } from "@/hooks/useCachedData";
+import { useLeaveBalance } from "@/hooks/useLeaveBalance";
 
 interface LeaveBalance {
   // Legacy format support
@@ -108,7 +108,10 @@ const LeaveTypeCard = memo(function LeaveTypeCard({ type, used, total, remaining
 
 export default function EnhancedLeaveBalanceDisplay() {
   const { data: session } = useSession();
-  const { data: balance, isLoading: loading, error: fetchError } = useLeaveBalance();
+  const { data: balance, isLoading: loading, error: fetchError } = useLeaveBalance(
+    session?.user?.id || '',
+    { enabled: !!session?.user?.id }
+  );
   
   const error = fetchError?.message || null;
 

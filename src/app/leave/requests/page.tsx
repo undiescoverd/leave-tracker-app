@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getStatusVariant } from "@/lib/theme-utils";
+import { useLeaveRequests, useCancelLeaveRequest } from "@/hooks/useLeaveRequests";
+import { toast } from "sonner";
 
 interface LeaveRequest {
   id: string;
@@ -22,79 +24,52 @@ interface LeaveRequest {
   adminComment?: string;
 }
 
-export default function LeaveRequestsPage() {
-  const { status } = useSession();
+export default function LeaveRequestsPageOptimized() {
+  const { data: session, status } = useSession();
   const router = useRouter();
-  const [requests, setRequests] = useState<LeaveRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
   const [pageSize, setPageSize] = useState(10);
-  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
-  // Ensure requests is always an array
-  const safeRequests = Array.isArray(requests) ? requests : [];
+  // Use React Query hooks
+  const {
+    data: requestsData,
+    isLoading: loading,
+    error: fetchError,
+    refetch
+  } = useLeaveRequests({
+    userId: session?.user?.id || '',
+    status: statusFilter !== "ALL" ? statusFilter : undefined,
+    page: currentPage,
+    limit: pageSize,
+    enabled: !!session?.user?.id && status === "authenticated"
+  });
 
-  const fetchRequests = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError("");
-      
-      const params = new URLSearchParams();
-      if (statusFilter !== "ALL") {
-        params.append('status', statusFilter);
-      }
-      params.append('page', currentPage.toString());
-      params.append('limit', pageSize.toString());
-      
-      const response = await fetch(`/api/leave/requests?${params}`);
-      
-      if (response.ok) {
-        const data = await response.json();
+  const cancelRequestMutation = useCancelLeaveRequest();
 
-        
-        // Ensure we have an array, even if the API returns unexpected data
-        const requestsArray = Array.isArray(data.data?.requests) 
-          ? data.data.requests 
-          : Array.isArray(data.data) 
-            ? data.data 
-            : [];
-            
-        setRequests(requestsArray);
-        setTotalPages(data.data?.totalPages || 1);
-        setTotalCount(data.data?.total || 0);
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error?.message || "Failed to fetch requests");
-        setRequests([]); // Set empty array on error
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
-      setError("Network error: Unable to fetch leave requests");
-      console.error("Error fetching requests:", errorMessage);
-      setRequests([]); // Set empty array on error
-    } finally {
-      setLoading(false);
-    }
-  }, [currentPage, pageSize, statusFilter]);
+  // Memoized values for performance
+  const safeRequests = useMemo(() => 
+    requestsData?.requests || [], 
+    [requestsData?.requests]
+  );
 
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login");
-    } else if (status === "authenticated") {
-      fetchRequests();
-    }
-  }, [status, router, fetchRequests]);
+  const totalPages = useMemo(() => 
+    requestsData?.totalPages || 1, 
+    [requestsData?.totalPages]
+  );
 
-  // Refetch when filters change
-  useEffect(() => {
-    if (status === "authenticated") {
-      fetchRequests();
-    }
-  }, [currentPage, pageSize, statusFilter, fetchRequests]);
+  const totalCount = useMemo(() => 
+    requestsData?.total || 0, 
+    [requestsData?.total]
+  );
+
+  const error = fetchError?.message || "";
+
+  // Redirect if not authenticated
+  if (status === "unauthenticated") {
+    router.push("/login");
+    return null;
+  }
 
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return 'N/A';
@@ -129,38 +104,11 @@ export default function LeaveRequestsPage() {
     }
 
     try {
-      setCancellingId(requestId);
-      
-      // Optimistically update UI - mark as cancelled immediately
-      setRequests(prevRequests => 
-        prevRequests.map(req => 
-          req.id === requestId ? { ...req, status: 'CANCELLED' } : req
-        )
-      );
-
-      const response = await fetch(`/api/leave/request/${requestId}/cancel`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        // Refresh to ensure data is in sync
-        await fetchRequests();
-      } else {
-        // Revert optimistic update on error
-        await fetchRequests();
-        const errorData = await response.json();
-        alert(errorData.error?.message || 'Failed to cancel request');
-      }
+      await cancelRequestMutation.mutateAsync(requestId);
+      toast.success('Leave request cancelled successfully');
     } catch (err) {
-      // Revert optimistic update on error
-      await fetchRequests();
       console.error('Error cancelling request:', err);
-      alert('Network error: Unable to cancel request');
-    } finally {
-      setCancellingId(null);
+      toast.error('Failed to cancel leave request');
     }
   };
 
@@ -242,6 +190,14 @@ export default function LeaveRequestsPage() {
           <Card className="mb-6 border-destructive">
             <CardContent className="pt-6">
               <p className="text-destructive">{error}</p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => refetch()}
+                className="mt-2"
+              >
+                Retry
+              </Button>
             </CardContent>
           </Card>
         )}
@@ -306,9 +262,9 @@ export default function LeaveRequestsPage() {
                           size="sm"
                           className="w-full mt-3"
                           onClick={() => handleCancelRequest(request.id)}
-                          disabled={cancellingId === request.id}
+                          disabled={cancelRequestMutation.isPending}
                         >
-                          {cancellingId === request.id ? 'Cancelling...' : 'Cancel Request'}
+                          {cancelRequestMutation.isPending ? 'Cancelling...' : 'Cancel Request'}
                         </Button>
                       )}
                     </CardContent>
@@ -358,9 +314,9 @@ export default function LeaveRequestsPage() {
                               variant="destructive"
                               size="sm"
                               onClick={() => handleCancelRequest(request.id)}
-                              disabled={cancellingId === request.id}
+                              disabled={cancelRequestMutation.isPending}
                             >
-                              {cancellingId === request.id ? 'Cancelling...' : 'Cancel'}
+                              {cancelRequestMutation.isPending ? 'Cancelling...' : 'Cancel'}
                             </Button>
                           )}
                         </TableCell>
