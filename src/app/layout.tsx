@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { Toaster } from "sonner";
+import { PerformanceMonitor } from "@/components/PerformanceMonitor";
 
 const inter = Inter({ 
   subsets: ['latin'],
@@ -34,6 +35,7 @@ export default function RootLayout({
         <Providers>
           {children}
           <Toaster richColors position="top-right" />
+          <PerformanceMonitor />
         </Providers>
       </body>
     </html>
