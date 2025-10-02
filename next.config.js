@@ -174,7 +174,6 @@ const nextConfig = {
     unoptimized: false,
     loader: 'default',
     path: '/_next/image',
-    quality: 85,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
 
