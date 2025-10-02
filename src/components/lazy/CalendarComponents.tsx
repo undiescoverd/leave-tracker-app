@@ -42,18 +42,4 @@ export const LazyTeamCalendar = dynamic(
   }
 );
 
-export const LazyCalendarPage = dynamic(
-  () => import('@/app/calendar/page'),
-  {
-    loading: () => (
-      <div className="space-y-6">
-        <Skeleton className="h-8 w-48" />
-        <div className="grid gap-6">
-          <Skeleton className="h-96 w-full" />
-          <Skeleton className="h-64 w-full" />
-        </div>
-      </div>
-    ),
-    ssr: false,
-  }
-);
+// Note: Calendar page component removed as it doesn't exist in the current app structure

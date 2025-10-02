@@ -15,13 +15,18 @@ export const metadata: Metadata = {
   title: "TDH Agency Leave Tracker",
   description: "Employee leave management system for TDH Agency",
   manifest: "/manifest.json",
-  themeColor: "#000000",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
     title: "Leave Tracker",
   },
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: "#000000",
 };
 
 export default function RootLayout({
