@@ -3,8 +3,8 @@
 import { Session } from "next-auth";
 import { UserRole } from "@/types/next-auth";
 import EnhancedLeaveBalanceDisplay from "@/components/EnhancedLeaveBalanceDisplay";
-import TeamCalendar from "@/components/calendar/TeamCalendar";
-import AdminActions from "./AdminActions";
+import { LazyTeamCalendar } from "@/components/lazy/CalendarComponents";
+import { LazyAdminActions } from "@/components/lazy/AdminComponents";
 import LeaveActions from "./LeaveActions";
 
 interface DashboardContentProps {
@@ -25,14 +25,14 @@ export default function DashboardContent({ session }: DashboardContentProps) {
       </div>
 
       {/* Admin Section */}
-      {isAdmin && <AdminActions />}
+      {isAdmin && <LazyAdminActions />}
 
       {/* Leave Actions */}
       <LeaveActions />
 
       {/* Team Calendar Section */}
       <div id="team-calendar">
-        <TeamCalendar />
+        <LazyTeamCalendar />
       </div>
     </div>
   );

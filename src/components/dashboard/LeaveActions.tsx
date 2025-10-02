@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, memo } from "react";
-import LeaveRequestForm from "@/components/LeaveRequestForm";
+import { LazyLeaveRequestForm } from "@/components/lazy/FormComponents";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -21,7 +21,7 @@ const LeaveActions = memo(function LeaveActions() {
       </CardHeader>
       <CardContent>
         <div className="flex gap-4">
-          <LeaveRequestForm />
+          <LazyLeaveRequestForm />
           <Button 
             onClick={navigateToHistory}
             className="flex-1"
