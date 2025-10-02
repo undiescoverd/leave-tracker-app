@@ -78,28 +78,84 @@ const nextConfig = {
   },
 
   // Webpack optimizations
-  webpack: (config, { dev }) => {
+  webpack: (config, { dev, isServer }) => {
     // Production optimizations
     if (!dev) {
       config.optimization = {
         ...config.optimization,
         splitChunks: {
           chunks: 'all',
+          minSize: 20000,
+          maxSize: 244000,
           cacheGroups: {
+            // React and React DOM
+            react: {
+              test: /[\\/]node_modules[\\/](react|react-dom)[\\/]/,
+              name: 'react',
+              chunks: 'all',
+              priority: 40,
+            },
+            // UI libraries
+            ui: {
+              test: /[\\/]node_modules[\\/](@radix-ui|lucide-react|class-variance-authority|clsx|tailwind-merge)[\\/]/,
+              name: 'ui',
+              chunks: 'all',
+              priority: 30,
+            },
+            // React Query and data fetching
+            dataFetching: {
+              test: /[\\/]node_modules[\\/](@tanstack)[\\/]/,
+              name: 'data-fetching',
+              chunks: 'all',
+              priority: 25,
+            },
+            // Next.js and NextAuth
+            nextjs: {
+              test: /[\\/]node_modules[\\/](next|next-auth)[\\/]/,
+              name: 'nextjs',
+              chunks: 'all',
+              priority: 20,
+            },
+            // Other vendor libraries
             vendor: {
               test: /[\\/]node_modules[\\/]/,
               name: 'vendors',
               chunks: 'all',
+              priority: 10,
             },
           },
         },
+        // Tree shaking optimization
+        usedExports: true,
+        sideEffects: false,
       };
+
+      // Bundle analyzer in production builds (optional)
+      if (process.env.ANALYZE === 'true') {
+        const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
+        config.plugins.push(
+          new BundleAnalyzerPlugin({
+            analyzerMode: 'static',
+            openAnalyzer: false,
+            reportFilename: 'bundle-analysis.html',
+          })
+        );
+      }
     }
 
     // Development error handling
     if (dev) {
       config.infrastructureLogging = {
         level: 'error',
+      };
+    }
+
+    // Optimize for better tree shaking
+    if (!isServer) {
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        // Ensure we get the ES modules version for better tree shaking
+        'lodash': 'lodash-es',
       };
     }
     
