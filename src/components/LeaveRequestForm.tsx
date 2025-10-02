@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { features } from "@/lib/features";
 import { calculateWorkingDays } from "@/lib/date-utils";
 import { useLeaveBalance } from "@/hooks/useLeaveBalance";
+import { useSubmitLeaveRequest } from "@/hooks/useLeaveRequests";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,8 +24,8 @@ interface LeaveRequestFormProps {
 
 function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const { balance: leaveBalance, loading: isLoadingBalance, error: balanceError, refetch: refetchBalance } = useLeaveBalance();
+  const { data: leaveBalance, isLoading: isLoadingBalance, error: balanceError } = useLeaveBalance();
+  const submitRequestMutation = useSubmitLeaveRequest();
   const [leaveType, setLeaveType] = useState<'ANNUAL' | 'TOIL' | 'SICK'>('ANNUAL');
   const [formData, setFormData] = useState({
     dateRange: undefined as DateRange | undefined,
@@ -96,12 +97,10 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
 
     // Enhanced client-side validation
     if (!formData.dateRange?.from || !formData.dateRange?.to) {
       showError("Please select your leave dates");
-      setIsSubmitting(false);
       return;
     }
 
@@ -112,20 +111,17 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
     
     if (startDate < today) {
       showError("Start date cannot be in the past");
-      setIsSubmitting(false);
       return;
     }
     
     if (endDate < startDate) {
       showError("End date must be after or equal to start date");
-      setIsSubmitting(false);
       return;
     }
 
     const previewDays = calculatePreviewDays();
     if (previewDays === 0) {
       showError("Please select valid dates for your leave request");
-      setIsSubmitting(false);
       return;
     }
 
@@ -134,48 +130,32 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
       const hours = Number(formData.hours);
       if (hours <= 0 || hours > 24) {
         showError("TOIL hours must be between 1 and 24");
-        setIsSubmitting(false);
         return;
       }
     }
 
+    const requestData = {
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      comments: formData.comments,
+      type: formData.type,
+      ...(formData.type === 'TOIL' && formData.hours && { hours: Number(formData.hours) })
+    };
+
     try {
-      const requestData = {
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
-        reason: formData.comments,
-        type: formData.type,
-        ...(formData.type === 'TOIL' && formData.hours && { hours: Number(formData.hours) })
-      };
-
-      const response = await fetch("/api/leave/request", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(requestData),
+      await submitRequestMutation.mutateAsync(requestData);
+      showSuccess(`${formData.type} leave request submitted successfully!`);
+      setFormData({
+        dateRange: undefined,
+        comments: "",
+        type: "ANNUAL",
+        hours: "",
       });
-
-      const result = await response.json();
-
-      if (response.ok) {
-        showSuccess(result.data.message || `${formData.type} leave request submitted successfully!`);
-        setFormData({
-          dateRange: undefined,
-          comments: "",
-          type: "ANNUAL",
-          hours: "",
-        });
-        setIsOpen(false);
-        if (onSuccess) onSuccess();
-      } else {
-        showError(result.error?.message || (typeof result.error === 'string' ? result.error : JSON.stringify(result.error)) || "Failed to submit leave request");
-      }
+      setIsOpen(false);
+      if (onSuccess) onSuccess();
     } catch (error) {
       console.error("Error submitting leave request:", error);
-      showError("An error occurred while submitting your request");
-    } finally {
-      setIsSubmitting(false);
+      showError(error instanceof Error ? error.message : "An error occurred while submitting your request");
     }
   };
 
@@ -312,10 +292,10 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
                     </Button>
                     <Button
                       type="submit"
-                      disabled={isSubmitting || isLoadingBalance}
+                      disabled={submitRequestMutation.isPending || isLoadingBalance}
                       className="flex-1"
                     >
-                      {isSubmitting ? "Submitting..." : "Submit Request"}
+                      {submitRequestMutation.isPending ? "Submitting..." : "Submit Request"}
                     </Button>
                   </div>
                 </form>

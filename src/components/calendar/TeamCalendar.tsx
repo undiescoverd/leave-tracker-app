@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, memo } from "react";
 import { ChevronLeft, ChevronRight, Calendar, Users, Clock, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,8 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { CalendarLoadingSkeleton } from "@/components/ui/loading-states";
 import { toast } from "sonner";
-import { calendarApi } from "@/lib/api-client";
-import { useApiError } from "@/hooks/use-api-error";
+import { useTeamCalendar } from "@/hooks/useTeamCalendar";
 
 interface LeaveEvent {
   id: string;
@@ -26,287 +25,229 @@ interface LeaveEvent {
   hours?: number;
 }
 
-interface CalendarData {
-  month: number;
-  year: number;
+interface CalendarDayProps {
+  day: number;
   events: LeaveEvent[];
-  eventsByDate: Record<string, LeaveEvent[]>;
-  totalEvents: number;
+  isCurrentMonth: boolean;
+  isToday: boolean;
 }
 
-const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
-];
-
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-const LEAVE_TYPE_COLORS = {
-  ANNUAL: 'bg-blue-500',
-  SICK: 'bg-success',
-  TOIL: 'bg-purple-500',
-  UNPAID: 'bg-gray-500',
-};
-
-const STATUS_STYLES = {
-  APPROVED: 'opacity-100 border-0',
-  PENDING: 'opacity-90 border-2 border-dashed border-orange-500 relative !bg-opacity-50',
-  REJECTED: 'opacity-40 line-through',
-};
-
-function TeamCalendarComponent() {
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [calendarData, setCalendarData] = useState<CalendarData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const dataCache = useRef<Map<string, { data: CalendarData; timestamp: number }>>(new Map());
-  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
-  const { handleAsyncOperation } = useApiError();
-
-  const currentMonth = currentDate.getMonth();
-  const currentYear = currentDate.getFullYear();
-
-  // Next month for dual display
-  const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
-  const nextYear = currentMonth === 11 ? currentYear + 1 : currentYear;
-
-  const fetchCalendarData = useCallback(async (forceRefresh = false) => {
-    try {
-      if (forceRefresh) {
-        setIsRefreshing(true);
-      } else {
-        setLoading(true);
-      }
-      setError(null);
-      
-      // Check cache first (unless force refresh)
-      const cacheKey = `${currentMonth}-${currentYear}`;
-      const cachedEntry = dataCache.current.get(cacheKey);
-      
-      if (!forceRefresh && cachedEntry) {
-        const { data: cachedData, timestamp } = cachedEntry;
-        const isExpired = Date.now() - timestamp > CACHE_DURATION;
-        
-        if (!isExpired) {
-          setCalendarData(cachedData);
-          setLoading(false);
-          return;
-        }
-      }
-      
-      // Fetch data for both current and next month using new API client
-      const [currentResult, nextResult] = await Promise.all([
-        handleAsyncOperation(
-          () => calendarApi.getTeamLeave(currentMonth, currentYear),
-          { errorMessage: 'Failed to load current month calendar' }
-        ),
-        handleAsyncOperation(
-          () => calendarApi.getTeamLeave(nextMonth, nextYear),
-          { errorMessage: 'Failed to load next month calendar' }
-        )
-      ]);
-
-      if (!currentResult.success || !nextResult.success) {
-        throw new Error('Failed to fetch calendar data for one or both months');
-      }
-      
-      const currentData = currentResult.data || {};
-      const nextData = nextResult.data || {};
-      
-      // Validate data structure and provide fallbacks
-      const currentEvents = Array.isArray((currentData as any)?.events) ? (currentData as any).events : [];
-      const nextEvents = Array.isArray((nextData as any)?.events) ? (nextData as any).events : [];
-      const currentEventsByDate = (currentData as any)?.eventsByDate || {};
-      const nextEventsByDate = (nextData as any)?.eventsByDate || {};
-      const currentTotalEvents = (currentData as any)?.totalEvents || 0;
-      const nextTotalEvents = (nextData as any)?.totalEvents || 0;
-      
-      // Combine data from both months
-      const combinedData = {
-        month: currentMonth,
-        year: currentYear,
-        events: [...currentEvents, ...nextEvents],
-        eventsByDate: { ...currentEventsByDate, ...nextEventsByDate },
-        totalEvents: currentTotalEvents + nextTotalEvents,
-        nextMonthData: nextData
-      };
-      
-      // Cache the data for this month with timestamp
-      dataCache.current.set(cacheKey, {
-        data: combinedData,
-        timestamp: Date.now()
-      });
-      
-      setCalendarData(combinedData);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
-      console.error('Calendar fetch error:', errorMessage);
-      setError('Failed to load calendar: ' + errorMessage);
-      toast.error('Failed to load team calendar');
-    } finally {
-      setLoading(false);
-      setIsRefreshing(false);
-    }
-  }, [currentMonth, currentYear, nextMonth, nextYear, CACHE_DURATION, handleAsyncOperation]);
-
-  useEffect(() => {
-    fetchCalendarData();
-  }, [fetchCalendarData]);
-
-  const handleRefresh = useCallback(() => {
-    fetchCalendarData(true);
-  }, [fetchCalendarData]);
-
-  const navigateMonth = useCallback((direction: 'prev' | 'next') => {
-    const newDate = new Date(currentDate);
-    if (direction === 'prev') {
-      newDate.setMonth(newDate.getMonth() - 1);
-    } else {
-      newDate.setMonth(newDate.getMonth() + 1);
-    }
-    setCurrentDate(newDate);
-  }, [currentDate]);
-
-  const generateMonthDays = (month: number, year: number) => {
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const startDate = new Date(firstDay);
-    
-    // Start from the beginning of the week
-    startDate.setDate(startDate.getDate() - firstDay.getDay());
-    
-    const daysArray = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    for (let i = 0; i < 42; i++) { // 6 weeks x 7 days
-      const date = new Date(startDate);
-      date.setDate(startDate.getDate() + i);
-      
-      const dateKey = date.toISOString().split('T')[0];
-      const events = calendarData?.eventsByDate?.[dateKey] || [];
-      
-      daysArray.push({
-        date: date,
-        dateKey: dateKey,
-        isCurrentMonth: date.getMonth() === month,
-        isToday: date.getTime() === today.getTime(),
-        events: events,
-      });
-    }
-    
-    return daysArray;
-  };
-
-  const currentMonthDays = useMemo(() => 
-    generateMonthDays(currentMonth, currentYear), 
-    [currentMonth, currentYear, calendarData]
-  );
+const CalendarDay = memo(function CalendarDay({ day, events, isCurrentMonth, isToday }: CalendarDayProps) {
+  const dayEvents = useMemo(() => events || [], [events]);
   
-  const nextMonthDays = useMemo(() => 
-    generateMonthDays(nextMonth, nextYear), 
-    [nextMonth, nextYear, calendarData]
-  );
-
-  const renderLeaveEvent = useCallback((event: LeaveEvent, index: number) => {
-    const color = LEAVE_TYPE_COLORS[event.type as keyof typeof LEAVE_TYPE_COLORS] || 'bg-gray-500';
-    
-    // Handle pending status with distinct styling
-    if (event.status === 'PENDING') {
-      return (
-        <div
-          key={`${event.id}-${index}`}
-          className="text-xs px-1 py-0.5 rounded mb-0.5 cursor-pointer truncate
-                     border-2 border-dashed border-orange-500 bg-orange-500/20 text-orange-800 dark:text-orange-100
-                     hover:bg-orange-500/30 transition-colors relative"
-          title={`${event.user.name}: ${event.type} (PENDING APPROVAL)`}
-        >
-          {event.user.name.split(' ')[0]}
-          <span className="absolute -top-1 -right-1 text-xs bg-orange-500 text-white px-1 rounded-full leading-none">
-            ?
-          </span>
-        </div>
-      );
-    }
-    
-    // Handle approved and rejected statuses
-    const statusStyle = STATUS_STYLES[event.status as keyof typeof STATUS_STYLES] || '';
-    
-    return (
-      <div
-        key={`${event.id}-${index}`}
-        className={`
-          text-xs px-1 py-0.5 rounded mb-0.5 text-white truncate cursor-pointer
-          ${color} ${statusStyle}
-          hover:opacity-90 transition-opacity
-        `}
-        title={`${event.user.name}: ${event.type} (${event.status})`}
-      >
-        {event.user.name.split(' ')[0]}
+  return (
+    <div className={`min-h-[100px] p-2 border border-border ${
+      isCurrentMonth ? 'bg-background' : 'bg-muted/30'
+    } ${isToday ? 'ring-2 ring-primary' : ''}`}>
+      <div className={`text-sm font-medium mb-1 ${
+        isCurrentMonth ? 'text-foreground' : 'text-muted-foreground'
+      } ${isToday ? 'text-primary font-bold' : ''}`}>
+        {day}
       </div>
-    );
-  }, []);
-
-  const renderMonthGrid = (days: any[], monthName: string, year: number) => (
-    <div className="flex-1 min-w-0">
-      {/* Month Header */}
-      <div className="text-center mb-4">
-        <h3 className="text-lg font-semibold">{monthName} {year}</h3>
-      </div>
-
-      {/* Weekday Headers */}
-      <div className="grid grid-cols-7 gap-1 mb-2">
-        {WEEKDAYS.map((day) => (
-          <div key={day} className="text-center font-medium text-muted-foreground py-2 text-xs">
-            {day}
-          </div>
-        ))}
-      </div>
-
-      {/* Calendar Grid */}
-      <div className="grid grid-cols-7 gap-1">
-        {days.map((day, index) => (
+      
+      <div className="space-y-1">
+        {dayEvents.slice(0, 3).map((event) => (
           <div
-            key={index}
-            className={`
-              min-h-[70px] p-1 border rounded transition-colors
-              ${day.isCurrentMonth ? 'bg-background' : 'bg-muted/30'}
-              ${day.isToday ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-950 border-blue-500' : 'border-border'}
-              hover:bg-accent/50
-            `}
+            key={event.id}
+            className={`text-xs p-1 rounded truncate ${
+              event.status === 'APPROVED' 
+                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                : event.status === 'PENDING'
+                ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+            }`}
+            title={`${event.user.name} - ${event.type} (${event.status})`}
           >
-            <div className={`
-              text-xs font-medium mb-1
-              ${day.isCurrentMonth ? 'text-foreground' : 'text-muted-foreground'}
-              ${day.isToday ? 'text-primary font-bold' : ''}
-            `}>
-              {day.date.getDate()}
-            </div>
-            
-            <div className="space-y-0.5">
-              {day.events.slice(0, 2).map((event: LeaveEvent, eventIndex: number) => 
-                renderLeaveEvent(event, eventIndex)
-              )}
-              {day.events.length > 2 && (
-                <div className="text-xs text-muted-foreground text-center">
-                  +{day.events.length - 2}
-                </div>
-              )}
-            </div>
+            {event.user.name}
           </div>
         ))}
+        
+        {dayEvents.length > 3 && (
+          <div className="text-xs text-muted-foreground">
+            +{dayEvents.length - 3} more
+          </div>
+        )}
       </div>
     </div>
   );
+});
 
-  if (loading && !isRefreshing) {
+interface CalendarHeaderProps {
+  month: number;
+  year: number;
+  onPreviousMonth: () => void;
+  onNextMonth: () => void;
+  onRefresh: () => void;
+  isLoading: boolean;
+}
+
+const CalendarHeader = memo(function CalendarHeader({ 
+  month, 
+  year, 
+  onPreviousMonth, 
+  onNextMonth, 
+  onRefresh, 
+  isLoading 
+}: CalendarHeaderProps) {
+  const monthNames = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+
+  return (
+    <div className="flex items-center justify-between mb-4">
+      <h3 className="text-lg font-semibold">
+        {monthNames[month - 1]} {year}
+      </h3>
+      
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onPreviousMonth}
+          disabled={isLoading}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onRefresh}
+          disabled={isLoading}
+        >
+          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+        </Button>
+        
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onNextMonth}
+          disabled={isLoading}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+});
+
+interface CalendarStatsProps {
+  data: {
+    totalRequests: number;
+    events: LeaveEvent[];
+  } | undefined;
+}
+
+const CalendarStats = memo(function CalendarStats({ data }: CalendarStatsProps) {
+  const stats = useMemo(() => {
+    if (!data) return { total: 0, approved: 0, pending: 0 };
+    
+    const approved = data.events.filter(e => e.status === 'APPROVED').length;
+    const pending = data.events.filter(e => e.status === 'PENDING').length;
+    
+    return {
+      total: data.totalRequests,
+      approved,
+      pending
+    };
+  }, [data]);
+
+  return (
+    <div className="grid grid-cols-3 gap-4 mb-4">
+      <div className="text-center">
+        <div className="text-2xl font-bold text-foreground">{stats.total}</div>
+        <div className="text-sm text-muted-foreground">Total Requests</div>
+      </div>
+      <div className="text-center">
+        <div className="text-2xl font-bold text-green-600">{stats.approved}</div>
+        <div className="text-sm text-muted-foreground">Approved</div>
+      </div>
+      <div className="text-center">
+        <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
+        <div className="text-sm text-muted-foreground">Pending</div>
+      </div>
+    </div>
+  );
+});
+
+const TeamCalendarOptimized = memo(function TeamCalendarOptimized() {
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1);
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+
+  const {
+    data: calendarData,
+    isLoading,
+    error,
+    refetch
+  } = useTeamCalendar({
+    month: currentMonth,
+    year: currentYear,
+    enabled: true,
+    refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes
+  });
+
+  const handlePreviousMonth = useCallback(() => {
+    setCurrentMonth(prev => {
+      if (prev === 1) {
+        setCurrentYear(prevYear => prevYear - 1);
+        return 12;
+      }
+      return prev - 1;
+    });
+  }, []);
+
+  const handleNextMonth = useCallback(() => {
+    setCurrentMonth(prev => {
+      if (prev === 12) {
+        setCurrentYear(prevYear => prevYear + 1);
+        return 1;
+      }
+      return prev + 1;
+    });
+  }, []);
+
+  const handleRefresh = useCallback(() => {
+    refetch();
+    toast.success('Calendar refreshed');
+  }, [refetch]);
+
+  const calendarDays = useMemo(() => {
+    if (!calendarData) return [];
+
+    const firstDay = new Date(currentYear, currentMonth - 1, 1);
+    const lastDay = new Date(currentYear, currentMonth, 0);
+    const startDate = new Date(firstDay);
+    startDate.setDate(startDate.getDate() - firstDay.getDay());
+
+    const days = [];
+    const currentDate = new Date(startDate);
+
+    // Generate 42 days (6 weeks)
+    for (let i = 0; i < 42; i++) {
+      const dateStr = currentDate.toISOString().split('T')[0];
+      const dayEvents = calendarData.eventsByDate?.[dateStr] || [];
+      
+      days.push({
+        day: currentDate.getDate(),
+        events: dayEvents,
+        isCurrentMonth: currentDate.getMonth() === currentMonth - 1,
+        isToday: currentDate.toDateString() === new Date().toDateString()
+      });
+
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    return days;
+  }, [calendarData, currentMonth, currentYear]);
+
+  if (isLoading) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
+          <CardTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
-            <span>Team Calendar</span>
+            Team Calendar
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -320,26 +261,18 @@ function TeamCalendarComponent() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
+          <CardTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
-            <span>Team Calendar</span>
+            Team Calendar
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-8">
-            <div className="text-destructive mb-4">
-              <p className="font-medium">Failed to load calendar</p>
-              <p className="text-sm text-muted-foreground mt-1">{error}</p>
-            </div>
-            <div className="space-x-2">
-              <Button onClick={() => fetchCalendarData()} variant="outline" size="sm">
-                Try Again
-              </Button>
-              <Button onClick={handleRefresh} variant="secondary" size="sm">
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Force Refresh
-              </Button>
-            </div>
+            <p className="text-destructive mb-4">Failed to load calendar data</p>
+            <Button onClick={handleRefresh} variant="outline">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Retry
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -347,112 +280,47 @@ function TeamCalendarComponent() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center space-x-2">
-            <Calendar className="h-5 w-5" />
-            <span>Team Calendar</span>
-            {calendarData && (
-              <Badge variant="secondary" className="ml-2">
-                <Users className="h-3 w-3 mr-1" />
-                {calendarData.totalEvents} requests
-              </Badge>
-            )}
-          </CardTitle>
-          
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigateMonth('prev')}
-              disabled={loading || isRefreshing}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigateMonth('next')}
-              disabled={loading || isRefreshing}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleRefresh}
-              disabled={loading || isRefreshing}
-              title="Refresh calendar data"
-            >
-              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            </Button>
-          </div>
-        </div>
-      </CardHeader>
-      
-      <CardContent>
-        {/* Legend */}
-        <div className="flex flex-wrap gap-4 mb-6 text-xs">
-          <div className="flex items-center space-x-1">
-            <div className="w-3 h-3 bg-blue-500 rounded"></div>
-            <span>Annual</span>
-          </div>
-          <div className="flex items-center space-x-1">
-            <div className="w-3 h-3 bg-success rounded"></div>
-            <span>Sick</span>
-          </div>
-          <div className="flex items-center space-x-1">
-            <div className="w-3 h-3 bg-purple-500 rounded"></div>
-            <span>TOIL</span>
-          </div>
-          <div className="flex items-center space-x-1">
-            <div className="w-3 h-3 bg-gray-500 rounded"></div>
-            <span>Unpaid</span>
-          </div>
-          <div className="flex items-center space-x-1">
-            <div className="w-3 h-3 bg-orange-500 bg-opacity-30 border-2 border-dashed border-orange-400 rounded relative">
-              <span className="absolute -top-1 -right-1 text-xs bg-orange-500 text-white rounded-full leading-none w-2 h-2"></span>
-            </div>
-            <span>Pending</span>
-          </div>
-        </div>
-
-        {/* Dual Calendar Layout */}
-        <div className="flex space-x-6">
-          {renderMonthGrid(currentMonthDays, MONTHS[currentMonth], currentYear)}
-          {renderMonthGrid(nextMonthDays, MONTHS[nextMonth], nextYear)}
-        </div>
-
-        {/* Summary */}
-        {calendarData && calendarData.totalEvents > 0 && (
-          <div className="mt-6 p-4 bg-muted/30 rounded-lg">
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-1">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Showing:</span>
-                </div>
-                <span className="font-medium">{calendarData.totalEvents} leave requests</span>
-              </div>
-              <div className="text-muted-foreground">
-                Two-month view
-              </div>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-// Export with Error Boundary
-export default function TeamCalendar() {
-  return (
     <ErrorBoundary>
-      <TeamCalendarComponent />
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Team Calendar
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <CalendarHeader
+            month={currentMonth}
+            year={currentYear}
+            onPreviousMonth={handlePreviousMonth}
+            onNextMonth={handleNextMonth}
+            onRefresh={handleRefresh}
+            isLoading={isLoading}
+          />
+
+          <CalendarStats data={calendarData} />
+
+          <div className="grid grid-cols-7 gap-0 border border-border rounded-lg overflow-hidden">
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+              <div key={day} className="bg-muted p-2 text-center text-sm font-medium">
+                {day}
+              </div>
+            ))}
+            
+            {calendarDays.map((day, index) => (
+              <CalendarDay
+                key={index}
+                day={day.day}
+                events={day.events}
+                isCurrentMonth={day.isCurrentMonth}
+                isToday={day.isToday}
+              />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </ErrorBoundary>
   );
-}
+});
+
+export default TeamCalendarOptimized;
