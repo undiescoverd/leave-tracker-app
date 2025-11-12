@@ -1,6 +1,35 @@
 // Service Worker for Leave Tracker App
 // Provides offline caching and performance improvements
+// DISABLED: This service worker is currently disabled to prevent caching issues in development
 
+// Immediately unregister this service worker if it's active
+self.addEventListener('install', () => {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys()
+      .then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((cacheName) => caches.delete(cacheName))
+        );
+      })
+      .then(() => {
+        console.log('Service Worker disabled and caches cleared');
+        return self.registration.unregister();
+      })
+      .then(() => self.clients.claim())
+  );
+});
+
+// Disable fetch interception - let all requests go to network
+self.addEventListener('fetch', () => {
+  // Do nothing - let the browser handle all fetches normally
+});
+
+/*
+// ORIGINAL CODE - DISABLED
 const CACHE_NAME = 'leave-tracker-v1';
 const STATIC_CACHE = 'leave-tracker-static-v1';
 const API_CACHE = 'leave-tracker-api-v1';
@@ -296,3 +325,4 @@ async function removePendingRequest(id) {
   // Implementation would depend on how you store offline requests
   console.log('Removing pending request:', id);
 }
+*/

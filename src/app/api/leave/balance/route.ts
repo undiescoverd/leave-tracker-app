@@ -11,6 +11,7 @@ import { logger, generateRequestId } from '@/lib/logger';
 import { withUserAuth } from '@/lib/middleware/auth';
 import { withCompleteSecurity } from '@/lib/middleware/security';
 import { withCacheHeaders } from '@/lib/middleware/cache-headers';
+import { calculateUserNotifications } from '@/lib/notifications/notification-policy';
 
 async function getLeaveBalanceHandler(
   req: NextRequest,
@@ -46,10 +47,12 @@ async function getLeaveBalanceHandler(
     logger.cacheOperation('miss', cacheKey);
     
     // Get all user data in parallel for better performance
-    const [balance, multiBalances, pendingData] = await Promise.all([
+    const [balance, multiBalances, pendingData, allUserRequests, allUserToil] = await Promise.all([
       getUserLeaveBalance(user.id, currentYear),
       getUserLeaveBalances(user.id, currentYear),
-      calculatePendingLeaveByType(user.id, currentYear)
+      calculatePendingLeaveByType(user.id, currentYear),
+      getUserAllRequests(user.id, currentYear),
+      getUserAllToil(user.id, currentYear)
     ]);
 
     // Return appropriate response based on features
@@ -71,8 +74,13 @@ async function getLeaveBalanceHandler(
           }
         }),
         
-        // Include pending requests data
-        pending: pendingData
+        // Include pending requests data (only actionable notifications)
+        pending: {
+          annual: pendingData.annual,
+          toil: pendingData.toil,
+          sick: pendingData.sick,
+          total: pendingData.total
+        }
       }
     };
 
@@ -175,5 +183,43 @@ async function calculatePendingLeaveByType(userId: string, year: number) {
   }
 
   return pending;
+}
+
+// Helper function to get all user requests for notification calculation
+async function getUserAllRequests(userId: string, year: number) {
+  const { prisma } = await import('@/lib/prisma');
+  
+  return await prisma.leaveRequest.findMany({
+    where: {
+      userId: userId,
+      startDate: {
+        gte: new Date(year, 0, 1),
+        lte: new Date(year, 11, 31)
+      }
+    },
+    select: {
+      status: true,
+      userId: true
+    }
+  });
+}
+
+// Helper function to get all user TOIL entries for notification calculation
+async function getUserAllToil(userId: string, year: number) {
+  const { prisma } = await import('@/lib/prisma');
+  
+  return await prisma.toilEntry.findMany({
+    where: {
+      userId: userId,
+      createdAt: {
+        gte: new Date(year, 0, 1),
+        lte: new Date(year, 11, 31)
+      }
+    },
+    select: {
+      approved: true,
+      userId: true
+    }
+  });
 }
 

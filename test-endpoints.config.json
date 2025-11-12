@@ -1,0 +1,20 @@
+{
+  "baseUrl": "http://localhost:3000",
+  "credentials": {
+    "regularUser": {
+      "email": "test@example.com",
+      "password": "password123",
+      "name": "Test User"
+    },
+    "adminUser": {
+      "email": "admin@example.com",
+      "password": "admin123",
+      "name": "Admin User"
+    }
+  },
+  "testData": {
+    "futureLeaveOffsetDays": 30,
+    "leaveDurationDays": 2
+  }
+}
+

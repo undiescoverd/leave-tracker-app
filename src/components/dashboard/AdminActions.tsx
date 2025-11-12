@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAdminStats } from "@/hooks/useAdminData";
 import { AlertCircle, Users, Clock, CheckCircle } from "lucide-react";
+import { shouldShowNotificationBadge, getNotificationBadgeVariant } from "@/lib/notifications/notification-policy";
 
 const AdminActions = memo(function AdminActions() {
   const router = useRouter();
@@ -51,8 +52,8 @@ const AdminActions = memo(function AdminActions() {
                   <p className="text-sm text-muted-foreground">Pending Requests</p>
                   <p className="text-2xl font-bold">{stats.pendingRequests}</p>
                 </div>
-                {stats.pendingRequests > 0 && (
-                  <Badge variant="destructive" className="flex items-center gap-1">
+                {shouldShowNotificationBadge(stats.pendingRequests) && (
+                  <Badge variant={getNotificationBadgeVariant(stats.pendingRequests)} className="flex items-center gap-1">
                     <AlertCircle className="h-3 w-3" />
                     Action Required
                   </Badge>
@@ -104,13 +105,13 @@ const AdminActions = memo(function AdminActions() {
               Admin Dashboard
             </Button>
             <Button 
-              variant={stats?.pendingRequests ? "destructive" : "outline"}
+              variant={shouldShowNotificationBadge(stats?.pendingRequests || 0) ? "destructive" : "outline"}
               onClick={navigateToPending}
             >
               Pending Requests
-              {stats?.pendingRequests && (
-                <Badge variant="secondary" className="ml-2">
-                  {stats.pendingRequests}
+              {shouldShowNotificationBadge(stats?.pendingRequests || 0) && (
+                <Badge variant={getNotificationBadgeVariant(stats?.pendingRequests || 0)} className="ml-2">
+                  {stats?.pendingRequests}
                 </Badge>
               )}
             </Button>
@@ -119,9 +120,9 @@ const AdminActions = memo(function AdminActions() {
               onClick={navigateToToil}
             >
               Manage TOIL
-              {stats?.toilPending && (
-                <Badge variant="secondary" className="ml-2">
-                  {stats.toilPending}
+              {shouldShowNotificationBadge(stats?.toilPending || 0) && (
+                <Badge variant={getNotificationBadgeVariant(stats?.toilPending || 0)} className="ml-2">
+                  {stats?.toilPending}
                 </Badge>
               )}
             </Button>

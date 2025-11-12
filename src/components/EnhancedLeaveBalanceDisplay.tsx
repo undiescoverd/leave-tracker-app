@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { Calendar, Heart, Clock, AlertCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useLeaveBalance } from "@/hooks/useLeaveBalance";
+import { shouldShowNotificationBadge } from "@/lib/notifications/notification-policy";
 
 interface LeaveBalance {
   // Legacy format support
@@ -79,7 +80,7 @@ const LeaveTypeCard = memo(function LeaveTypeCard({ type, used, total, remaining
           {config.title}
         </h3>
         <div className="flex items-center gap-2">
-          {pending > 0 && (
+          {shouldShowNotificationBadge(pending) && (
             <span className="px-2 py-1 text-xs bg-orange-500/20 text-orange-400 rounded-full">
               {pending} pending
             </span>
@@ -92,7 +93,7 @@ const LeaveTypeCard = memo(function LeaveTypeCard({ type, used, total, remaining
       <div className="mt-2">
         <p className="text-3xl font-bold text-foreground">
           {remaining}
-          {pending > 0 && (
+          {shouldShowNotificationBadge(pending) && (
             <span className="text-lg font-normal text-muted-foreground ml-2">
               (-{pending})
             </span>
@@ -226,8 +227,8 @@ export default function EnhancedLeaveBalanceDisplay() {
         />
       </div>
       
-      {/* Pending Requests Summary */}
-      {balance.pending && (balance.pending.annual || balance.pending.sick || balance.pending.toil) && (
+      {/* Pending Requests Summary - Only show if there are actionable notifications */}
+      {balance.pending && shouldShowNotificationBadge(balance.pending.total) && (
         <div className="bg-card border border-orange-500/30 rounded-lg p-4 mt-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, Suspense } from "react";
-import { signIn } from "next-auth/react";
+import { useState, Suspense, useEffect } from "react";
+import { signIn, getCsrfToken } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -16,13 +16,30 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [csrfToken, setCsrfToken] = useState("");
   const searchParams = useSearchParams();
   const callbackUrl = searchParams?.get("callbackUrl") || "/dashboard";
+
+  // Get CSRF token on component mount
+  useEffect(() => {
+    const getToken = async () => {
+      try {
+        const token = await getCsrfToken();
+        console.log('CSRF Token:', token);
+        setCsrfToken(token || "");
+      } catch (error) {
+        console.error('Failed to get CSRF token:', error);
+      }
+    };
+    getToken();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
+
+    console.log('Form submission:', { email: email.trim(), csrfToken, callbackUrl });
 
     // Add a small delay to ensure form data is properly captured by password managers
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -33,7 +50,10 @@ function LoginForm() {
         password,
         callbackUrl,
         redirect: false,
+        csrfToken,
       });
+
+      console.log('SignIn result:', result);
 
       if (result?.error) {
         console.error("Sign in error:", result.error);
@@ -69,6 +89,7 @@ function LoginForm() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4" autoComplete="on">
+            <input type="hidden" name="csrfToken" value={csrfToken} />
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input

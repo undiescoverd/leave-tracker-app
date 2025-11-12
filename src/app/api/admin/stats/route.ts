@@ -7,6 +7,7 @@ import { logger, generateRequestId } from '@/lib/logger';
 import { AuthenticationError, AuthorizationError } from '@/lib/api/errors';
 import { statsCache, createCacheKey } from '@/lib/cache/cache-manager';
 import { withCacheHeaders } from '@/lib/middleware/cache-headers';
+import { calculateAdminNotifications } from '@/lib/notifications/notification-policy';
 
 async function getAdminStatsHandler(req: NextRequest, context: { user: { id: string; email: string; name: string } }): Promise<NextResponse> {
   const requestId = generateRequestId();
@@ -38,27 +39,30 @@ async function getAdminStatsHandler(req: NextRequest, context: { user: { id: str
     });
 
     const [
-      pendingRequests,
+      allLeaveRequests,
+      allToilEntries,
       totalUsers,
       activeEmployees,
-      toilPending,
       approvedThisMonth
     ] = await Promise.all([
-      prisma.leaveRequest.count({
-        where: { status: 'PENDING' }
+      prisma.leaveRequest.findMany({
+        select: {
+          status: true,
+          userId: true
+        }
+      }),
+      
+      prisma.toilEntry.findMany({
+        select: {
+          approved: true,
+          userId: true
+        }
       }),
       
       prisma.user.count(),
       
       prisma.user.count({
         where: { role: 'USER' }
-      }),
-      
-      prisma.leaveRequest.count({
-        where: { 
-          status: 'PENDING',
-          type: 'TOIL'
-        }
       }),
       
       prisma.leaveRequest.count({
@@ -71,27 +75,46 @@ async function getAdminStatsHandler(req: NextRequest, context: { user: { id: str
       })
     ]);
 
+    // Calculate actionable notifications using the notification policy
+    const notifications = calculateAdminNotifications({
+      pendingRequests: allLeaveRequests,
+      toilEntries: allToilEntries
+    });
+
     // Log successful stats access
     logger.info('Admin statistics accessed', {
       adminId: admin.id,
       statsRequested: true,
       metadata: {
-        pendingRequests,
+        actionablePendingRequests: notifications.pendingRequests.actionable,
+        totalPendingRequests: notifications.pendingRequests.total,
+        actionableToilPending: notifications.toilPending.actionable,
+        totalToilEntries: notifications.toilPending.total,
         totalUsers,
         activeEmployees,
-        toilPending,
-        approvedThisMonth
+        approvedThisMonth,
+        totalActionableNotifications: notifications.totalActionable
       }
     });
 
     const statsData = {
-      pendingRequests,
+      // Actionable notifications (what shows in badges)
+      pendingRequests: notifications.pendingRequests.actionable,
+      toilPending: notifications.toilPending.actionable,
+      
+      // Reference data (no badges)
       totalUsers,
       activeEmployees,
-      toilPending,
       approvedThisMonth,
       systemStatus: 'Active',
-      allSystemsOperational: true
+      allSystemsOperational: true,
+      
+      // Additional notification breakdown for debugging
+      _notificationBreakdown: {
+        pendingRequests: notifications.pendingRequests,
+        toilPending: notifications.toilPending,
+        totalActionable: notifications.totalActionable
+      }
     };
 
     // Cache the stats for 5 minutes
@@ -108,7 +131,7 @@ async function getAdminStatsHandler(req: NextRequest, context: { user: { id: str
     
     if (error instanceof AuthenticationError || error instanceof AuthorizationError) {
       logger.apiResponse('GET', '/api/admin/stats', error.statusCode, duration, undefined, requestId);
-      return apiError(error.message, error.statusCode as number);
+      return apiError(error.message, error.statusCode as any);
     }
     
     logger.error('Admin stats error:', { 
