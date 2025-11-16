@@ -28,7 +28,7 @@ test.describe("Authenticated dashboard", () => {
     await page.goto("/leave/requests");
     await expect(page.getByRole("heading", { name: "My Leave History" })).toBeVisible();
     await expect(page.getByText("Filter by Status:")).toBeVisible();
-    await expect(page.getByText("Leave Requests")).toBeVisible();
+    await expect(page.getByText("Leave Requests", { exact: true })).toBeVisible();
   });
 });
 
