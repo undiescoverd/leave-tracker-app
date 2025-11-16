@@ -1,0 +1,88 @@
+{
+  "name": "TDH Agency Leave Tracker",
+  "short_name": "Leave Tracker",
+  "description": "Employee leave management system for TDH Agency",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["productivity", "business", "utilities"],
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "16x16 32x32 48x48",
+      "type": "image/x-icon",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "View your leave dashboard",
+      "url": "/dashboard",
+      "icons": [
+        {
+          "src": "/favicon.ico",
+          "sizes": "16x16 32x32 48x48"
+        }
+      ]
+    },
+    {
+      "name": "Leave Requests",
+      "short_name": "Requests",
+      "description": "View your leave requests",
+      "url": "/leave/requests",
+      "icons": [
+        {
+          "src": "/favicon.ico",
+          "sizes": "16x16 32x32 48x48"
+        }
+      ]
+    },
+    {
+      "name": "Admin Panel",
+      "short_name": "Admin",
+      "description": "Access admin functions",
+      "url": "/admin",
+      "icons": [
+        {
+          "src": "/favicon.ico",
+          "sizes": "16x16 32x32 48x48"
+        }
+      ]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot-dashboard.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Dashboard view showing leave balances and recent requests"
+    },
+    {
+      "src": "/screenshot-mobile.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Mobile view of the leave tracker interface"
+    }
+  ]
+}

@@ -2,15 +2,27 @@
 
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+
+interface AdminStats {
+  pendingRequests: number;
+  totalUsers: number;
+  activeEmployees: number;
+  toilPending: number;
+  systemStatus: string;
+  allSystemsOperational: boolean;
+}
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, Clock, FileCheck, Settings } from "lucide-react";
+import BusinessAdminDashboard from "@/components/admin/BusinessAdminDashboard";
 
 export default function AdminPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -22,7 +34,29 @@ export default function AdminPage() {
       router.push("/dashboard");
       return;
     }
+    fetchAdminStats();
   }, [status, session, router]);
+
+  useEffect(() => {
+    if (session?.user?.role === "ADMIN") {
+      const interval = setInterval(fetchAdminStats, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [session]);
+
+  const fetchAdminStats = async () => {
+    try {
+      const response = await fetch('/api/admin/stats');
+      if (response.ok) {
+        const data = await response.json();
+        setStats(data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch admin stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (status === "loading") {
     return (
@@ -39,6 +73,12 @@ export default function AdminPage() {
     return null;
   }
 
+  // Role-specific dashboard rendering
+  if (session.user?.email === "senay@tdhagency.com") {
+    return <BusinessAdminDashboard />;
+  }
+
+  // Technical admin dashboard for Ian and other admins
   return (
     <div className="min-h-screen bg-background">
       <nav className="border-b">
@@ -86,7 +126,9 @@ export default function AdminPage() {
                 <FileCheck className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">-</div>
+                <div className="text-2xl font-bold">
+                  {loading ? "..." : stats?.pendingRequests || 0}
+                </div>
                 <p className="text-xs text-muted-foreground">
                   Awaiting review
                 </p>
@@ -101,7 +143,9 @@ export default function AdminPage() {
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">-</div>
+                <div className="text-2xl font-bold">
+                  {loading ? "..." : stats?.totalUsers || 0}
+                </div>
                 <p className="text-xs text-muted-foreground">
                   Active employees
                 </p>
@@ -116,7 +160,9 @@ export default function AdminPage() {
                 <Clock className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">-</div>
+                <div className="text-2xl font-bold">
+                  {loading ? "..." : stats?.toilPending || 0}
+                </div>
                 <p className="text-xs text-muted-foreground">
                   Hours to approve
                 </p>
@@ -131,8 +177,8 @@ export default function AdminPage() {
                 <Settings className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="flex items-center space-x-2">
-                  <Badge variant="default" className="text-xs">Active</Badge>
+                <div className="text-2xl font-bold text-green-600">
+                  {loading ? "..." : stats?.systemStatus || "Active"}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   All systems operational
@@ -175,6 +221,24 @@ export default function AdminPage() {
                 >
                   <Clock className="mr-2 h-4 w-4" />
                   Manage TOIL
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Employee Balances</CardTitle>
+                <CardDescription>
+                  View leave balances for all team members
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button 
+                  className="w-full"
+                  onClick={() => router.push("/admin/employee-balances")}
+                >
+                  <Users className="mr-2 h-4 w-4" />
+                  View Balances
                 </Button>
               </CardContent>
             </Card>

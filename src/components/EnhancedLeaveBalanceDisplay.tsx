@@ -1,7 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo, memo } from "react";
 import { useSession } from "next-auth/react";
+import { Calendar, Heart, Clock, AlertCircle } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { useLeaveBalance } from "@/hooks/useLeaveBalance";
+import { shouldShowNotificationBadge } from "@/lib/notifications/notification-policy";
 
 interface LeaveBalance {
   // Legacy format support
@@ -27,100 +31,143 @@ interface LeaveBalance {
       remaining: number;
     };
   };
+  
+  // Pending requests data
+  pending?: {
+    annual?: number;
+    toil?: number;
+    sick?: number;
+    total?: number;
+  };
 }
 
+const leaveTypeConfigs = {
+  annual: {
+    icon: Calendar,
+    title: "Annual Leave Balance",
+    iconColor: "text-blue-500"
+  },
+  sick: {
+    icon: Heart,
+    title: "Sick Leave Balance", 
+    iconColor: "text-emerald-500"
+  },
+  toil: {
+    icon: Clock,
+    title: "TOIL Balance",
+    iconColor: "text-violet-500"
+  }
+};
+
 interface LeaveTypeCardProps {
-  type: string;
-  icon: string;
-  color: string;
+  type: 'annual' | 'sick' | 'toil';
   used: number;
   total: number;
   remaining: number;
   unit: string;
-  description: string;
+  pending?: number;
 }
 
-function LeaveTypeCard({ type, icon, color, used, total, remaining, unit, description }: LeaveTypeCardProps) {
-  const percentage = total > 0 ? Math.max(5, (remaining / total) * 100) : 0;
+const LeaveTypeCard = memo(function LeaveTypeCard({ type, used, total, remaining, unit, pending = 0 }: LeaveTypeCardProps) {
+  const config = leaveTypeConfigs[type];
+  const Icon = config.icon;
   
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className={`w-4 h-4 ${color} rounded-full flex-shrink-0`}></div>
-          <div>
-            <h4 className="text-sm font-medium text-card-foreground">{type}</h4>
-            <p className="text-xs text-muted-foreground">{description}</p>
-          </div>
+    <div className="bg-card border border-border rounded-lg p-6 hover:bg-card/80 transition-colors">
+      {/* Header with title and icon */}
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-medium text-muted-foreground">
+          {config.title}
+        </h3>
+        <div className="flex items-center gap-2">
+          {shouldShowNotificationBadge(pending) && (
+            <span className="px-2 py-1 text-xs bg-orange-500/20 text-orange-400 rounded-full">
+              {pending} pending
+            </span>
+          )}
+          <Icon className={`h-5 w-5 ${config.iconColor}`} />
         </div>
       </div>
       
-      <div className="text-center">
-        <div className="text-3xl font-bold text-card-foreground mb-1">
-          {type === "TOIL" && remaining === 0 ? "0" : remaining}
-        </div>
-        <div className="text-xs text-muted-foreground">
-          {unit} {type === "Unpaid" ? "available" : "remaining"}
-        </div>
-      </div>
-      
-      <div className="space-y-2">
-        <div className="w-full bg-muted rounded-full h-3">
-          <div
-            className={`h-3 rounded-full ${color} transition-all duration-300`}
-            style={{ width: `${percentage}%` }}
-          ></div>
-        </div>
-        <div className="flex justify-between text-xs text-muted-foreground">
-          <span>{used} used</span>
-          <span>{type === "Unpaid" ? "∞" : total} total</span>
-        </div>
+      {/* Main value */}
+      <div className="mt-2">
+        <p className="text-3xl font-bold text-foreground">
+          {remaining}
+          {shouldShowNotificationBadge(pending) && (
+            <span className="text-lg font-normal text-muted-foreground ml-2">
+              (-{pending})
+            </span>
+          )}
+        </p>
+        <p className="text-sm text-muted-foreground mt-1">
+          {unit} remaining
+        </p>
       </div>
     </div>
   );
-}
+});
 
 export default function EnhancedLeaveBalanceDisplay() {
   const { data: session } = useSession();
-  const [balance, setBalance] = useState<LeaveBalance | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: balance, isLoading: loading, error: fetchError } = useLeaveBalance(
+    session?.user?.id || '',
+    { enabled: !!session?.user?.id }
+  );
+  
+  const error = fetchError?.message || null;
 
-  useEffect(() => {
-    const fetchBalance = async () => {
-      try {
-        const response = await fetch("/api/leave/balance");
-        if (!response.ok) {
-          throw new Error("Failed to fetch balance");
-        }
-        const data = await response.json();
-        setBalance(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load balance");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (session) {
-      fetchBalance();
+  // Extract data with proper fallbacks - memoized for performance (moved before conditional returns)
+  const { annualBalance, toilBalance, sickBalance, totalDaysAvailable } = useMemo(() => {
+    if (!balance) {
+      // Return default values when balance is not available
+      return {
+        annualBalance: { total: 32, used: 0, remaining: 32 },
+        toilBalance: { total: 0, used: 0, remaining: 0 },
+        sickBalance: { total: 3, used: 0, remaining: 3 },
+        totalDaysAvailable: 35
+      };
     }
-  }, [session]);
+    
+    const annual = balance.balances?.annual || {
+      total: balance.totalAllowance || 32,
+      used: balance.daysUsed || 0,
+      remaining: balance.remaining || 32
+    };
+    
+    const toil = balance.balances?.toil || { total: 0, used: 0, remaining: 0 };
+    const sick = balance.balances?.sick || { total: 3, used: 0, remaining: 3 };
+
+    const totalDays = annual.remaining + sick.remaining + (toil.remaining / 8); // Convert TOIL hours to days
+
+    return {
+      annualBalance: annual,
+      toilBalance: toil,
+      sickBalance: sick,
+      totalDaysAvailable: totalDays
+    };
+  }, [balance]);
 
   if (loading) {
     return (
-      <div className="bg-card border border-border rounded-lg shadow-sm p-6">
-        <div className="animate-pulse">
-          <div className="h-6 bg-muted rounded w-1/3 mb-4"></div>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="space-y-4">
-                <div className="h-4 bg-muted rounded w-2/3"></div>
-                <div className="h-8 bg-muted rounded w-1/2 mx-auto"></div>
-                <div className="h-3 bg-muted rounded"></div>
+      <div className="space-y-4">
+        <h3 className="text-xl font-semibold mb-4">Leave Balance</h3>
+        <div className="grid gap-6 md:grid-cols-3 mb-8">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bg-card border border-border rounded-lg p-6">
+              <div className="animate-pulse">
+                {/* Header skeleton */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="h-4 w-24 bg-muted rounded" />
+                  <div className="h-5 w-5 bg-muted rounded" />
+                </div>
+                {/* Value skeleton */}
+                <div className="mt-2">
+                  <div className="h-10 w-16 bg-muted rounded mb-2" />
+                  <div className="h-4 w-20 bg-muted rounded" />
+                </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -128,9 +175,10 @@ export default function EnhancedLeaveBalanceDisplay() {
 
   if (error) {
     return (
-      <div className="bg-card border border-border rounded-lg shadow-sm p-6">
-        <div className="text-destructive text-center">
-          <p>Error loading balance: {error}</p>
+      <div className="space-y-4">
+        <h3 className="text-xl font-semibold mb-4">Leave Balance</h3>
+        <div className="bg-card border border-border rounded-lg p-6">
+          <p className="text-destructive">Failed to load leave balance data</p>
         </div>
       </div>
     );
@@ -138,99 +186,85 @@ export default function EnhancedLeaveBalanceDisplay() {
 
   if (!balance) {
     return (
-      <div className="bg-card border border-border rounded-lg shadow-sm p-6">
-        <div className="text-muted-foreground text-center">
-          <p>No balance information available</p>
+      <div className="space-y-4">
+        <h3 className="text-xl font-semibold mb-4">Leave Balance</h3>
+        <div className="bg-card border border-border rounded-lg p-6">
+          <p className="text-muted-foreground">No balance information available</p>
         </div>
       </div>
     );
   }
 
-  // Extract data with proper fallbacks
-  const annualBalance = balance.balances?.annual || {
-    total: balance.totalAllowance || 25,
-    used: balance.daysUsed || 0,
-    remaining: balance.remaining || 25
-  };
-  
-  const toilBalance = balance.balances?.toil || { total: 0, used: 0, remaining: 0 };
-  const sickBalance = balance.balances?.sick || { total: 10, used: 0, remaining: 10 };
-
-  const totalDaysAvailable = annualBalance.remaining + sickBalance.remaining + (toilBalance.remaining / 8); // Convert TOIL hours to days
-
   return (
-    <div className="bg-card border border-border rounded-lg shadow-sm p-6">
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold text-card-foreground mb-2">Leave Balance Overview</h3>
-        <p className="text-sm text-muted-foreground">Your current leave entitlements and usage across all types</p>
-      </div>
-
+    <div className="space-y-4">
+      <h3 className="text-xl font-semibold mb-4">Leave Balance</h3>
       <div className="grid gap-6 md:grid-cols-3 mb-8">
         <LeaveTypeCard
-          type="Annual Leave"
-          icon="🏖️"
-          color="bg-blue-500"
+          type="annual"
           used={annualBalance.used}
           total={annualBalance.total}
           remaining={annualBalance.remaining}
           unit="days"
-          description="Yearly vacation entitlement"
+          pending={balance.pending?.annual || 0}
         />
 
         <LeaveTypeCard
-          type="Sick Leave"
-          icon="🏥"
-          color="bg-success"
+          type="sick"
           used={sickBalance.used}
           total={sickBalance.total}
           remaining={sickBalance.remaining}
           unit="days"
-          description="Health & medical leave"
+          pending={balance.pending?.sick || 0}
         />
 
         <LeaveTypeCard
-          type="TOIL"
-          icon="⏰"
-          color="bg-purple-500"
+          type="toil"
           used={toilBalance.used}
           total={toilBalance.total || 40}
           remaining={toilBalance.remaining}
           unit="hours"
-          description="Time Off In Lieu"
+          pending={balance.pending?.toil || 0}
         />
-
       </div>
-
-      {/* Summary Stats */}
-      <div className="bg-muted/30 rounded-lg p-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-          <div>
-            <div className="text-lg font-semibold text-card-foreground">{Math.round(totalDaysAvailable)}</div>
-            <div className="text-xs text-muted-foreground">Total Days Available</div>
-          </div>
-          <div>
-            <div className="text-lg font-semibold text-card-foreground">{annualBalance.used + sickBalance.used}</div>
-            <div className="text-xs text-muted-foreground">Days Used This Year</div>
-          </div>
-          <div>
-            <div className="text-lg font-semibold text-card-foreground">{toilBalance.remaining}h</div>
-            <div className="text-xs text-muted-foreground">TOIL Accrued</div>
-          </div>
-          <div>
-            <div className="text-lg font-semibold text-success">
-              {Math.round(((annualBalance.remaining + sickBalance.remaining) / (annualBalance.total + sickBalance.total)) * 100)}%
+      
+      {/* Pending Requests Summary - Only show if there are actionable notifications */}
+      {balance.pending && shouldShowNotificationBadge(balance.pending.total) && (
+        <div className="bg-card border border-orange-500/30 rounded-lg p-4 mt-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-orange-500" />
+              <h3 className="text-sm font-medium text-foreground">Pending Requests</h3>
             </div>
-            <div className="text-xs text-muted-foreground">Leave Available</div>
+            <button 
+              className="text-xs text-orange-400 hover:text-orange-300"
+              onClick={() => window.location.href = '/leave/requests'}
+            >
+              View all →
+            </button>
+          </div>
+          
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
+            {balance.pending.annual && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Annual:</span>
+                <span className="text-orange-400">{balance.pending.annual} days</span>
+              </div>
+            )}
+            {balance.pending.sick && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Sick:</span>
+                <span className="text-orange-400">{balance.pending.sick} days</span>
+              </div>
+            )}
+            {balance.pending.toil && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">TOIL:</span>
+                <span className="text-orange-400">{balance.pending.toil} hours</span>
+              </div>
+            )}
           </div>
         </div>
-      </div>
-
-      {/* Quick Actions Hint */}
-      <div className="mt-4 text-center">
-        <p className="text-xs text-muted-foreground">
-          Click "Request Leave" above to submit a new leave request
-        </p>
-      </div>
+      )}
     </div>
   );
 }

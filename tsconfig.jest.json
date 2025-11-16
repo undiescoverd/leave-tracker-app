@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "moduleResolution": "node16",
+    "module": "commonjs",
+    "allowJs": true
+  }
+}
+

@@ -9,10 +9,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getStatusVariant } from "@/lib/theme-utils";
+import { getStatusVariant, statusConfig } from "@/lib/theme-utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { clearAllCaches } from "@/lib/cache/clear-all-caches";
 
 interface LeaveRequest {
   id: string;
@@ -21,11 +22,19 @@ interface LeaveRequest {
   status: string;
   comments?: string;
   createdAt: string;
-  user: {
+  type?: string;
+  hours?: number;
+  user?: {
     id: string;
     name: string;
     email: string;
   };
+  // Admin API format
+  employeeName?: string;
+  employeeEmail?: string;
+  employeeRole?: string;
+  days?: number;
+  submittedAt?: string;
 }
 
 export default function PendingRequestsPage() {
@@ -55,11 +64,12 @@ export default function PendingRequestsPage() {
 
   const fetchLeaveRequests = async () => {
     try {
-      const response = await fetch("/api/leave/request");
+      const response = await fetch("/api/admin/pending-requests");
       const data = await response.json();
       
       if (response.ok) {
-        setLeaveRequests(data.data?.leaveRequests || data.leaveRequests || []);
+        // The admin API returns data in a different format
+        setLeaveRequests(data.data?.requests || []);
       } else {
         console.error("Failed to fetch leave requests:", data.error);
       }
@@ -106,7 +116,7 @@ export default function PendingRequestsPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          adminComment: rejectComment.trim()
+          reason: rejectComment.trim()
         }),
       });
       
@@ -154,7 +164,6 @@ export default function PendingRequestsPage() {
   // Ensure leaveRequests is always an array
   const requests = leaveRequests || [];
   const pendingRequests = requests.filter(req => req.status === 'PENDING');
-  const otherRequests = requests.filter(req => req.status !== 'PENDING');
 
   return (
     <div className="min-h-screen bg-background">
@@ -183,6 +192,16 @@ export default function PendingRequestsPage() {
                 >
                   Dashboard
                 </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    clearAllCaches();
+                    toast.success("Caches cleared! Refresh the page to see updated data.");
+                  }}
+                  className="text-xs"
+                >
+                  Clear Cache
+                </Button>
               </div>
             </div>
           </div>
@@ -208,9 +227,11 @@ export default function PendingRequestsPage() {
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
                             <h3 className="text-lg font-medium text-foreground">
-                              {request.user.name}
+                              {request.user?.name || request.employeeName}
                             </h3>
-                            <p className="text-sm text-muted-foreground">{request.user.email}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {request.user?.email || request.employeeEmail}
+                            </p>
                             <div className="mt-2 space-y-1">
                               <p className="text-sm text-foreground">
                                 <span className="font-semibold">Dates:</span> {formatDate(request.startDate)} - {formatDate(request.endDate)}
@@ -221,7 +242,7 @@ export default function PendingRequestsPage() {
                                 </p>
                               )}
                               <p className="text-sm text-muted-foreground">
-                                Submitted: {formatDate(request.createdAt)}
+                                Submitted: {formatDate(request.createdAt || request.submittedAt || new Date().toISOString())}
                               </p>
                             </div>
                           </div>
@@ -277,10 +298,10 @@ export default function PendingRequestsPage() {
                         <TableCell>
                           <div>
                             <div className="font-medium">
-                              {request.user.name}
+                              {request.user?.name || request.employeeName}
                             </div>
                             <div className="text-sm text-muted-foreground">
-                              {request.user.email}
+                              {request.user?.email || request.employeeEmail}
                             </div>
                           </div>
                         </TableCell>
@@ -288,12 +309,12 @@ export default function PendingRequestsPage() {
                           {formatDate(request.startDate)} - {formatDate(request.endDate)}
                         </TableCell>
                         <TableCell>
-                          <Badge variant={getStatusVariant(request.status)}>
-                            {request.status}
+                          <Badge variant={getStatusVariant(request.status)} className={statusConfig[request.status as keyof typeof statusConfig]?.className}>
+                            {statusConfig[request.status as keyof typeof statusConfig]?.label || request.status}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-muted-foreground">
-                          {formatDate(request.createdAt)}
+                          {formatDate(request.createdAt || request.submittedAt || new Date().toISOString())}
                         </TableCell>
                       </TableRow>
                     ))}

@@ -1,22 +1,27 @@
-import { type ClassValue, clsx } from "clsx"
-import { twMerge } from "tailwind-merge"
+// import { type ClassValue, clsx } from "clsx"
+// import { twMerge } from "tailwind-merge"
 
 // Status mapping for leave requests
 export const statusConfig = {
   APPROVED: {
     variant: "success",
-    label: "Approved",
-    className: "bg-success text-success-foreground",
+    label: "✅ Approved",
+    className: "bg-green-100 text-green-800 border-green-200",
   },
   PENDING: {
-    variant: "warning",
-    label: "Pending",
-    className: "bg-warning text-warning-foreground",
+    variant: "warning", 
+    label: "⏳ Pending",
+    className: "bg-yellow-100 text-yellow-800 border-yellow-200",
   },
   REJECTED: {
     variant: "error",
-    label: "Rejected",
-    className: "bg-error text-error-foreground",
+    label: "❌ Rejected", 
+    className: "bg-red-100 text-red-800 border-red-200",
+  },
+  CANCELLED: {
+    variant: "secondary",
+    label: "🚫 Cancelled",
+    className: "bg-gray-100 text-gray-800 border-gray-200",
   },
 } as const
 

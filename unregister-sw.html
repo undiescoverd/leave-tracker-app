@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Unregister Service Worker</title>
+</head>
+<body>
+    <h1>Unregistering Service Worker...</h1>
+    <div id="status">Processing...</div>
+    <script>
+        async function unregisterServiceWorkers() {
+            if ('serviceWorker' in navigator) {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                for (let registration of registrations) {
+                    const result = await registration.unregister();
+                    console.log('Service Worker unregistered:', result);
+                }
+                
+                // Clear all caches
+                const cacheNames = await caches.keys();
+                for (let cacheName of cacheNames) {
+                    await caches.delete(cacheName);
+                    console.log('Cache deleted:', cacheName);
+                }
+                
+                document.getElementById('status').innerHTML = 
+                    '<h2 style="color: green;">✓ Service workers unregistered and caches cleared!</h2>' +
+                    '<p>Close this tab and refresh your app.</p>';
+            } else {
+                document.getElementById('status').innerHTML = 
+                    '<h2>No service workers found</h2>';
+            }
+        }
+        
+        unregisterServiceWorkers();
+    </script>
+</body>
+</html>

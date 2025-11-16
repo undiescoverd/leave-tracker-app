@@ -2,14 +2,19 @@
 
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { getStatusVariant } from "@/lib/theme-utils";
+import { useLeaveRequests, useCancelLeaveRequest } from "@/hooks/useLeaveRequests";
+import { toast } from "sonner";
+import { DateRange } from "react-day-picker";
+import { format } from "date-fns";
 
 interface LeaveRequest {
   id: string;
@@ -22,70 +27,79 @@ interface LeaveRequest {
   adminComment?: string;
 }
 
-export default function LeaveRequestsPage() {
+export default function LeaveRequestsPageOptimized() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [requests, setRequests] = useState<LeaveRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
   const [pageSize, setPageSize] = useState(10);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
-  // Ensure requests is always an array
-  const safeRequests = Array.isArray(requests) ? requests : [];
+  // Use React Query hooks
+  const {
+    data: requestsData,
+    isLoading: loading,
+    error: fetchError,
+    refetch
+  } = useLeaveRequests({
+    userId: session?.user?.id || "",
+    status: statusFilter !== "ALL" ? statusFilter : undefined,
+    page: currentPage,
+    limit: pageSize,
+    startDate: dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : undefined,
+    endDate: dateRange?.to
+      ? format(dateRange.to, "yyyy-MM-dd")
+      : dateRange?.from
+        ? format(dateRange.from, "yyyy-MM-dd")
+        : undefined,
+    enabled: !!session?.user?.id && status === "authenticated"
+  });
 
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login");
-    } else if (status === "authenticated") {
-      fetchRequests();
-    }
-  }, [status, router, currentPage, pageSize, statusFilter]);
+  const cancelRequestMutation = useCancelLeaveRequest();
 
-  const fetchRequests = async () => {
-    try {
-      setLoading(true);
-      setError("");
-      
-      const params = new URLSearchParams();
-      if (statusFilter !== "ALL") {
-        params.append('status', statusFilter);
-      }
-      params.append('page', currentPage.toString());
-      params.append('limit', pageSize.toString());
-      
-      const response = await fetch(`/api/leave/requests?${params}`);
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log('API Response:', data); // Debug log
-        
-        // Ensure we have an array, even if the API returns unexpected data
-        const requestsArray = Array.isArray(data.data?.requests) 
-          ? data.data.requests 
-          : Array.isArray(data.data) 
-            ? data.data 
-            : [];
-            
-        setRequests(requestsArray);
-        setTotalPages(data.data?.totalPages || 1);
-        setTotalCount(data.data?.total || 0);
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error?.message || "Failed to fetch requests");
-        setRequests([]); // Set empty array on error
-      }
-    } catch (err) {
-      setError("Network error: Unable to fetch leave requests");
-      console.error("Error fetching requests:", err);
-      setRequests([]); // Set empty array on error
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Memoized values for performance
+  const safeRequests = useMemo(() => 
+    requestsData?.requests || [], 
+    [requestsData?.requests]
+  );
+
+  const totalPages = useMemo(() => 
+    requestsData?.totalPages || 1, 
+    [requestsData?.totalPages]
+  );
+
+  const totalCount = useMemo(() => 
+    requestsData?.total || 0, 
+    [requestsData?.total]
+  );
+
+  const displayedRangeStart = totalCount === 0 ? 0 : ((currentPage - 1) * pageSize) + 1;
+  const displayedRangeEnd = totalCount === 0 ? 0 : Math.min(currentPage * pageSize, totalCount);
+  const filtersApplied = statusFilter !== "ALL" || !!dateRange?.from;
+
+  const handleStatusChange = useCallback((value: string) => {
+    setStatusFilter(value);
+    setCurrentPage(1);
+  }, []);
+
+  const handleDateRangeChange = useCallback((range: DateRange | undefined) => {
+    setDateRange(range);
+    setCurrentPage(1);
+  }, []);
+
+  const handleClearFilters = useCallback(() => {
+    setStatusFilter("ALL");
+    setDateRange(undefined);
+    setCurrentPage(1);
+  }, []);
+
+  const error = fetchError?.message || "";
+
+  // Redirect if not authenticated
+  if (status === "unauthenticated") {
+    router.push("/login");
+    return null;
+  }
 
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return 'N/A';
@@ -101,6 +115,32 @@ export default function LeaveRequestsPage() {
     }
   };
 
+  const canCancelRequest = (request: LeaveRequest) => {
+    if (request.status !== 'PENDING' && request.status !== 'APPROVED') {
+      return false;
+    }
+    
+    // Allow cancellation until the leave has ended (not just before it starts)
+    const endDate = new Date(request.endDate);
+    const now = new Date();
+    // Set end date to end of day for comparison
+    endDate.setHours(23, 59, 59, 999);
+    return endDate >= now;
+  };
+
+  const handleCancelRequest = async (requestId: string) => {
+    if (!confirm('Are you sure you want to cancel this leave request? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await cancelRequestMutation.mutateAsync(requestId);
+      toast.success('Leave request cancelled successfully');
+    } catch (err) {
+      console.error('Error cancelling request:', err);
+      toast.error('Failed to cancel leave request');
+    }
+  };
 
   if (status === "loading") {
     return (
@@ -131,14 +171,11 @@ export default function LeaveRequestsPage() {
 
         {/* Filter and Pagination Controls */}
         <Card className="mb-6">
-          <CardContent className="pt-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
-              <div className="flex items-center space-x-4">
+          <CardContent className="pt-6 space-y-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <label className="text-sm font-medium text-foreground">Filter by Status:</label>
-                <Select value={statusFilter} onValueChange={(value) => {
-                  setStatusFilter(value);
-                  setCurrentPage(1);
-                }}>
+                <Select value={statusFilter} onValueChange={handleStatusChange}>
                   <SelectTrigger className="w-40">
                     <SelectValue />
                   </SelectTrigger>
@@ -147,10 +184,33 @@ export default function LeaveRequestsPage() {
                     <SelectItem value="PENDING">Pending</SelectItem>
                     <SelectItem value="APPROVED">Approved</SelectItem>
                     <SelectItem value="REJECTED">Rejected</SelectItem>
+                    <SelectItem value="CANCELLED">Cancelled</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              
+
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <label className="text-sm font-medium text-foreground">Date Range:</label>
+                <DateRangePicker
+                  dateRange={dateRange}
+                  onDateRangeChange={handleDateRangeChange}
+                  placeholder="Select range"
+                  className="w-full sm:w-[260px]"
+                />
+                {filtersApplied && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleClearFilters}
+                    className="self-start sm:self-auto"
+                  >
+                    Clear Filters
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center space-x-4">
                 <label className="text-sm font-medium text-foreground">Show:</label>
                 <Select value={pageSize.toString()} onValueChange={(value) => {
@@ -166,10 +226,10 @@ export default function LeaveRequestsPage() {
                     <SelectItem value="50">50</SelectItem>
                   </SelectContent>
                 </Select>
-                <span className="text-sm text-muted-foreground">
-                  Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalCount)} of {totalCount} requests
-                </span>
               </div>
+              <span className="text-sm text-muted-foreground">
+                Showing {displayedRangeStart} to {displayedRangeEnd} of {totalCount} requests
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -179,6 +239,14 @@ export default function LeaveRequestsPage() {
           <Card className="mb-6 border-destructive">
             <CardContent className="pt-6">
               <p className="text-destructive">{error}</p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => refetch()}
+                className="mt-2"
+              >
+                Retry
+              </Button>
             </CardContent>
           </Card>
         )}
@@ -236,6 +304,18 @@ export default function LeaveRequestsPage() {
                           <strong>Admin Comment:</strong> {request.adminComment}
                         </div>
                       )}
+                      
+                      {canCancelRequest(request) && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="w-full mt-3"
+                          onClick={() => handleCancelRequest(request.id)}
+                          disabled={cancelRequestMutation.isPending}
+                        >
+                          {cancelRequestMutation.isPending ? 'Cancelling...' : 'Cancel Request'}
+                        </Button>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
@@ -251,6 +331,7 @@ export default function LeaveRequestsPage() {
                       <TableHead>Reason</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Submitted</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -275,6 +356,18 @@ export default function LeaveRequestsPage() {
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                           {formatDate(request.createdAt)}
+                        </TableCell>
+                        <TableCell>
+                          {canCancelRequest(request) && (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleCancelRequest(request.id)}
+                              disabled={cancelRequestMutation.isPending}
+                            >
+                              {cancelRequestMutation.isPending ? 'Cancelling...' : 'Cancel'}
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}

@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -74,7 +75,10 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-background flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="text-center mb-8">
           <h2 className="text-3xl font-bold tracking-tight text-foreground">

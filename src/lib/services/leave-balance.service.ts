@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
-import { LeaveType, User } from '@prisma/client';
+import { LeaveType } from '@prisma/client';
 import { features } from '@/lib/features';
+import { calculateWorkingDays } from '@/lib/date-utils';
 
 export interface LeaveBalance {
   annual: {
@@ -53,7 +54,7 @@ export async function getUserLeaveBalances(
   };
 
   for (const request of user.leaveRequests) {
-    const days = calculateLeaveDays(
+    const days = calculateWorkingDays(
       new Date(request.startDate),
       new Date(request.endDate)
     );
@@ -102,7 +103,7 @@ export async function validateLeaveRequest(
   startDate: Date,
   endDate: Date
 ): Promise<{ valid: boolean; error?: string }> {
-  const days = calculateLeaveDays(startDate, endDate);
+  const days = calculateWorkingDays(startDate, endDate);
   const balances = await getUserLeaveBalances(userId);
 
   // Check balance based on type
@@ -120,12 +121,9 @@ export async function validateLeaveRequest(
       if (!features.TOIL_ENABLED) {
         return { valid: false, error: 'TOIL requests are not enabled' };
       }
-      if (!balances.toil || balances.toil.remaining < days) {
-        return { 
-          valid: false, 
-          error: `Insufficient TOIL balance. You have ${balances.toil?.remaining ?? 0} days remaining.` 
-        };
-      }
+      // For TOIL, we don't validate against balance since TOIL is earned through travel
+      // The hours are calculated based on the scenario, not deducted from a balance
+      // TOIL requests are always valid as long as the feature is enabled
       break;
       
     case 'SICK':
@@ -139,25 +137,6 @@ export async function validateLeaveRequest(
   return { valid: true };
 }
 
-/**
- * Calculate leave days (excluding weekends)
- * Backward compatible with existing implementation
- */
-function calculateLeaveDays(startDate: Date, endDate: Date): number {
-  let count = 0;
-  const current = new Date(startDate);
-  const end = new Date(endDate);
-
-  while (current <= end) {
-    const dayOfWeek = current.getDay();
-    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-      count++;
-    }
-    current.setDate(current.getDate() + 1);
-  }
-
-  return count;
-}
 
 /**
  * Get legacy leave balance (for backward compatibility)

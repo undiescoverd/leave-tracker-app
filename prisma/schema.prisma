@@ -8,22 +8,25 @@ datasource db {
 }
 
 model User {
-  id            String         @id @default(cuid())
-  email         String         @unique
-  password      String
-  name          String?
-  role          Role           @default(USER)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  
-  // NEW FIELDS - Optional with defaults for backward compatibility
-  annualLeaveBalance Float     @default(32)  // Existing 32 days
-  toilBalance        Float     @default(0)   // Start at 0
-  sickLeaveBalance   Float     @default(3)   // Contract specifies 3 days
-  
-  leaveRequests LeaveRequest[]
-  toilEntries   ToilEntry[]    // NEW relation
+  id                 String         @id @default(cuid())
+  email              String         @unique
+  password           String
+  name               String?
+  role               Role           @default(USER)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  annualLeaveBalance Float          @default(32)
+  toilBalance        Float          @default(0)
+  sickLeaveBalance   Float          @default(3)
+  resetToken         String?
+  resetTokenExpiry   DateTime?
+  leaveRequests      LeaveRequest[]
+  toilEntries        ToilEntry[]
 
+  // Performance indexes for common queries
+  @@index([role, createdAt])
+  @@index([email])
+  @@index([resetToken])
   @@map("users")
 }
 
@@ -33,40 +36,49 @@ model LeaveRequest {
   endDate   DateTime
   status    LeaveStatus @default(PENDING)
   comments  String?
-  
-  // NEW FIELDS - With defaults for backward compatibility
-  type      LeaveType   @default(ANNUAL)  // Default to ANNUAL for existing records
-  hours     Float?      // For TOIL requests (optional)
-  
+  type      LeaveType   @default(ANNUAL)
+  hours     Float?
+  approvedBy String?
+  approvedAt DateTime?
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
   userId    String
   user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // Enhanced indexes for better query performance
+  @@index([userId, status])
+  @@index([startDate, endDate])
+  @@index([status, createdAt])
+  @@index([type, status])
+  @@index([userId, type, status])
+  @@index([approvedBy, approvedAt])
+  @@index([createdAt])
   @@map("leave_requests")
 }
 
-// NEW MODEL - Won't affect existing functionality
 model ToilEntry {
-  id          String      @id @default(cuid())
-  userId      String
-  date        DateTime
-  type        ToilType
-  hours       Float
-  reason      String
-  approved    Boolean     @default(false)
-  approvedBy  String?
-  approvedAt  DateTime?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  
-  // Audit trail fields
+  id               String    @id @default(cuid())
+  userId           String
+  date             DateTime
+  type             ToilType
+  hours            Float
+  reason           String
+  approved         Boolean   @default(false)
+  approvedBy       String?
+  approvedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
   adjustmentReason String?
   previousBalance  Float?
   newBalance       Float?
-  
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // Enhanced indexes for better query performance
+  @@index([userId, date])
+  @@index([approved, createdAt])
+  @@index([userId, approved])
+  @@index([type, approved])
+  @@index([approvedBy, approvedAt])
   @@map("toil_entries")
 }
 
@@ -79,19 +91,18 @@ enum LeaveStatus {
   PENDING
   APPROVED
   REJECTED
+  CANCELLED
 }
 
-// NEW ENUM - Leave types
 enum LeaveType {
   ANNUAL
   TOIL
   SICK
 }
 
-// NEW ENUM - Contract-based TOIL types
 enum ToilType {
-  TRAVEL_LATE_RETURN    // Section 6.6(d)
-  WEEKEND_TRAVEL        // Section 6.6(c)  
-  AGENT_PANEL_DAY      // Section 6.6(b)
-  OVERTIME             // General overtime
+  TRAVEL_LATE_RETURN
+  WEEKEND_TRAVEL
+  AGENT_PANEL_DAY
+  OVERTIME
 }

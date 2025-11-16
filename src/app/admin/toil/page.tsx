@@ -58,6 +58,10 @@ export default function AdminToilPage() {
       router.push('/login');
       return;
     }
+    if (session.user?.role !== 'ADMIN') {
+      router.push('/dashboard');
+      return;
+    }
     fetchUsers();
     fetchToilEntries();
   }, [session, status, router]);
@@ -120,6 +124,7 @@ export default function AdminToilPage() {
         setMessage({ type: 'error', text: data.message || 'Failed to update TOIL balance' });
       }
     } catch (error) {
+      console.error('Submit TOIL error:', error);
       setMessage({ type: 'error', text: 'An unexpected error occurred' });
     } finally {
       setIsSubmitting(false);
@@ -142,6 +147,7 @@ export default function AdminToilPage() {
         fetchToilEntries();
       }
     } catch (error) {
+      console.error('Approve TOIL error:', error);
       setMessage({ type: 'error', text: 'Failed to approve entry' });
     }
   };
@@ -163,6 +169,7 @@ export default function AdminToilPage() {
         fetchToilEntries();
       }
     } catch (error) {
+      console.error('Reject TOIL error:', error);
       setMessage({ type: 'error', text: 'Failed to reject entry' });
     }
   };
@@ -245,7 +252,9 @@ export default function AdminToilPage() {
                       <Label htmlFor="type">TOIL Type</Label>
                       <Select 
                         value={formData.type} 
-                        onValueChange={(value) => setFormData({ ...formData, type: value as any })}
+                        onValueChange={(value: 'OVERTIME' | 'TRAVEL_LATE_RETURN' | 'WEEKEND_TRAVEL' | 'AGENT_PANEL_DAY') => 
+                          setFormData({ ...formData, type: value })
+                        }
                       >
                         <SelectTrigger>
                           <SelectValue />

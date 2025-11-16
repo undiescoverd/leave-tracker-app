@@ -4,17 +4,17 @@ import { ToilType } from '@prisma/client';
 /**
  * Contract-based TOIL calculation rules
  */
-const TOIL_RULES = {
-  TRAVEL_LATE_RETURN: {
-    '19:00': 1,  // 7pm = 1 hour
-    '20:00': 2,  // 8pm = 2 hours
-    '21:00': 3,  // 9pm = 3 hours
-    '22:00': 'next_day_1pm' // 10pm+ = 1pm start
-  },
-  WEEKEND_TRAVEL: 4, // Fixed 4 hours
-  AGENT_PANEL_DAY: 'next_day_1pm',
-  OVERTIME: 1 // 1:1 ratio for general overtime
-};
+// const TOIL_RULES = {
+//   TRAVEL_LATE_RETURN: {
+//     '19:00': 1,  // 7pm = 1 hour
+//     '20:00': 2,  // 8pm = 2 hours
+//     '21:00': 3,  // 9pm = 3 hours
+//     '22:00': 'next_day_1pm' // 10pm+ = 1pm start
+//   },
+//   WEEKEND_TRAVEL: 4, // Fixed 4 hours
+//   AGENT_PANEL_DAY: 'next_day_1pm',
+//   OVERTIME: 1 // 1:1 ratio for general overtime
+// };
 
 /**
  * Create a TOIL entry for an employee

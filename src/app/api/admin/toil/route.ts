@@ -1,17 +1,16 @@
-import { NextRequest } from 'next/server';
-import { auth } from '@/lib/auth';
-import { apiSuccess, apiError } from '@/lib/api/response';
+import { NextRequest, NextResponse } from 'next/server';
+import { apiSuccess, apiError, HttpStatus } from '@/lib/api/response';
 import { AuthenticationError, AuthorizationError } from '@/lib/api/errors';
+import { requireAdmin, getAuthenticatedUser } from '@/lib/auth-utils';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { features } from '@/lib/features';
 import { 
-  createToilEntry, 
   approveToilEntry, 
-  rejectToilEntry,
-  getToilEntries,
-  getPendingToilEntries 
+  rejectToilEntry
 } from '@/lib/services/toil.service';
+import { withAdminAuth } from '@/lib/middleware/auth';
+import { withCompleteSecurity } from '@/lib/middleware/security';
 
 // Schema for TOIL adjustment
 const toilAdjustmentSchema = z.object({
@@ -28,28 +27,20 @@ const toilActionSchema = z.object({
   reason: z.string().optional()
 });
 
-export async function POST(request: NextRequest) {
+async function createToilHandler(
+  req: NextRequest,
+  context: { user: any }
+): Promise<NextResponse> {
   try {
     // Check if TOIL is enabled
     if (!features.TOIL_ENABLED) {
       return apiError('TOIL feature is not enabled', 400);
     }
 
-    // Auth and admin check
-    const session = await auth();
-    if (!session?.user?.email) {
-      throw new AuthenticationError('Authentication required');
-    }
+    // Admin from middleware
+    const admin = context.user;
 
-    const admin = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    });
-
-    if (!admin || admin.role !== 'ADMIN') {
-      throw new AuthorizationError('Admin access required');
-    }
-
-    const body = await request.json();
+    const body = await req.json();
     const validation = toilAdjustmentSchema.safeParse(body);
 
     if (!validation.success) {
@@ -93,32 +84,22 @@ export async function POST(request: NextRequest) {
     }, undefined, 201);
 
   } catch (error) {
-    if (error instanceof AuthenticationError || error instanceof AuthorizationError) {
-      return apiError(error.message, error.statusCode as any);
-    }
-    return apiError('Internal server error', 500);
+    console.error('Create TOIL error:', error);
+    return apiError('Failed to create TOIL entry', 500);
   }
 }
 
 // GET endpoint for TOIL entries
-export async function GET(request: NextRequest) {
+async function getToilHandler(
+  req: NextRequest,
+  context: { user: any }
+): Promise<NextResponse> {
   try {
     if (!features.TOIL_ENABLED) {
       return apiError('TOIL feature is not enabled', 400);
     }
 
-    const session = await auth();
-    if (!session?.user?.email) {
-      throw new AuthenticationError('Authentication required');
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    });
-
-    if (!user) {
-      throw new AuthenticationError('User not found');
-    }
+    const user = context.user;
 
     // Get TOIL entries based on role
     const where = user.role === 'ADMIN' ? {} : { userId: user.id };
@@ -139,34 +120,24 @@ export async function GET(request: NextRequest) {
     return apiSuccess({ entries });
 
   } catch (error) {
-    if (error instanceof AuthenticationError) {
-      return apiError(error.message, error.statusCode as any);
-    }
-    return apiError('Internal server error', 500);
+    console.error('Get TOIL error:', error);
+    return apiError('Failed to fetch TOIL entries', 500);
   }
 }
 
 // PATCH endpoint for approving/rejecting TOIL entries
-export async function PATCH(request: NextRequest) {
+async function patchToilHandler(
+  req: NextRequest,
+  context: { user: any }
+): Promise<NextResponse> {
   try {
     if (!features.TOIL_ENABLED) {
       return apiError('TOIL feature is not enabled', 400);
     }
 
-    const session = await auth();
-    if (!session?.user?.email) {
-      throw new AuthenticationError('Authentication required');
-    }
+    const admin = context.user;
 
-    const admin = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    });
-
-    if (!admin || admin.role !== 'ADMIN') {
-      throw new AuthorizationError('Admin access required');
-    }
-
-    const body = await request.json();
+    const body = await req.json();
     const { action, ...data } = body;
 
     if (action === 'approve') {
@@ -202,9 +173,34 @@ export async function PATCH(request: NextRequest) {
     }
 
   } catch (error) {
-    if (error instanceof AuthenticationError || error instanceof AuthorizationError) {
-      return apiError(error.message, error.statusCode as any);
-    }
-    return apiError('Internal server error', 500);
+    console.error('PATCH TOIL error:', error);
+    return apiError('Failed to process TOIL action', 500);
   }
 }
+
+// Export secured endpoints
+export const POST = withCompleteSecurity(
+  withAdminAuth(createToilHandler),
+  {
+    validateInput: true,
+    schema: toilAdjustmentSchema,
+    sanitizationRule: 'general'
+  }
+);
+
+export const GET = withCompleteSecurity(
+  withAdminAuth(getToilHandler),
+  { 
+    validateInput: false,
+    skipCSRF: true 
+  }
+);
+
+export const PATCH = withCompleteSecurity(
+  withAdminAuth(patchToilHandler),
+  {
+    validateInput: true,
+    schema: toilActionSchema,
+    sanitizationRule: 'general'
+  }
+);
