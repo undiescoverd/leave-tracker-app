@@ -46,8 +46,15 @@ export const queryKeys = {
   // Leave requests
   leaveRequests: {
     all: ['leaveRequests'] as const,
-    byUser: (userId: string, status?: string, page?: number, limit?: number) => 
-      ['leaveRequests', 'user', userId, status, page, limit] as const,
+    byUser: (
+      userId: string,
+      status?: string,
+      page?: number,
+      limit?: number,
+      startDate?: string,
+      endDate?: string,
+    ) => 
+      ['leaveRequests', 'user', userId, status, page, limit, startDate, endDate] as const,
     pending: ['leaveRequests', 'pending'] as const,
   },
   

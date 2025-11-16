@@ -37,6 +37,16 @@ NODE_ENV=production npm run build
 curl https://your-domain.com/api/readiness?token=your-health-check-token
 ```
 
+### 3. Execute End-to-End Regression
+
+```bash
+# Ensure Playwright browsers are installed once per machine
+npx playwright install
+
+# Run the dashboard/login regression suite
+npm run test:e2e
+```
+
 ## Deployment Options
 
 ### Option 1: Docker Deployment (Recommended)

@@ -2,16 +2,19 @@
 
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { getStatusVariant } from "@/lib/theme-utils";
 import { useLeaveRequests, useCancelLeaveRequest } from "@/hooks/useLeaveRequests";
 import { toast } from "sonner";
+import { DateRange } from "react-day-picker";
+import { format } from "date-fns";
 
 interface LeaveRequest {
   id: string;
@@ -30,6 +33,7 @@ export default function LeaveRequestsPageOptimized() {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
   // Use React Query hooks
   const {
@@ -38,10 +42,16 @@ export default function LeaveRequestsPageOptimized() {
     error: fetchError,
     refetch
   } = useLeaveRequests({
-    userId: session?.user?.id || '',
+    userId: session?.user?.id || "",
     status: statusFilter !== "ALL" ? statusFilter : undefined,
     page: currentPage,
     limit: pageSize,
+    startDate: dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : undefined,
+    endDate: dateRange?.to
+      ? format(dateRange.to, "yyyy-MM-dd")
+      : dateRange?.from
+        ? format(dateRange.from, "yyyy-MM-dd")
+        : undefined,
     enabled: !!session?.user?.id && status === "authenticated"
   });
 
@@ -62,6 +72,26 @@ export default function LeaveRequestsPageOptimized() {
     requestsData?.total || 0, 
     [requestsData?.total]
   );
+
+  const displayedRangeStart = totalCount === 0 ? 0 : ((currentPage - 1) * pageSize) + 1;
+  const displayedRangeEnd = totalCount === 0 ? 0 : Math.min(currentPage * pageSize, totalCount);
+  const filtersApplied = statusFilter !== "ALL" || !!dateRange?.from;
+
+  const handleStatusChange = useCallback((value: string) => {
+    setStatusFilter(value);
+    setCurrentPage(1);
+  }, []);
+
+  const handleDateRangeChange = useCallback((range: DateRange | undefined) => {
+    setDateRange(range);
+    setCurrentPage(1);
+  }, []);
+
+  const handleClearFilters = useCallback(() => {
+    setStatusFilter("ALL");
+    setDateRange(undefined);
+    setCurrentPage(1);
+  }, []);
 
   const error = fetchError?.message || "";
 
@@ -141,14 +171,11 @@ export default function LeaveRequestsPageOptimized() {
 
         {/* Filter and Pagination Controls */}
         <Card className="mb-6">
-          <CardContent className="pt-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
-              <div className="flex items-center space-x-4">
+          <CardContent className="pt-6 space-y-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <label className="text-sm font-medium text-foreground">Filter by Status:</label>
-                <Select value={statusFilter} onValueChange={(value) => {
-                  setStatusFilter(value);
-                  setCurrentPage(1);
-                }}>
+                <Select value={statusFilter} onValueChange={handleStatusChange}>
                   <SelectTrigger className="w-40">
                     <SelectValue />
                   </SelectTrigger>
@@ -161,7 +188,29 @@ export default function LeaveRequestsPageOptimized() {
                   </SelectContent>
                 </Select>
               </div>
-              
+
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <label className="text-sm font-medium text-foreground">Date Range:</label>
+                <DateRangePicker
+                  dateRange={dateRange}
+                  onDateRangeChange={handleDateRangeChange}
+                  placeholder="Select range"
+                  className="w-full sm:w-[260px]"
+                />
+                {filtersApplied && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleClearFilters}
+                    className="self-start sm:self-auto"
+                  >
+                    Clear Filters
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center space-x-4">
                 <label className="text-sm font-medium text-foreground">Show:</label>
                 <Select value={pageSize.toString()} onValueChange={(value) => {
@@ -177,10 +226,10 @@ export default function LeaveRequestsPageOptimized() {
                     <SelectItem value="50">50</SelectItem>
                   </SelectContent>
                 </Select>
-                <span className="text-sm text-muted-foreground">
-                  Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalCount)} of {totalCount} requests
-                </span>
               </div>
+              <span className="text-sm text-muted-foreground">
+                Showing {displayedRangeStart} to {displayedRangeEnd} of {totalCount} requests
+              </span>
             </div>
           </CardContent>
         </Card>

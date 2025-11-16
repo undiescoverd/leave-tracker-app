@@ -45,12 +45,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
           logger.warn("Authentication failed: Missing credentials");
+          console.error("🔴 Auth: Missing credentials", { 
+            hasEmail: !!credentials?.email, 
+            hasPassword: !!credentials?.password 
+          });
           return null;
         }
 
         try {
           const email = (credentials.email as string).trim().toLowerCase();
           const password = credentials.password as string;
+
+          console.log("🔍 Auth: Attempting login for", email);
 
           const user = await prisma.user.findUnique({
             where: {
@@ -60,17 +66,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
           if (!user) {
             logger.warn("Authentication failed: User not found", { email });
+            console.error("🔴 Auth: User not found", { email });
             return null;
           }
+
+          console.log("✅ Auth: User found", { email, userId: user.id, role: user.role });
 
           const isPasswordValid = await bcrypt.compare(password, user.password);
 
           if (!isPasswordValid) {
             logger.warn("Authentication failed: Invalid password", { email });
+            console.error("🔴 Auth: Invalid password", { email });
             return null;
           }
 
           logger.info("Authentication successful", { email });
+          console.log("✅ Auth: Password valid, authentication successful", { email });
           return {
             id: user.id,
             email: user.email,
@@ -78,7 +89,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             role: user.role,
           };
         } catch (error) {
-          console.error("Auth error:", error);
+          console.error("🔴 Auth error:", error);
+          logger.error("Authentication error", { error });
           return null;
         }
       }
@@ -104,8 +116,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return session;
     },
-    async signIn({ user }) {
-      return true;
+    async signIn({ user, account, profile }) {
+      // Allow all sign-ins - authorization is handled in authorize()
+      if (user) {
+        console.log("✅ SignIn callback: User authorized", { email: user.email, id: user.id });
+        return true;
+      }
+      console.error("🔴 SignIn callback: No user object");
+      return false;
     }
   },
   pages: {

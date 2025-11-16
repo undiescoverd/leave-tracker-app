@@ -24,6 +24,16 @@ jest.mock('@/lib/logger', () => ({
   }
 }));
 
+jest.mock('@/lib/auth', () => ({
+  auth: jest.fn().mockResolvedValue({
+    user: {
+      id: 'test-user-id',
+      email: 'test@example.com',
+      role: 'USER',
+    },
+  }),
+}));
+
 import { prisma } from '@/lib/prisma';
 const mockPrisma = prisma;
 
@@ -153,7 +163,9 @@ describe('Auth Utils', () => {
       const password = 'password123';
       const malformedHash = 'not-a-valid-hash';
 
-      await expect(verifyPassword(password, malformedHash)).rejects.toThrow();
+      // bcrypt.compare returns false for malformed hashes rather than throwing
+      const result = await verifyPassword(password, malformedHash);
+      expect(result).toBe(false);
     });
   });
 
