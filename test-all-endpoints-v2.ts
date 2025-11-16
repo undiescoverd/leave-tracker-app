@@ -782,15 +782,15 @@ async function testToilEndpoints() {
     logTest('TOIL', 'Approve TOIL - Invalid ID');
     try {
       const approve = await adminUserClient.post('/api/admin/toil/approve', {
-        toilEntryId: 'invalid-id-123'  // Correct field name
+        requestId: 'invalid-id-123'  // Schema expects requestId, not toilEntryId
       });
       // 422 is acceptable - means validation rejected the format (not a valid UUID)
       logResult({
         endpoint: '/api/admin/toil/approve',
         method: 'POST',
         status: approve.status === 400 || approve.status === 404 || approve.status === 422 ? 'PASS' : 'FAIL',
-        message: approve.status === 400 || approve.status === 404 ? 'Invalid ID properly rejected' : 
-                 approve.status === 422 ? 'Validation properly rejected invalid format' :
+        message: approve.status === 400 || approve.status === 404 || approve.status === 422 ?
+                 'Validation properly rejected invalid format' :
                  `Unexpected: ${approve.status}`,
         statusCode: approve.status,
       });
