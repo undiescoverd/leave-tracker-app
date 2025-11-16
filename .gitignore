@@ -46,3 +46,9 @@ next-env.d.ts
 *.db
 *.db-journal
 prisma/dev.db
+
+# serena cache
+.serena/cache/
+
+# playwright mcp
+.playwright-mcp/
