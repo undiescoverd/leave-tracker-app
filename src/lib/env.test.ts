@@ -1,14 +1,19 @@
-// This file is for testing environment validation
-// It will throw an error if required environment variables are missing
+import { describe, it, expect } from '@jest/globals';
+import { env, envValidation } from './env';
 
-import { env } from './env';
+describe('Environment configuration', () => {
+  it('exposes a NODE_ENV value', () => {
+    expect(env.NODE_ENV).toBeDefined();
+    expect(['development', 'production', 'test']).toContain(env.NODE_ENV);
+  });
 
-// This will validate all environment variables on import
-console.log('✅ Environment validation passed');
-console.log('📊 Environment variables loaded:');
-console.log('- DATABASE_URL:', env.DATABASE_URL ? '✅ Set' : '❌ Missing');
-console.log('- NEXTAUTH_SECRET:', env.NEXTAUTH_SECRET ? '✅ Set' : '❌ Missing');
-console.log('- NEXTAUTH_URL:', env.NEXTAUTH_URL ? '✅ Set' : '❌ Missing');
-console.log('- NODE_ENV:', env.NODE_ENV);
+  it('provides sensible defaults for optional values', () => {
+    expect(env.NEXTAUTH_URL).toMatch(/^https?:\/\//);
+    expect(typeof env.EMAIL_TIMEOUT_MS).toBe('number');
+  });
 
-export { env };
+  it('shares validation metadata', () => {
+    expect(envValidation.validationPassed).toBe(true);
+    expect(typeof envValidation.hasDatabase).toBe('boolean');
+  });
+});

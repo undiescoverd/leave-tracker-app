@@ -2,10 +2,10 @@
 
 import { Session } from "next-auth";
 import { UserRole } from "@/types/next-auth";
-import EnhancedLeaveBalanceDisplay from "@/components/EnhancedLeaveBalanceDisplay";
 import { LazyTeamCalendar } from "@/components/lazy/CalendarComponents";
 import { LazyAdminActions } from "@/components/lazy/AdminComponents";
 import LeaveActions from "./LeaveActions";
+import LeaveBalanceWidget from "./LeaveBalanceWidget";
 
 interface DashboardContentProps {
   session: Session;
@@ -21,7 +21,7 @@ export default function DashboardContent({ session }: DashboardContentProps) {
         <h2 className="text-3xl font-bold text-foreground mb-6">
           Dashboard
         </h2>
-        <EnhancedLeaveBalanceDisplay />
+        <LeaveBalanceWidget />
       </div>
 
       {/* Admin Section */}

@@ -1,0 +1,159 @@
+
+======================================================================
+🚀 COMPREHENSIVE API ENDPOINT TEST SUITE V2
+======================================================================
+
+Testing against: http://localhost:3000
+Started at: 10/2/2025, 10:17:45 PM
+
+======================================================================
+🔑 AUTHENTICATION SETUP
+======================================================================
+
+🔐 Attempting to authenticate regular user...
+✅ Regular user authenticated successfully
+
+🔐 Attempting to authenticate admin user...
+✅ Admin user authenticated successfully
+
+======================================================================
+📊 HEALTH & READINESS CHECKS
+======================================================================
+
+🧪 [Health] Health endpoint
+   ✅ GET /api/health - Status: healthy
+
+🧪 [Health] Ping endpoint
+   ✅ GET /api/ping - Pong received
+
+🧪 [Health] Readiness endpoint
+   ✅ GET /api/readiness - System ready
+
+======================================================================
+🔐 AUTHENTICATION ENDPOINTS
+======================================================================
+
+🧪 [Auth] Register endpoint - Duplicate user
+   ✅ POST /api/auth/register - Duplicate user properly rejected
+
+🧪 [Auth] Forgot password endpoint
+   ✅ POST /api/auth/forgot-password - Password reset initiated
+
+🧪 [Auth] Reset password endpoint - Invalid token
+   ✅ POST /api/auth/reset-password - Invalid token properly rejected
+
+======================================================================
+🏖️  LEAVE MANAGEMENT ENDPOINTS
+======================================================================
+
+🧪 [Leave] Balance endpoint - No auth
+   ✅ GET /api/leave/balance - Properly requires authentication (307)
+
+🧪 [Leave] Balance endpoint - With auth
+   ✅ GET /api/leave/balance - Balance retrieved
+
+🧪 [Leave] Get leave requests
+   ✅ GET /api/leave/requests - Found 0 requests
+
+🧪 [Leave] Create leave request - Valid
+   ✅ POST /api/leave/request - Request created
+
+🧪 [Leave] Get leave request ID for testing
+   ⏭️ POST /api/leave/request/[id]/* - No leave requests to test with
+
+======================================================================
+👑 ADMIN ENDPOINTS
+======================================================================
+
+🧪 [Admin] Stats endpoint - No auth
+   ✅ GET /api/admin/stats - Properly requires authentication (307)
+
+🧪 [Admin] Stats endpoint - Regular user
+   ✅ GET /api/admin/stats - Admin access properly restricted
+
+🧪 [Admin] Stats endpoint - Admin user
+   ✅ GET /api/admin/stats - Stats retrieved
+
+🧪 [Admin] Pending requests
+   ✅ GET /api/admin/pending-requests - Found 0 pending
+
+🧪 [Admin] Employee balances
+   ✅ GET /api/admin/employee-balances - Found 0 employees
+
+🧪 [Admin] Upcoming leave
+   ✅ GET /api/admin/upcoming-leave - Found 3 upcoming
+
+🧪 [Admin] Performance metrics
+   ✅ GET /api/admin/performance - Metrics retrieved
+
+🧪 [Admin] Bulk approve - Empty array
+   ✅ POST /api/admin/bulk-approve - Empty array handled
+
+🧪 [Admin] Bulk reject - Empty array
+   ✅ POST /api/admin/bulk-reject - Empty array handled
+
+🧪 [Admin] Get pending leave requests for admin testing
+   ⏭️ POST /api/leave/request/[id]/approve-reject - No pending requests to test with
+
+🧪 [Admin] Get user for employee details testing
+   ⏭️ GET /api/admin/employee-details/[employeeId] - No users to test with
+
+======================================================================
+⏰ TOIL (TIME OFF IN LIEU) ENDPOINTS
+======================================================================
+
+🧪 [TOIL] Get TOIL balance
+   ❌ GET /api/admin/toil - Failed: 403
+
+🧪 [TOIL] Pending TOIL requests - Admin
+   ✅ GET /api/admin/toil/pending - Found 0 pending TOIL
+
+🧪 [TOIL] Approve TOIL - Invalid ID
+   ❌ POST /api/admin/toil/approve - Unexpected: 422
+
+======================================================================
+📅 CALENDAR ENDPOINTS
+======================================================================
+
+🧪 [Calendar] Team calendar
+   ✅ GET /api/calendar/team - Calendar data retrieved
+
+🧪 [Calendar] Team leave calendar
+   ✅ GET /api/calendar/team-leave - Found 0 entries
+
+======================================================================
+🔧 MISC ENDPOINTS
+======================================================================
+
+🧪 [Misc] Users endpoint - Regular user
+   ✅ GET /api/users - Admin-only access properly enforced
+
+🧪 [Misc] Metrics endpoint
+   ❌ GET /api/metrics - Failed: 404
+
+🧪 [Misc] Seed dummy data endpoint
+   ✅ POST /api/admin/seed-dummy-data - Seeding works
+
+🧪 [Misc] Comprehensive seed endpoint
+   ✅ POST /api/admin/comprehensive-seed - Seeding works
+
+======================================================================
+📊 TEST SUMMARY
+======================================================================
+
+✅ Passed:   25/31
+❌ Failed:   3/31
+⚠️  Warnings: 0/31
+⏭️  Skipped:  3/31
+
+📈 Success Rate: 80.6%
+
+❌ Failed Tests:
+   • GET /api/admin/toil - Failed: 403
+   • POST /api/admin/toil/approve - Unexpected: 422
+   • GET /api/metrics - Failed: 404
+
+======================================================================
+⚠️  Some tests failed. Please review the failures above.
+======================================================================
+

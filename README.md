@@ -116,6 +116,23 @@ This tests:
 - API endpoints
 - Route protection
 
+### End-to-End Testing
+Playwright scripts cover the primary user journey (login, dashboard, leave history). To run them:
+
+1. Install the browser binaries once:
+   ```bash
+   npx playwright install
+   ```
+2. Ensure the app is running locally (e.g., `npm run dev`).
+3. Execute the suite:
+   ```bash
+   npm run test:e2e
+   ```
+
+Environment overrides:
+- `E2E_BASE_URL` – target URL (defaults to `http://localhost:3000`)
+- `E2E_USER_EMAIL` / `E2E_USER_PASSWORD` – seeded user credentials (defaults to the test admin account)
+
 ### Complete Setup & Test
 Run both seeding and testing in sequence:
 

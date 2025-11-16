@@ -25,18 +25,49 @@ async function getLeaveRequestsHandler(
     // Get query parameters for filtering and pagination
     const { searchParams } = new URL(req.url);
     const status = searchParams.get('status');
+    const rawStartDate = searchParams.get('startDate');
+    const rawEndDate = searchParams.get('endDate');
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const offset = (page - 1) * limit;
 
     // Build query
     const where: any = { userId: user.id };
-    if (status && ['PENDING', 'APPROVED', 'REJECTED'].includes(status)) {
+    if (status && ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'].includes(status)) {
       where.status = status;
+    }
+    
+    if (rawStartDate) {
+      const parsedStart = new Date(rawStartDate);
+      if (!Number.isNaN(parsedStart.getTime())) {
+        where.startDate = {
+          ...(where.startDate || {}),
+          gte: parsedStart,
+        };
+      }
+    }
+
+    if (rawEndDate) {
+      const parsedEnd = new Date(rawEndDate);
+      if (!Number.isNaN(parsedEnd.getTime())) {
+        parsedEnd.setHours(23, 59, 59, 999);
+        where.endDate = {
+          ...(where.endDate || {}),
+          lte: parsedEnd,
+        };
+      }
     }
 
     // Create cache key
-    const cacheKey = createCacheKey('leave-requests', user.id, status || 'all', page.toString(), limit.toString());
+    const cacheKey = createCacheKey(
+      'leave-requests',
+      user.id,
+      status || 'all',
+      page.toString(),
+      limit.toString(),
+      rawStartDate || 'no-start',
+      rawEndDate || 'no-end'
+    );
     const cachedData = userDataCache.get(cacheKey);
     
     if (cachedData) {

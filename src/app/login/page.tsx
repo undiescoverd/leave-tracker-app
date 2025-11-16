@@ -46,11 +46,10 @@ function LoginForm() {
 
     try {
       const result = await signIn("credentials", {
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         password,
         callbackUrl,
         redirect: false,
-        csrfToken,
       });
 
       console.log('SignIn result:', result);

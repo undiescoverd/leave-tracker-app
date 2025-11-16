@@ -47,7 +47,7 @@ interface MockCacheManager {
   };
 }
 
-const { leaveBalanceCache } = jest.requireActual('@/lib/cache/cache-manager') as MockCacheManager;
+const { leaveBalanceCache } = jest.requireMock('@/lib/cache/cache-manager') as MockCacheManager;
 
 describe('Leave Service', () => {
   beforeEach(() => {

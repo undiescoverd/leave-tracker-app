@@ -28,6 +28,8 @@ interface UseLeaveRequestsOptions {
   status?: string;
   page?: number;
   limit?: number;
+  startDate?: string;
+  endDate?: string;
   enabled?: boolean;
 }
 
@@ -39,11 +41,13 @@ export function useLeaveRequests(
     status,
     page = 1,
     limit = 10,
+    startDate,
+    endDate,
     enabled = true,
   } = options;
 
   return useQuery({
-    queryKey: queryKeys.leaveRequests.byUser(userId, status, page, limit),
+    queryKey: queryKeys.leaveRequests.byUser(userId, status, page, limit, startDate, endDate),
     queryFn: async (): Promise<LeaveRequestsResponse> => {
       const params = new URLSearchParams();
       if (status && status !== 'ALL') {
@@ -51,19 +55,35 @@ export function useLeaveRequests(
       }
       params.append('page', page.toString());
       params.append('limit', limit.toString());
+      if (startDate) {
+        params.append('startDate', startDate);
+      }
+      if (endDate) {
+        params.append('endDate', endDate);
+      }
 
       const response = await fetch(`/api/leave/requests?${params}`, {
         credentials: 'include',
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch leave requests: ${response.statusText}`);
+        const error = new Error(
+          `Failed to fetch leave requests: ${response.status} ${response.statusText}`
+        ) as Error & { status?: number };
+        error.status = response.status;
+        throw error;
       }
 
       const result = await response.json();
       
       if (!result.success) {
-        throw new Error(result.error?.message || 'Failed to fetch leave requests');
+        const error = new Error(
+          result.error?.message || 'Failed to fetch leave requests'
+        ) as Error & { status?: number };
+        if (result.error?.statusCode) {
+          error.status = result.error.statusCode;
+        }
+        throw error;
       }
 
       return result.data;
@@ -72,7 +92,8 @@ export function useLeaveRequests(
     staleTime: queryOptions.leaveRequests.staleTime,
     retry: (failureCount, error) => {
       // Don't retry on authentication errors
-      if (error.message.includes('401') || error.message.includes('403')) {
+      const status = (error as { status?: number }).status;
+      if (status === 401 || status === 403) {
         return false;
       }
       return failureCount < 2;
@@ -96,12 +117,13 @@ export function useCancelLeaveRequest() {
         credentials: 'include',
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Failed to cancel request');
+      const result = await response.json();
+
+      if (!response.ok || result.success === false) {
+        throw new Error(result.error?.message || 'Failed to cancel request');
       }
 
-      return response.json();
+      return result;
     },
     onSuccess: () => {
       // Invalidate leave requests queries
@@ -137,17 +159,18 @@ export function useSubmitLeaveRequest() {
         body: JSON.stringify(requestData),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Failed to submit request');
+      const result = await response.json();
+
+      if (!response.ok || result.success === false) {
+        throw new Error(result.error?.message || 'Failed to submit request');
       }
 
-      return response.json();
+      return result;
     },
     onSuccess: () => {
       // Invalidate related queries
       queryClient.invalidateQueries({ queryKey: queryKeys.leaveRequests.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.user.balance });
+      queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.admin.stats });
     },
     onError: (error) => {
@@ -162,9 +185,9 @@ export function useSubmitLeaveRequest() {
 export function usePrefetchLeaveRequests() {
   const queryClient = useQueryClient();
   
-  return (userId: string, status?: string, page?: number, limit?: number) => {
+  return (userId: string, status?: string, page?: number, limit?: number, startDate?: string, endDate?: string) => {
     queryClient.prefetchQuery({
-      queryKey: queryKeys.leaveRequests.byUser(userId, status, page, limit),
+      queryKey: queryKeys.leaveRequests.byUser(userId, status, page, limit, startDate, endDate),
       queryFn: async () => {
         const params = new URLSearchParams();
         if (status && status !== 'ALL') {
@@ -172,6 +195,12 @@ export function usePrefetchLeaveRequests() {
         }
         params.append('page', (page || 1).toString());
         params.append('limit', (limit || 10).toString());
+        if (startDate) {
+          params.append('startDate', startDate);
+        }
+        if (endDate) {
+          params.append('endDate', endDate);
+        }
 
         const response = await fetch(`/api/leave/requests?${params}`, {
           credentials: 'include',

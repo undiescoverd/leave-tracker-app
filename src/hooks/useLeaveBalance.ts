@@ -1,7 +1,7 @@
 import { useQuery, UseQueryResult, useQueryClient } from '@tanstack/react-query';
 import { queryKeys, queryOptions } from '@/lib/react-query';
 
-interface LeaveBalanceData {
+export interface LeaveBalanceData {
   totalAllowance: number;
   daysUsed: number;
   remaining: number;
