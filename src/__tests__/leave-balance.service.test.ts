@@ -13,12 +13,31 @@ jest.mock('@/lib/date-utils', () => ({
   calculateWorkingDays: jest.fn(),
 }));
 
-jest.mock('@/lib/features', () => ({
-  features: {
+// Create feature flags mock with methods - defined inline to avoid hoisting issues
+jest.mock('@/lib/features', () => {
+  const mockFeatures = {
     TOIL_ENABLED: true,
+    TOIL_REQUEST_ENABLED: true,
+    TOIL_ADMIN_ENABLED: true,
     SICK_LEAVE_ENABLED: true,
-  }
-}));
+    getFeature(key: string): boolean {
+      return (mockFeatures as any)[key] ?? false;
+    },
+    isMultiLeaveTypeEnabled(): boolean {
+      return mockFeatures.TOIL_ENABLED || mockFeatures.SICK_LEAVE_ENABLED;
+    },
+    getAvailableLeaveTypes(): string[] {
+      const types = ['ANNUAL'];
+      if (mockFeatures.TOIL_ENABLED) types.push('TOIL');
+      if (mockFeatures.SICK_LEAVE_ENABLED) types.push('SICK');
+      return types;
+    },
+  };
+  return { features: mockFeatures };
+});
+
+// Import the mocked features for test manipulation
+import { features as featureFlags } from '@/lib/features';
 
 const mockCalculateWorkingDays = calculateWorkingDays as jest.MockedFunction<typeof calculateWorkingDays>;
 
@@ -278,22 +297,9 @@ describe('Leave Balance Service', () => {
     });
 
     it('should reject TOIL request when feature is disabled', async () => {
-      // Mock TOIL as disabled by creating a new module mock
-      const originalFeatures = jest.requireActual('@/lib/features');
-      jest.doMock('@/lib/features', () => ({
-        features: {
-          ...originalFeatures.features,
-          TOIL_ENABLED: false,
-          SICK_LEAVE_ENABLED: true,
-        }
-      }));
+      featureFlags.TOIL_ENABLED = false;
 
-      // Clear the module cache and re-import
-      jest.resetModules();
-      const { validateLeaveRequest: validateLeaveRequestDisabled } = 
-        await import('@/lib/services/leave-balance.service');
-
-      const result = await validateLeaveRequestDisabled(
+      const result = await validateLeaveRequest(
         'user-1',
         'TOIL',
         new Date('2024-06-01'),
@@ -302,6 +308,8 @@ describe('Leave Balance Service', () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toBe('TOIL requests are not enabled');
+
+      featureFlags.TOIL_ENABLED = true;
     });
 
     it('should validate sick leave request when feature is enabled', async () => {
