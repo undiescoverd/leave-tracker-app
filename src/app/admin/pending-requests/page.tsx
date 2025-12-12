@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -21,6 +22,7 @@ interface LeaveRequest {
   endDate: string;
   status: string;
   comments?: string;
+  reason?: string; // Mapped from comments for consistency with employee view
   createdAt: string;
   type?: string;
   hours?: number;
@@ -41,10 +43,14 @@ export default function PendingRequestsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
+  const [allRequests, setAllRequests] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [processing, setProcessing] = useState<string | null>(null);
   const [rejectComment, setRejectComment] = useState("");
   const [showRejectModal, setShowRejectModal] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [, setTick] = useState(0);
   const showSuccess = (message: string) => toast.success(message);
   const showError = (message: string) => toast.error(message);
 
@@ -59,25 +65,81 @@ export default function PendingRequestsPage() {
   useEffect(() => {
     if (session?.user?.role === "ADMIN") {
       fetchLeaveRequests();
+      // Poll every 5 seconds for fast updates
+      const interval = setInterval(fetchLeaveRequests, 5000);
+      return () => clearInterval(interval);
     }
   }, [session]);
 
-  const fetchLeaveRequests = async () => {
+  // Update "time ago" every second
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTick(prev => prev + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchLeaveRequests = async (manual = false, bustCache = false) => {
+    if (manual) setRefreshing(true);
     try {
-      const response = await fetch("/api/admin/pending-requests");
-      const data = await response.json();
-      
-      if (response.ok) {
-        // The admin API returns data in a different format
-        setLeaveRequests(data.data?.requests || []);
+      // Add cache busting parameter to force fresh data
+      const cacheBuster = bustCache ? `?_t=${Date.now()}` : '';
+
+      // Fetch both pending and all requests in parallel
+      const [pendingResponse, allResponse] = await Promise.all([
+        fetch(`/api/admin/pending-requests${cacheBuster}`, {
+          credentials: "include",
+          cache: bustCache ? "no-store" : "default"
+        }),
+        fetch(`/api/admin/all-requests${cacheBuster}`, {
+          credentials: "include",
+          cache: bustCache ? "no-store" : "default"
+        })
+      ]);
+
+      const [pendingData, allData] = await Promise.all([
+        pendingResponse.json(),
+        allResponse.json()
+      ]);
+
+      if (pendingResponse.ok) {
+        setLeaveRequests(pendingData.data?.requests || []);
       } else {
-        console.error("Failed to fetch leave requests:", data.error);
+        console.error("Failed to fetch pending requests:", pendingData.error);
       }
+
+      if (allResponse.ok) {
+        // Map comments to reason for consistency with employee view
+        const requestsWithReason = (allData.data?.requests || []).map((req: LeaveRequest) => ({
+          ...req,
+          reason: req.comments || req.reason || 'No reason provided'
+        }));
+        setAllRequests(requestsWithReason);
+      } else {
+        console.error("Failed to fetch all requests:", allData.error);
+      }
+
+      setLastUpdated(new Date());
     } catch (error) {
       console.error("Error fetching leave requests:", error);
     } finally {
       setLoading(false);
+      if (manual) setRefreshing(false);
     }
+  };
+
+  const getTimeAgo = (date: Date | null) => {
+    if (!date) return '';
+    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+    if (seconds < 5) return 'just now';
+    if (seconds < 60) return `${seconds} seconds ago`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes === 1) return '1 minute ago';
+    return `${minutes} minutes ago`;
+  };
+
+  const handleManualRefresh = () => {
+    fetchLeaveRequests(true);
   };
 
   const handleApprove = async (requestId: string) => {
@@ -85,14 +147,17 @@ export default function PendingRequestsPage() {
     try {
       const response = await fetch(`/api/leave/request/${requestId}/approve`, {
         method: "POST",
+        credentials: "include",
       });
-      
+
       if (response.ok) {
         showSuccess("Leave request approved successfully!");
-        fetchLeaveRequests(); // Refresh the list
+        // Bust cache and refresh the list
+        await fetchLeaveRequests(false, true);
       } else {
         const error = await response.json();
-        showError(`Failed to approve: ${error.error}`);
+        console.error("Approval error response:", error);
+        showError(`Failed to approve: ${error.error?.message || error.error || 'Unknown error'}`);
       }
     } catch (error) {
       showError("Error approving request");
@@ -112,6 +177,7 @@ export default function PendingRequestsPage() {
     try {
       const response = await fetch(`/api/leave/request/${requestId}/reject`, {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
@@ -119,10 +185,11 @@ export default function PendingRequestsPage() {
           reason: rejectComment.trim()
         }),
       });
-      
+
       if (response.ok) {
         showSuccess("Leave request rejected successfully!");
-        fetchLeaveRequests(); // Refresh the list
+        // Bust cache and refresh the list
+        await fetchLeaveRequests(false, true);
         setRejectComment(""); // Clear comment
         setShowRejectModal(null); // Close modal
       } else {
@@ -137,12 +204,18 @@ export default function PendingRequestsPage() {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return 'N/A';
+    try {
+      return new Date(dateString).toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      });
+    } catch (error) {
+      console.error('Date formatting error:', error);
+      return 'Invalid Date';
+    }
   };
 
 
@@ -162,8 +235,8 @@ export default function PendingRequestsPage() {
   }
 
   // Ensure leaveRequests is always an array
-  const requests = leaveRequests || [];
-  const pendingRequests = requests.filter(req => req.status === 'PENDING');
+  const pendingRequests = leaveRequests || [];
+  const allRequestsList = allRequests || [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -171,15 +244,38 @@ export default function PendingRequestsPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-              <h1 className="text-xl font-semibold text-foreground">
-                TDH Agency Leave Tracker - Admin
-              </h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-xl font-semibold text-foreground">
+                  TDH Agency Leave Tracker - Admin
+                </h1>
+                {pendingRequests.length > 0 && (
+                  <Badge variant="destructive" className="animate-pulse">
+                    {pendingRequests.length} Pending
+                  </Badge>
+                )}
+              </div>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-muted-foreground">
-                Welcome, {session.user?.name || session.user?.email}
-              </span>
+              <div className="flex flex-col items-end">
+                <span className="text-sm text-muted-foreground">
+                  Welcome, {session.user?.name || session.user?.email}
+                </span>
+                {lastUpdated && (
+                  <span className="text-xs text-muted-foreground/70">
+                    Updated {getTimeAgo(lastUpdated)}
+                  </span>
+                )}
+              </div>
               <div className="flex space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleManualRefresh}
+                  disabled={refreshing}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
                 <Button
                   variant="outline"
                   onClick={() => router.push("/admin")}
@@ -276,11 +372,11 @@ export default function PendingRequestsPage() {
           {/* All Other Requests Section */}
           <Card>
             <CardHeader>
-              <CardTitle>All Requests ({leaveRequests.length})</CardTitle>
+              <CardTitle>All Requests ({allRequestsList.length})</CardTitle>
               <CardDescription>Complete history of all leave requests</CardDescription>
             </CardHeader>
             <CardContent>
-              {leaveRequests.length === 0 ? (
+              {allRequestsList.length === 0 ? (
                 <p className="text-muted-foreground">No leave requests found.</p>
               ) : (
                 <Table>
@@ -288,12 +384,14 @@ export default function PendingRequestsPage() {
                     <TableRow>
                       <TableHead>Employee</TableHead>
                       <TableHead>Dates</TableHead>
+                      <TableHead>Days</TableHead>
+                      <TableHead>Reason</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Submitted</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {leaveRequests.map((request) => (
+                    {allRequestsList.map((request) => (
                       <TableRow key={request.id}>
                         <TableCell>
                           <div>
@@ -305,12 +403,16 @@ export default function PendingRequestsPage() {
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="font-medium">
                           {formatDate(request.startDate)} - {formatDate(request.endDate)}
                         </TableCell>
+                        <TableCell>{request.days}</TableCell>
                         <TableCell>
-                          <Badge variant={getStatusVariant(request.status)} className={statusConfig[request.status as keyof typeof statusConfig]?.className}>
-                            {statusConfig[request.status as keyof typeof statusConfig]?.label || request.status}
+                          <div>{request.reason || request.comments || 'No reason provided'}</div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={getStatusVariant(request.status)}>
+                            {request.status}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-muted-foreground">

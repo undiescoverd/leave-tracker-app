@@ -26,7 +26,7 @@ interface AuthContext {
 
 interface LeaveRequestUser {
   id: string;
-  name: string;
+  name: string | null;
   email: string;
 }
 
@@ -36,10 +36,10 @@ interface LeaveRequest {
   type: string;
   startDate: Date;
   endDate: Date;
-  days: number;
   status: string;
   createdAt: Date;
   user: LeaveRequestUser;
+  days?: number;
 }
 
 interface RequestsByUser {
@@ -142,7 +142,7 @@ async function bulkApproveHandler(req: NextRequest, context: AuthContext): Promi
       try {
         await EmailService.sendBulkApprovalNotification(
           userData.user.email,
-          userData.user.name,
+          userData.user.name || userData.user.email,
           userData.requests,
           admin.name || admin.email
         );

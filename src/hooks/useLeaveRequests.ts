@@ -1,5 +1,6 @@
 import { useQuery, UseQueryResult, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys, queryOptions, mutationOptions } from '@/lib/react-query';
+import { toast } from 'sonner';
 
 interface LeaveRequest {
   id: string;
@@ -90,6 +91,7 @@ export function useLeaveRequests(
     },
     enabled: enabled && !!userId,
     staleTime: queryOptions.leaveRequests.staleTime,
+    refetchInterval: 10 * 1000, // Refetch every 10 seconds for faster updates
     retry: (failureCount, error) => {
       // Don't retry on authentication errors
       const status = (error as { status?: number }).status;
@@ -126,12 +128,18 @@ export function useCancelLeaveRequest() {
       return result;
     },
     onSuccess: () => {
-      // Invalidate leave requests queries
+      // Invalidate leave requests queries for instant updates
       queryClient.invalidateQueries({ queryKey: queryKeys.leaveRequests.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.admin.stats });
+      queryClient.invalidateQueries({ queryKey: queryKeys.calendar.all });
+
+      // Show success toast
+      toast.success('Leave request cancelled successfully');
     },
     onError: (error) => {
       console.error('Failed to cancel leave request:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to cancel leave request');
     },
   });
 }
@@ -167,14 +175,32 @@ export function useSubmitLeaveRequest() {
 
       return result;
     },
+    onMutate: async (newRequest) => {
+      // Show optimistic toast immediately
+      toast.success('Submitting leave request...');
+
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.leaveRequests.all });
+
+      // Return context with the request data for potential rollback
+      return { newRequest };
+    },
     onSuccess: () => {
-      // Invalidate related queries
+      // Invalidate related queries for instant updates
       queryClient.invalidateQueries({ queryKey: queryKeys.leaveRequests.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.admin.stats });
+      queryClient.invalidateQueries({ queryKey: queryKeys.calendar.all });
+
+      // Update success toast
+      toast.success('Leave request submitted successfully! Admin will be notified.');
     },
     onError: (error) => {
       console.error('Failed to submit leave request:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to submit leave request');
+
+      // Invalidate to refetch correct data
+      queryClient.invalidateQueries({ queryKey: queryKeys.leaveRequests.all });
     },
   });
 }

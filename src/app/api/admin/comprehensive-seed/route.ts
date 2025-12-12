@@ -5,9 +5,18 @@ import { prisma } from '@/lib/prisma';
 import { withAdminAuth } from '@/lib/middleware/auth';
 import { withCompleteSecurity } from '@/lib/middleware/security';
 
-async function comprehensiveSeedHandler(req: NextRequest, context: { user: unknown }): Promise<NextResponse> {
+interface AuthContext {
+  user: {
+    id: string;
+    email: string;
+    name?: string;
+    role: string;
+  };
+}
+
+async function comprehensiveSeedHandler(req: NextRequest, context: AuthContext): Promise<NextResponse> {
   try {
-    const user = context.user;
+    const { user } = context;
 
     console.log('🚀 Starting comprehensive data seeding...');
 

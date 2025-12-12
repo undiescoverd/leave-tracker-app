@@ -95,13 +95,13 @@ export const queryOptions = {
   
   // Leave requests - shorter caching for real-time updates
   leaveRequests: {
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 10 * 1000, // 10 seconds - faster for small team
     gcTime: 5 * 60 * 1000, // 5 minutes
   },
-  
-  // Admin data - very short caching
+
+  // Admin data - very short caching for instant updates
   admin: {
-    staleTime: 1 * 60 * 1000, // 1 minute
+    staleTime: 5 * 1000, // 5 seconds - very fast for 4 users
     gcTime: 3 * 60 * 1000, // 3 minutes
   },
   

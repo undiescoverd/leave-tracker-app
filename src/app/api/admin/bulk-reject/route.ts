@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { apiSuccess, apiError, HttpStatus } from '@/lib/api/response';
+import { apiSuccess, apiError, HttpStatusCode } from '@/lib/api/response';
 import { prisma } from '@/lib/prisma';
 import { EmailService } from '@/lib/email/service';
 import { withAdminAuth } from '@/lib/middleware/auth';
@@ -18,7 +18,7 @@ interface AuthContext {
 
 interface LeaveRequestUser {
   id: string;
-  name: string;
+  name: string | null;
   email: string;
 }
 
@@ -28,7 +28,6 @@ interface LeaveRequest {
   type: string;
   startDate: Date;
   endDate: Date;
-  days: number;
   status: string;
   createdAt: Date;
   user: LeaveRequestUser;
@@ -135,7 +134,7 @@ async function bulkRejectHandler(req: NextRequest, context: AuthContext): Promis
       try {
         await EmailService.sendBulkRejectionNotification(
           userData.user.email,
-          userData.user.name,
+          userData.user.name || userData.user.email,
           userData.requests,
           admin.name || admin.email,
           rejectionReason
@@ -183,7 +182,7 @@ async function bulkRejectHandler(req: NextRequest, context: AuthContext): Promis
     }, error instanceof Error ? error : new Error(String(error)));
     
     if (error instanceof ValidationError) {
-      return apiError(error.message, error.statusCode as HttpStatus);
+      return apiError(error.message, error.statusCode as HttpStatusCode);
     }
     
     return apiError('Failed to bulk reject requests', 500);

@@ -22,7 +22,7 @@ export const LazyLeaveRequestForm = dynamic(
 );
 
 export const LazyTOILForm = dynamic(
-  () => import('@/components/leave/toil/TOILForm'),
+  () => import('@/components/leave/toil/TOILForm').then(mod => mod.TOILForm),
   {
     loading: () => (
       <div className="bg-card border border-border rounded-lg p-6">

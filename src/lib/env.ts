@@ -85,6 +85,19 @@ try {
       // Fallback to development defaults for non-critical errors
       env = createEnvSchema('development').parse({
         NODE_ENV: nodeEnv,
+        DATABASE_URL: process.env.DATABASE_URL,
+        NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
+        NEXTAUTH_URL: process.env.NEXTAUTH_URL || "http://localhost:3000",
+        RESEND_API_KEY: process.env.RESEND_API_KEY,
+        EMAIL_FROM: process.env.EMAIL_FROM || "onboarding@resend.dev",
+        EMAIL_REPLY_TO: process.env.EMAIL_REPLY_TO || "admin@tdhagency.com",
+        ENABLE_EMAIL_NOTIFICATIONS: process.env.ENABLE_EMAIL_NOTIFICATIONS || "false",
+        HEALTH_CHECK_TOKEN: process.env.HEALTH_CHECK_TOKEN,
+        LOG_LEVEL: process.env.LOG_LEVEL || "info",
+        METRICS_ENABLED: process.env.METRICS_ENABLED || "false",
+        EMAIL_RATE_LIMIT_PER_HOUR: process.env.EMAIL_RATE_LIMIT_PER_HOUR || "50",
+        EMAIL_RETRY_ATTEMPTS: process.env.EMAIL_RETRY_ATTEMPTS || "3",
+        EMAIL_TIMEOUT_MS: process.env.EMAIL_TIMEOUT_MS || "30000",
       });
     }
   } else {

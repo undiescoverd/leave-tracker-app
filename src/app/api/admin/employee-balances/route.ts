@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api/response';
 import { prisma } from '@/lib/prisma';
 import { withAdminAuth } from '@/lib/middleware/auth';
@@ -170,7 +170,7 @@ async function getEmployeeBalancesHandler(req: NextRequest, context: { user: Use
 
 // Apply comprehensive admin security
 export const GET = withCompleteSecurity(
-  withAdminAuth(getEmployeeBalancesHandler) as (req: NextRequest) => Promise<Response>,
+  withAdminAuth(getEmployeeBalancesHandler) as (req: NextRequest) => Promise<NextResponse>,
   {
     validateInput: false,
     skipCSRF: true // GET request, CSRF not applicable

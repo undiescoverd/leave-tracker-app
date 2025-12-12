@@ -7,11 +7,17 @@ import { withCompleteSecurity } from '@/lib/middleware/security';
 
 async function exportEmployeeDetailsHandler(
   req: NextRequest,
-  context: { user: unknown },
-  { params }: { params: Promise<{ employeeId: string }> }
+  context: { user: unknown }
 ): Promise<NextResponse> {
   try {
-    const { employeeId } = await params;
+    // Extract employeeId from URL path
+    const url = new URL(req.url);
+    const pathParts = url.pathname.split('/');
+    const employeeId = pathParts[pathParts.indexOf('employee-details') + 1];
+
+    if (!employeeId) {
+      return apiError('Employee ID required', 400);
+    }
     // Admin user is available in context if needed
 
     // Get employee data (reuse logic from details endpoint)
@@ -39,7 +45,7 @@ async function exportEmployeeDetailsHandler(
     
     // For now, return HTML that can be printed to PDF by browser
     // In production, you could use puppeteer or similar for server-side PDF generation
-    return new Response(html, {
+    return new NextResponse(html, {
       headers: {
         'Content-Type': 'text/html',
         'Content-Disposition': `inline; filename="employee-leave-report-${(employee.name || 'unknown').replace(' ', '-')}.html"`
@@ -63,7 +69,7 @@ export const GET = withCompleteSecurity(
 
 interface Employee {
   id: string;
-  name: string;
+  name: string | null;
   email: string;
   createdAt: Date;
   annualLeaveBalance?: number;
@@ -78,10 +84,10 @@ interface LeaveRequest {
   endDate: Date;
   type: string;
   status: string;
-  hours?: number;
-  comments?: string;
+  hours?: number | null;
+  comments?: string | null;
   createdAt: Date;
-  approvedBy?: string;
+  approvedBy?: string | null;
 }
 
 interface ToilEntry {
@@ -116,8 +122,8 @@ function generateEmployeeReportHTML(employee: Employee): string {
     .filter((req) => req.type === 'UNPAID' && req.status === 'APPROVED')
     .reduce((sum, req) => sum + (req.hours || 0) / 8, 0);
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-GB');
+  const formatDate = (date: string | Date) => {
+    return new Date(date).toLocaleDateString('en-GB');
   };
 
   return `
@@ -125,7 +131,7 @@ function generateEmployeeReportHTML(employee: Employee): string {
     <html>
     <head>
       <meta charset="UTF-8">
-      <title>Employee Leave Report - ${employee.name}</title>
+      <title>Employee Leave Report - ${employee.name || 'Unknown Employee'}</title>
       <style>
         body { 
           font-family: 'Inter', Arial, sans-serif; 
@@ -240,7 +246,7 @@ function generateEmployeeReportHTML(employee: Employee): string {
       </div>
       
       <div class="employee-info">
-        <h2>${employee.name}</h2>
+        <h2>${employee.name || 'Unknown Employee'}</h2>
         <p><strong>Email:</strong> ${employee.email}</p>
         <p><strong>Department:</strong> ${employee.email?.includes('@tdh') ? 'UK Agent' : 'Other'}</p>
         <p><strong>Join Date:</strong> ${formatDate(employee.createdAt)}</p>

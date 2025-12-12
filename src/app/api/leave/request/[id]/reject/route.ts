@@ -9,6 +9,7 @@ import { format } from 'date-fns';
 import { z } from 'zod';
 import { withAdminAuth } from '@/lib/middleware/auth';
 import { withCompleteSecurity } from '@/lib/middleware/security';
+import { apiCache } from '@/lib/cache/cache-manager';
 
 // Validation schema for rejection
 const rejectRequestSchema = z.object({
@@ -141,6 +142,9 @@ async function rejectLeaveRequestHandler(
       endDate: leaveRequest.endDate.toISOString(),
       rejectionReason: reason
     });
+
+    // Invalidate relevant caches
+    apiCache.clear(); // Clear all admin caches to ensure fresh data
 
     return apiSuccess({
       message: 'Leave request rejected successfully',

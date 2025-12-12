@@ -6,11 +6,17 @@ import { withCompleteSecurity } from '@/lib/middleware/security';
 
 async function getEmployeeDetailsHandler(
   req: NextRequest,
-  context: { user: unknown },
-  { params }: { params: Promise<{ employeeId: string }> }
+  context: { user: unknown }
 ): Promise<NextResponse> {
   try {
-    const { employeeId } = await params;
+    // Extract employeeId from URL path
+    const url = new URL(req.url);
+    const pathParts = url.pathname.split('/');
+    const employeeId = pathParts[pathParts.indexOf('employee-details') + 1];
+
+    if (!employeeId) {
+      return apiError('Employee ID required', 400);
+    }
     // Admin user is available in context if needed
 
     const employee = await prisma.user.findUnique({

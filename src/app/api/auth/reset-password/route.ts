@@ -3,14 +3,14 @@ import { hashPassword } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { withAuthRateLimit } from "@/lib/middleware/auth";
 import { withCompleteSecurity, validationSchemas } from "@/lib/middleware/security";
-import { apiSuccess, apiError, HttpStatus } from "@/lib/api/response";
+import { apiSuccess, apiError, HttpStatus, HttpStatusCode } from "@/lib/api/response";
 import { logger } from "@/lib/logger";
 import { ValidationError, BadRequestError } from "@/lib/api/errors";
 
 async function resetPasswordHandler(req: NextRequest): Promise<NextResponse> {
   try {
     // Get validated and sanitized data from middleware
-    const validatedData = (req as { validatedData?: unknown }).validatedData;
+    const validatedData = (req as { validatedData?: { token: string; password: string } }).validatedData;
     
     if (!validatedData) {
       throw new ValidationError('Request validation failed');
@@ -73,7 +73,7 @@ async function resetPasswordHandler(req: NextRequest): Promise<NextResponse> {
     logger.error('Password reset error:', undefined, error as Error);
     
     if (error instanceof ValidationError || error instanceof BadRequestError) {
-      return apiError(error.message, error.statusCode as number);
+      return apiError(error.message, error.statusCode as HttpStatusCode);
     }
     
     return apiError("Failed to reset password", HttpStatus.INTERNAL_SERVER_ERROR);

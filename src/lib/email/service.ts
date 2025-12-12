@@ -112,13 +112,14 @@ export class EmailService {
           lastError = error;
           
           // Don't retry on permanent errors (403, 401, 400)
+          const errorWithCode = error as { statusCode?: number; message?: string; name?: string };
           if (
-            error.statusCode === 403 || 
-            error.statusCode === 401 || 
-            error.statusCode === 400 ||
-            error.message?.includes('forbidden') || 
-            error.message?.includes('unauthorized') ||
-            error.message?.includes('You can only send testing emails')
+            errorWithCode.statusCode === 403 ||
+            errorWithCode.statusCode === 401 ||
+            errorWithCode.statusCode === 400 ||
+            errorWithCode.message?.includes('forbidden') ||
+            errorWithCode.message?.includes('unauthorized') ||
+            errorWithCode.message?.includes('You can only send testing emails')
           ) {
             // For test mode errors, just log and return success to avoid blocking
             if (error.message?.includes('testing emails')) {

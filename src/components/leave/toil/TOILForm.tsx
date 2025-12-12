@@ -147,21 +147,13 @@ export function TOILForm({ onSubmit, onCancel, availableUsers = [], loading = fa
               <SelectValue placeholder={loading ? "Loading users..." : "Select a colleague"} />
             </SelectTrigger>
             <SelectContent>
-              {loading ? (
-                <SelectItem value="" disabled>
-                  Loading users...
-                </SelectItem>
-              ) : availableUsers.length === 0 ? (
-                <SelectItem value="" disabled>
-                  No users available
-                </SelectItem>
-              ) : (
+              {!loading && availableUsers.length > 0 ? (
                 availableUsers.map((user) => (
                   <SelectItem key={user.id} value={user.id}>
                     {user.name}
                   </SelectItem>
                 ))
-              )}
+              ) : null}
             </SelectContent>
           </Select>
           {(form.formState.errors as any).coveringUserId && (

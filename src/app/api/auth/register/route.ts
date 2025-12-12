@@ -2,15 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { createUser, getUserByEmail } from "@/lib/auth-utils";
 import { withAuthRateLimit } from "@/lib/middleware/auth";
 import { withCompleteSecurity, validationSchemas } from "@/lib/middleware/security";
-import { apiSuccess, apiError, HttpStatus } from "@/lib/api/response";
+import { apiSuccess, apiError, HttpStatus, HttpStatusCode } from "@/lib/api/response";
 import { logger } from "@/lib/logger";
 import { ValidationError, ConflictError } from "@/lib/api/errors";
 
 async function registerHandler(req: NextRequest): Promise<NextResponse> {
   try {
     // Get validated and sanitized data from middleware
-    const validatedData = (req as { validatedData?: unknown }).validatedData;
-    
+    const validatedData = (req as { validatedData?: { email: string; password: string; name: string } }).validatedData;
+
     if (!validatedData) {
       throw new ValidationError('Request validation failed');
     }
@@ -64,7 +64,7 @@ async function registerHandler(req: NextRequest): Promise<NextResponse> {
     logger.error('Registration error:', undefined, error as Error);
     
     if (error instanceof ValidationError || error instanceof ConflictError) {
-      return apiError(error.message, error.statusCode as number);
+      return apiError(error.message, error.statusCode as HttpStatusCode);
     }
     
     return apiError("Failed to create user", HttpStatus.INTERNAL_SERVER_ERROR);

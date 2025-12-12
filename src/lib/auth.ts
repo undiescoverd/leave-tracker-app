@@ -90,7 +90,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           };
         } catch (error) {
           console.error("🔴 Auth error:", error);
-          logger.error("Authentication error", { error });
+          logger.error("Authentication error", { error: error instanceof Error ? error.message : String(error) });
           return null;
         }
       }

@@ -1,5 +1,6 @@
 import { useQuery, UseQueryResult, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys, queryOptions, mutationOptions } from '@/lib/react-query';
+import { toast } from 'sonner';
 
 interface AdminStats {
   pendingRequests: number;
@@ -65,7 +66,7 @@ export function useAdminStats(): UseQueryResult<AdminStats, Error> {
       return result.data;
     },
     staleTime: queryOptions.admin.staleTime,
-    refetchInterval: 2 * 60 * 1000, // Refetch every 2 minutes
+    refetchInterval: 5 * 1000, // Refetch every 5 seconds for small team
     retry: (failureCount, error) => {
       // Don't retry on authentication errors
       if (error.message.includes('401') || error.message.includes('403')) {
@@ -109,7 +110,7 @@ export function usePendingRequests(
       return result.data;
     },
     staleTime: queryOptions.admin.staleTime,
-    refetchInterval: 30 * 1000, // Refetch every 30 seconds for real-time updates
+    refetchInterval: 5 * 1000, // Refetch every 5 seconds for instant updates
     retry: (failureCount, error) => {
       // Don't retry on authentication errors
       if (error.message.includes('401') || error.message.includes('403')) {
@@ -144,14 +145,29 @@ export function useApproveLeaveRequest() {
 
       return response.json();
     },
+    onMutate: async () => {
+      // Show optimistic feedback
+      toast.success('Approving request...');
+
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.admin.all });
+    },
     onSuccess: () => {
-      // Invalidate related queries
+      // Invalidate related queries for instant updates across all dashboards
       queryClient.invalidateQueries({ queryKey: queryKeys.admin.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.leaveRequests.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.calendar.all });
+
+      // Show success toast
+      toast.success('Leave request approved! Employee will be notified.');
     },
     onError: (error) => {
       console.error('Failed to approve leave request:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to approve leave request');
+
+      // Invalidate to refetch correct data
+      queryClient.invalidateQueries({ queryKey: queryKeys.admin.all });
     },
   });
 }
@@ -180,14 +196,29 @@ export function useRejectLeaveRequest() {
 
       return response.json();
     },
+    onMutate: async () => {
+      // Show optimistic feedback
+      toast.success('Rejecting request...');
+
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.admin.all });
+    },
     onSuccess: () => {
-      // Invalidate related queries
+      // Invalidate related queries for instant updates
       queryClient.invalidateQueries({ queryKey: queryKeys.admin.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.leaveRequests.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.calendar.all });
+
+      // Show success toast
+      toast.success('Leave request rejected. Employee will be notified.');
     },
     onError: (error) => {
       console.error('Failed to reject leave request:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to reject leave request');
+
+      // Invalidate to refetch correct data
+      queryClient.invalidateQueries({ queryKey: queryKeys.admin.all });
     },
   });
 }
@@ -216,14 +247,20 @@ export function useBulkApproveRequests() {
 
       return response.json();
     },
-    onSuccess: () => {
-      // Invalidate related queries
+    onSuccess: (data) => {
+      // Invalidate related queries for instant updates
       queryClient.invalidateQueries({ queryKey: queryKeys.admin.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.leaveRequests.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.calendar.all });
+
+      // Show success toast
+      const count = data?.data?.approved || 0;
+      toast.success(`${count} leave request${count !== 1 ? 's' : ''} approved successfully!`);
     },
     onError: (error) => {
       console.error('Failed to bulk approve requests:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to bulk approve requests');
     },
   });
 }

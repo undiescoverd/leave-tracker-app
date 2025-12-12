@@ -46,9 +46,9 @@ async function getTeamCalendar(req: NextRequest) {
   const endDate = new Date(year, month, 0, 23, 59, 59, 999);
   
   // Use the optimized service function
-  logger.info('Fetching calendar data', { startDate, endDate, month, year });
+  logger.info('Fetching calendar data', { startDate: startDate.toISOString(), endDate: endDate.toISOString() });
   const teamCalendarData = await getTeamCalendarData(startDate, endDate);
-  logger.info('Calendar data fetched', { requestCount: (teamCalendarData as any)?.requests?.length || 0 });
+  logger.info('Calendar data fetched', { metadata: { requestCount: (teamCalendarData as any)?.requests?.length || 0 } });
   
   // Transform the data for calendar display
   const calendarEvents = (teamCalendarData as any)?.requests || [];

@@ -27,7 +27,13 @@ const CACHE_CONFIGS: Record<string, CacheConfig> = {
     staleWhileRevalidate: 240, // 4 minutes
     private: true,
   },
-  
+
+  '/api/admin/all-requests': {
+    maxAge: 120, // 2 minutes
+    staleWhileRevalidate: 240, // 4 minutes
+    private: true,
+  },
+
   '/api/admin/stats': {
     maxAge: 180, // 3 minutes
     staleWhileRevalidate: 360, // 6 minutes

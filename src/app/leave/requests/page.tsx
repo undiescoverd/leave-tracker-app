@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getStatusVariant } from "@/lib/theme-utils";
 import { useLeaveRequests, useCancelLeaveRequest } from "@/hooks/useLeaveRequests";
 import { toast } from "sonner";
@@ -34,6 +35,8 @@ export default function LeaveRequestsPageOptimized() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [showCancelModal, setShowCancelModal] = useState<string | null>(null);
+  const [cancellingRequest, setCancellingRequest] = useState(false);
 
   // Use React Query hooks
   const {
@@ -129,16 +132,16 @@ export default function LeaveRequestsPageOptimized() {
   };
 
   const handleCancelRequest = async (requestId: string) => {
-    if (!confirm('Are you sure you want to cancel this leave request? This action cannot be undone.')) {
-      return;
-    }
-
+    setCancellingRequest(true);
     try {
       await cancelRequestMutation.mutateAsync(requestId);
       toast.success('Leave request cancelled successfully');
+      setShowCancelModal(null);
     } catch (err) {
       console.error('Error cancelling request:', err);
       toast.error('Failed to cancel leave request');
+    } finally {
+      setCancellingRequest(false);
     }
   };
 
@@ -310,10 +313,10 @@ export default function LeaveRequestsPageOptimized() {
                           variant="destructive"
                           size="sm"
                           className="w-full mt-3"
-                          onClick={() => handleCancelRequest(request.id)}
+                          onClick={() => setShowCancelModal(request.id)}
                           disabled={cancelRequestMutation.isPending}
                         >
-                          {cancelRequestMutation.isPending ? 'Cancelling...' : 'Cancel Request'}
+                          Cancel Request
                         </Button>
                       )}
                     </CardContent>
@@ -362,10 +365,10 @@ export default function LeaveRequestsPageOptimized() {
                             <Button
                               variant="destructive"
                               size="sm"
-                              onClick={() => handleCancelRequest(request.id)}
+                              onClick={() => setShowCancelModal(request.id)}
                               disabled={cancelRequestMutation.isPending}
                             >
-                              {cancelRequestMutation.isPending ? 'Cancelling...' : 'Cancel'}
+                              Cancel
                             </Button>
                           )}
                         </TableCell>
@@ -429,6 +432,39 @@ export default function LeaveRequestsPageOptimized() {
           </Card>
         )}
       </div>
+
+      {/* Cancel Confirmation Dialog */}
+      <Dialog open={!!showCancelModal} onOpenChange={(open) => {
+        if (!open && !cancellingRequest) {
+          setShowCancelModal(null);
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cancel Leave Request</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to cancel this leave request? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="space-x-3">
+            <Button
+              variant="outline"
+              onClick={() => setShowCancelModal(null)}
+              disabled={cancellingRequest}
+            >
+              Keep Request
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => showCancelModal && handleCancelRequest(showCancelModal)}
+              disabled={cancellingRequest}
+            >
+              {cancellingRequest ? "Cancelling..." : "Cancel Request"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

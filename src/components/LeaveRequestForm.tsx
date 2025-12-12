@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { features } from "@/lib/features";
 import { calculateWorkingDays } from "@/lib/date-utils";
@@ -23,8 +24,9 @@ interface LeaveRequestFormProps {
 }
 
 function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
+  const { data: session } = useSession();
   const [isOpen, setIsOpen] = useState(false);
-  const { data: leaveBalance, isLoading: isLoadingBalance, error: balanceError } = useLeaveBalance();
+  const { data: leaveBalance, isLoading: isLoadingBalance, error: balanceError } = useLeaveBalance(session?.user?.id || '');
   const submitRequestMutation = useSubmitLeaveRequest();
   const [leaveType, setLeaveType] = useState<'ANNUAL' | 'TOIL' | 'SICK'>('ANNUAL');
   const [formData, setFormData] = useState({
@@ -35,37 +37,54 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
   });
   const [availableUsers, setAvailableUsers] = useState<Array<{id: string, name: string}>>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const showSuccess = (message: string) => toast.success(message);
   const showError = (message: string) => toast.error(message);
 
   // Get available leave types based on feature flags
   const availableLeaveTypes = features.getAvailableLeaveTypes();
 
-  // Fetch available users for TOIL form
+  // Fetch available users for TOIL form (excluding current user)
   useEffect(() => {
     const fetchUsers = async () => {
+      if (!session?.user?.id) {
+        console.log('No session user ID, skipping colleague fetch');
+        return;
+      }
+
+      console.log('Fetching colleagues for user:', session.user.id);
       setLoadingUsers(true);
       try {
-        const response = await fetch('/api/users');
+        const response = await fetch('/api/users/colleagues');
+        console.log('Colleagues API response status:', response.status);
+
         if (response.ok) {
           const data = await response.json();
+          console.log('Colleagues API response data:', data);
+
           if (data.success && data.data.users) {
-            setAvailableUsers(data.data.users.map((user: any) => ({
+            const users = data.data.users.map((user: any) => ({
               id: user.id,
               name: user.name
-            })));
+            }));
+            console.log('Setting available users:', users);
+            setAvailableUsers(users);
           }
+        } else {
+          const errorData = await response.json();
+          console.error('Failed to fetch colleagues:', response.status, errorData);
+          showError('Failed to load available colleagues');
         }
       } catch (error) {
-        console.error('Error fetching users:', error);
-        showError('Failed to load available users');
+        console.error('Error fetching colleagues:', error);
+        showError('Failed to load available colleagues');
       } finally {
         setLoadingUsers(false);
       }
     };
 
     fetchUsers();
-  }, []);
+  }, [session?.user?.id]);
 
   // Calculate leave days for preview
   const calculatePreviewDays = () => {

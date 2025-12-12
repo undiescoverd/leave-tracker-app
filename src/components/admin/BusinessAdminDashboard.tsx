@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
-import { Users, Calendar, Clock, TrendingUp, AlertCircle, FileCheck, Settings } from "lucide-react";
+import { Users, Calendar, Clock, TrendingUp, AlertCircle, FileCheck, Settings, RefreshCw } from "lucide-react";
 import TeamCalendar from "@/components/calendar/TeamCalendar";
 
 interface BusinessStats {
@@ -31,14 +31,26 @@ export default function BusinessAdminDashboard() {
   const router = useRouter();
   const [stats, setStats] = useState<BusinessStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [, setTick] = useState(0); // Force re-render for time updates
 
   useEffect(() => {
     fetchBusinessStats();
-    const interval = setInterval(fetchBusinessStats, 30000);
+    const interval = setInterval(fetchBusinessStats, 5000); // 5 seconds for fast updates
     return () => clearInterval(interval);
   }, []);
 
-  const fetchBusinessStats = async () => {
+  // Update "time ago" every second
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTick(prev => prev + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchBusinessStats = async (manual = false) => {
+    if (manual) setRefreshing(true);
     try {
       const [statsResponse, leaveResponse] = await Promise.all([
         fetch('/api/admin/stats'),
@@ -60,12 +72,30 @@ export default function BusinessAdminDashboard() {
           coverageLevel: Math.max(60, 100 - (upcomingLeave.length * 15)),
           upcomingLeave
         });
+        setLastUpdated(new Date());
       }
     } catch (error) {
       console.error('Failed to fetch business stats:', error);
     } finally {
       setLoading(false);
+      if (manual) {
+        setRefreshing(false);
+      }
     }
+  };
+
+  const getTimeAgo = (date: Date | null) => {
+    if (!date) return '';
+    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+    if (seconds < 5) return 'just now';
+    if (seconds < 60) return `${seconds} seconds ago`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes === 1) return '1 minute ago';
+    return `${minutes} minutes ago`;
+  };
+
+  const handleManualRefresh = () => {
+    fetchBusinessStats(true);
   };
 
   if (loading) {
@@ -85,14 +115,37 @@ export default function BusinessAdminDashboard() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-              <h1 className="text-xl font-semibold text-foreground">
-                TDH Agency - Team Management
-              </h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-xl font-semibold text-foreground">
+                  TDH Agency - Team Management
+                </h1>
+                {stats && stats.pendingRequests > 0 && (
+                  <Badge variant="destructive" className="animate-pulse">
+                    {stats.pendingRequests} Pending
+                  </Badge>
+                )}
+              </div>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-muted-foreground">
-                Welcome, {session?.user?.name || session?.user?.email}
-              </span>
+              <div className="flex flex-col items-end">
+                <span className="text-sm text-muted-foreground">
+                  Welcome, {session?.user?.name || session?.user?.email}
+                </span>
+                {lastUpdated && (
+                  <span className="text-xs text-muted-foreground/70">
+                    Updated {getTimeAgo(lastUpdated)}
+                  </span>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleManualRefresh}
+                disabled={refreshing}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
               <Button
                 variant="outline"
                 onClick={() => router.push("/dashboard")}
@@ -160,11 +213,19 @@ export default function BusinessAdminDashboard() {
                     <span className="text-sm">TOIL Hours</span>
                     <Badge variant="secondary">{stats?.toilPending || 0}h</Badge>
                   </div>
-                  <Button 
-                    className="w-full mt-4" 
+                  <Button
+                    className="w-full mt-4 relative"
                     onClick={() => router.push("/admin/pending-requests")}
                   >
                     Review Requests
+                    {stats && stats.pendingRequests > 0 && (
+                      <Badge
+                        variant="secondary"
+                        className="ml-2 bg-white text-primary hover:bg-white"
+                      >
+                        {stats.pendingRequests}
+                      </Badge>
+                    )}
                   </Button>
                 </div>
               </CardContent>
