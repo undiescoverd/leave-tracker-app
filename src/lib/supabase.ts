@@ -42,14 +42,14 @@ export const supabaseClient = createClient(supabaseUrl, supabasePublishableKey, 
  * import { createServerSupabaseClient } from '@/lib/supabase';
  *
  * export async function GET(request: Request) {
- *   const supabase = createServerSupabaseClient();
+ *   const supabase = await createServerSupabaseClient();
  *   const { data, error } = await supabase.from('users').select('*');
  *   return Response.json({ data, error });
  * }
  * ```
  */
-export function createServerSupabaseClient() {
-  const cookieStore = cookies();
+export async function createServerSupabaseClient() {
+  const cookieStore = await cookies();
 
   return createServerClient(supabaseUrl, supabasePublishableKey, {
     cookies: {
@@ -125,7 +125,7 @@ export function handleSupabaseError(error: any): Error {
  * Type helper for Supabase queries
  * Ensures type safety when working with database queries
  */
-export type SupabaseClient = ReturnType<typeof createServerSupabaseClient>;
+export type SupabaseClient = Awaited<ReturnType<typeof createServerSupabaseClient>>;
 
 // Logging configuration
 const isDevelopment = process.env.NODE_ENV === 'development';

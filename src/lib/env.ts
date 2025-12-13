@@ -36,6 +36,11 @@ const baseSchema = z.object({
   EMAIL_RATE_LIMIT_PER_HOUR: z.string().regex(/^\d+$/).default("50").transform(Number),
   EMAIL_RETRY_ATTEMPTS: z.string().regex(/^\d+$/).default("3").transform(Number),
   EMAIL_TIMEOUT_MS: z.string().regex(/^\d+$/).default("30000").transform(Number),
+  
+  // Supabase configuration (optional)
+  NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+  SUPABASE_SECRET_KEY: z.string().optional(),
 });
 
 // Conditional schema based on environment
@@ -69,6 +74,9 @@ try {
     EMAIL_RATE_LIMIT_PER_HOUR: process.env.EMAIL_RATE_LIMIT_PER_HOUR,
     EMAIL_RETRY_ATTEMPTS: process.env.EMAIL_RETRY_ATTEMPTS,
     EMAIL_TIMEOUT_MS: process.env.EMAIL_TIMEOUT_MS,
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY,
   });
 } catch (error) {
   if (error instanceof z.ZodError) {
@@ -98,6 +106,9 @@ try {
         EMAIL_RATE_LIMIT_PER_HOUR: process.env.EMAIL_RATE_LIMIT_PER_HOUR || "50",
         EMAIL_RETRY_ATTEMPTS: process.env.EMAIL_RETRY_ATTEMPTS || "3",
         EMAIL_TIMEOUT_MS: process.env.EMAIL_TIMEOUT_MS || "30000",
+        NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+        SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+        SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY,
       });
     }
   } else {

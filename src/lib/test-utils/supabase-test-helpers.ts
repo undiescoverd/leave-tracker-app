@@ -95,7 +95,6 @@ export async function createTestLeaveRequest(data: {
       end_date: endDate.toISOString(),
       type,
       status,
-      reason,
       comments: reason,
       approved_by: approvedBy,
       approved_at: approvedBy ? new Date().toISOString() : null,
@@ -120,6 +119,7 @@ export async function createTestToilEntry(data: {
   approved?: boolean;
   approvedBy?: string;
   reason?: string;
+  type?: 'TRAVEL_LATE_RETURN' | 'WEEKEND_TRAVEL' | 'AGENT_PANEL_DAY' | 'OVERTIME';
 }) {
   const {
     userId,
@@ -128,6 +128,7 @@ export async function createTestToilEntry(data: {
     approved = false,
     approvedBy,
     reason = 'Test TOIL entry',
+    type = 'OVERTIME',
   } = data;
 
   const { data: toilEntry, error } = await testSupabase
@@ -136,6 +137,7 @@ export async function createTestToilEntry(data: {
       user_id: userId,
       date: date.toISOString(),
       hours,
+      type,
       approved,
       approved_by: approvedBy,
       reason,
