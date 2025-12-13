@@ -209,11 +209,11 @@ CREATE POLICY "toil_entries_insert_admin"
   WITH CHECK (is_admin());
 
 -- =====================================================
--- SERVICE ROLE BYPASS
+-- SECRET KEY / SERVICE ROLE BYPASS
 -- =====================================================
 
--- Note: Service role key automatically bypasses RLS
--- Use the service role key (SUPABASE_SERVICE_ROLE_KEY) for:
+-- Note: Secret key (sb_secret_...) or service role key (JWT) automatically bypasses RLS
+-- Use the secret key (SUPABASE_SECRET_KEY - recommended) or legacy service role key (SUPABASE_SERVICE_ROLE_KEY) for:
 -- - User registration
 -- - Password resets
 -- - Admin operations that need to bypass RLS

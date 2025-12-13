@@ -38,6 +38,7 @@ interface LeaveBalance {
     toil?: number;
     sick?: number;
     total?: number;
+    count?: number; // Count of pending requests (not just days)
   };
 }
 
@@ -228,12 +229,14 @@ export default function EnhancedLeaveBalanceDisplay() {
       </div>
       
       {/* Pending Requests Summary - Only show if there are actionable notifications */}
-      {balance.pending && shouldShowNotificationBadge(balance.pending.total) && (
+      {balance.pending && (balance.pending.count || 0) > 0 && (
         <div className="bg-card border border-orange-500/30 rounded-lg p-4 mt-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <AlertCircle className="h-4 w-4 text-orange-500" />
-              <h3 className="text-sm font-medium text-foreground">Pending Requests</h3>
+              <h3 className="text-sm font-medium text-foreground">
+                Pending Requests {balance.pending.count ? `(${balance.pending.count})` : ''}
+              </h3>
             </div>
             <button 
               className="text-xs text-orange-400 hover:text-orange-300"
@@ -244,19 +247,19 @@ export default function EnhancedLeaveBalanceDisplay() {
           </div>
           
           <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
-            {balance.pending.annual && (
+            {balance.pending.annual && balance.pending.annual > 0 && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Annual:</span>
                 <span className="text-orange-400">{balance.pending.annual} days</span>
               </div>
             )}
-            {balance.pending.sick && (
+            {balance.pending.sick && balance.pending.sick > 0 && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Sick:</span>
                 <span className="text-orange-400">{balance.pending.sick} days</span>
               </div>
             )}
-            {balance.pending.toil && (
+            {balance.pending.toil && balance.pending.toil > 0 && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">TOIL:</span>
                 <span className="text-orange-400">{balance.pending.toil} hours</span>

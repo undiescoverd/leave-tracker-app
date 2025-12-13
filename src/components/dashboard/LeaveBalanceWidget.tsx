@@ -13,6 +13,7 @@ import { summarizeLeaveBalance } from "@/lib/leave-balance";
 
 export default function LeaveBalanceWidget() {
   const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "ADMIN";
   const {
     data: balance,
     isLoading,
@@ -106,11 +107,18 @@ export default function LeaveBalanceWidget() {
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4 text-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
-            <AlertCircle className="h-4 w-4 text-orange-500" />
-            {summary.pendingTotal > 0 ? (
-              <span>{summary.pendingTotal} pending across all requests</span>
+            {summary.pendingCount > 0 ? (
+              <>
+                <AlertCircle className="h-4 w-4 text-orange-500" />
+                <span>{summary.pendingCount} pending request{summary.pendingCount !== 1 ? 's' : ''} ({summary.pendingTotal} {summary.pendingTotal === 1 ? 'day' : 'days'})</span>
+              </>
+            ) : isAdmin ? (
+              <span className="text-muted-foreground">No personal pending requests</span>
             ) : (
-              <span>No pending requests right now</span>
+              <>
+                <AlertCircle className="h-4 w-4 text-orange-500" />
+                <span>No pending requests right now</span>
+              </>
             )}
           </div>
           <Button asChild variant="outline" size="sm">

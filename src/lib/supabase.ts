@@ -3,20 +3,30 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
 // Supabase configuration
+// New API keys (recommended): sb_publishable_... and sb_secret_...
+// Old API keys (still supported): anon and service_role JWT keys
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabasePublishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 // Validate environment variables
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables. Please check NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY');
+if (!supabaseUrl || !supabasePublishableKey) {
+  const newKeyName = 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY';
+  const oldKeyName = 'NEXT_PUBLIC_SUPABASE_ANON_KEY';
+  throw new Error(
+    `Missing Supabase environment variables. Please set ${newKeyName} (recommended) or ${oldKeyName} (legacy). ` +
+    `Also ensure NEXT_PUBLIC_SUPABASE_URL is set.`
+  );
 }
 
 /**
  * Client-side Supabase client for use in React components
- * This client uses the anon key and respects Row Level Security (RLS)
+ * This client uses the publishable key (or legacy anon key) and respects Row Level Security (RLS)
+ * 
+ * The publishable key is safe to expose in client-side code as it requires Row Level Security
+ * policies to be properly configured for data protection.
  */
-export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+export const supabaseClient = createClient(supabaseUrl, supabasePublishableKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
@@ -41,7 +51,7 @@ export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
 export function createServerSupabaseClient() {
   const cookieStore = cookies();
 
-  return createServerClient(supabaseUrl, supabaseAnonKey, {
+  return createServerClient(supabaseUrl, supabasePublishableKey, {
     cookies: {
       get(name: string) {
         return cookieStore.get(name)?.value;
@@ -67,10 +77,14 @@ export function createServerSupabaseClient() {
 }
 
 /**
- * Admin Supabase client with service role key
+ * Admin Supabase client with secret key (or legacy service_role key)
  * This client bypasses Row Level Security (RLS) and should only be used in server-side code
  *
- * WARNING: Only use this for admin operations that need to bypass RLS
+ * WARNING: Only use this for admin operations that need to bypass RLS.
+ * NEVER expose the secret key in client-side code, browser, or public repositories.
+ *
+ * The secret key provides full access to your project's data and bypasses all RLS policies.
+ * It will automatically return HTTP 401 if used in browser contexts.
  *
  * Usage:
  * ```ts
@@ -80,7 +94,7 @@ export function createServerSupabaseClient() {
  * const { data, error } = await supabaseAdmin.from('users').select('*');
  * ```
  */
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
+export const supabaseAdmin = createClient(supabaseUrl, supabaseSecretKey, {
   auth: {
     persistSession: false,
     autoRefreshToken: false,

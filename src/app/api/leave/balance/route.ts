@@ -79,7 +79,8 @@ async function getLeaveBalanceHandler(
           annual: pendingData.annual,
           toil: pendingData.toil,
           sick: pendingData.sick,
-          total: pendingData.total
+          total: pendingData.total,
+          count: pendingData.count // Include count of pending requests
         }
       }
     };
@@ -160,7 +161,8 @@ async function calculatePendingLeaveByType(userId: string, year: number) {
     annual: 0,
     toil: 0,
     sick: 0,
-    total: 0
+    total: 0,
+    count: pendingRequests.length // Add count of pending requests
   };
 
   for (const request of pendingRequests) {

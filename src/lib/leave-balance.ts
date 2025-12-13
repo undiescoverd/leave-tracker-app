@@ -17,6 +17,7 @@ export interface LeaveBalanceSummary {
   metrics: LeaveBalanceMetric[];
   totalDaysAvailable: number;
   pendingTotal: number;
+  pendingCount: number; // Count of pending requests (not just days)
 }
 
 const DEFAULTS = {
@@ -96,11 +97,14 @@ export function summarizeLeaveBalance(balance?: LeaveBalanceData): LeaveBalanceS
 
   const pendingTotal =
     pending.total ?? (pending.annual || 0) + (pending.sick || 0) + (pending.toil || 0);
+  
+  const pendingCount = pending.count ?? 0;
 
   return {
     metrics,
     totalDaysAvailable,
     pendingTotal,
+    pendingCount,
   };
 }
 

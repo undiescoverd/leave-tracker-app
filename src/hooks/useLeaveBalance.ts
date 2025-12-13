@@ -27,6 +27,7 @@ export interface LeaveBalanceData {
     toil: number;
     sick: number;
     total: number;
+    count?: number; // Count of pending requests (not just days)
   };
 }
 

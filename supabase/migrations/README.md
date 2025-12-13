@@ -80,13 +80,14 @@ The RLS policies use a custom `auth_user_id()` function that expects the user ID
 2. Modify the `auth_user_id()` function if your JWT structure is different
 3. Alternatively, use Supabase Auth instead of NextAuth
 
-### Service Role Key
+### Secret Key (Admin Access)
 
 For operations that need to bypass RLS (user registration, password resets, admin operations):
 
-1. Use the **Service Role Key** (`SUPABASE_SERVICE_ROLE_KEY`)
+1. Use the **Secret Key** (`SUPABASE_SECRET_KEY` - recommended) or legacy **Service Role Key** (`SUPABASE_SERVICE_ROLE_KEY`)
 2. This is already configured in `src/lib/supabase.ts` as `supabaseAdmin`
-3. **Never expose the service role key to the client**
+3. **NEVER expose the secret key to the client** - it provides full database access and bypasses all RLS policies
+4. The secret key format is `sb_secret_...` (new) or JWT-based `service_role` key (legacy)
 
 ## Rollback
 
@@ -129,7 +130,7 @@ If RLS policies are preventing legitimate access:
 
 1. Check that `auth_user_id()` is returning the correct user ID
 2. Verify JWT claims structure matches the function
-3. Use service role key for operations that need to bypass RLS
+3. Use secret key (or service role key) for operations that need to bypass RLS
 
 ### Migration Errors
 
