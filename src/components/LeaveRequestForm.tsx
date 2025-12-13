@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { Calendar } from "@/components/ui/calendar";
 import { DateRange } from "react-day-picker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TOILForm } from "@/components/leave/toil/TOILForm";
@@ -236,7 +237,7 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
       </Button>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-fit max-w-[90vw] max-h-[95vh] overflow-y-auto p-4">
           <DialogHeader>
             <DialogTitle>Request Leave</DialogTitle>
           </DialogHeader>
@@ -249,10 +250,10 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
               </TabsList>
               
               <TabsContent value="ANNUAL">
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-2">
                   {/* Date Selection */}
-                  <div className="space-y-2">
-                    <Label>Leave Dates</Label>
+                  <div className="space-y-1">
+                    <Label className="text-sm">Leave Dates</Label>
                     <DateRangePicker
                       dateRange={formData.dateRange}
                       onDateRangeChange={(dateRange) => 
@@ -266,20 +267,20 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
 
                   {/* Balance Display */}
                   {leaveBalance && (
-                    <div className="bg-muted p-3 rounded-md">
-                      <div className="text-sm text-muted-foreground">
+                    <div className="bg-muted p-2 rounded-md">
+                      <div className="text-xs text-muted-foreground">
                         <div className="flex justify-between">
                           <span>Available annual leave:</span>
                           <span className="font-medium text-foreground">{remainingBalance} days</span>
                         </div>
                         {previewDays > 0 && (
-                          <div className="flex justify-between mt-1">
+                          <div className="flex justify-between mt-0.5">
                             <span>Requested:</span>
                             <span className="font-medium text-foreground">{previewDays} days</span>
                           </div>
                         )}
                         {previewDays > 0 && remainingBalance < previewDays && (
-                          <div className="text-destructive text-xs mt-1">
+                          <div className="text-destructive text-xs mt-0.5">
                             ⚠️ Insufficient balance
                           </div>
                         )}
@@ -287,20 +288,41 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
                     </div>
                   )}
 
+                  {/* Inline Calendar */}
+                  <div className="space-y-1">
+                    <Label className="text-sm">Select Dates</Label>
+                    <div className="w-full">
+                      <Calendar
+                        mode="range"
+                        defaultMonth={formData.dateRange?.from}
+                        selected={formData.dateRange}
+                        onSelect={(range) => 
+                          setFormData(prev => ({ ...prev, dateRange: range }))
+                        }
+                        numberOfMonths={2}
+                        disabled={(date) => 
+                          date < new Date(new Date().setHours(0, 0, 0, 0))
+                        }
+                        className="rounded-md border w-full"
+                      />
+                    </div>
+                  </div>
+
                   {/* Comments */}
-                  <div className="space-y-2">
-                    <Label htmlFor="comments">Reason</Label>
+                  <div className="space-y-1">
+                    <Label htmlFor="comments" className="text-sm">Reason</Label>
                     <Textarea
                       name="comments"
                       value={formData.comments}
                       onChange={handleInputChange}
-                      rows={3}
+                      rows={2}
                       placeholder="Please provide a reason for your leave request..."
                       required
+                      className="text-sm"
                     />
                   </div>
 
-                  <div className="flex gap-3 justify-end pt-4">
+                  <div className="flex gap-3 justify-end pt-2">
                     <Button
                       type="button"
                       variant="outline"
@@ -330,11 +352,11 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
               </TabsContent>
             </Tabs>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-2">
               {/* Leave Type Selection */}
               {availableLeaveTypes.length > 1 && (
-                <div className="space-y-2">
-                  <Label htmlFor="type">Leave Type</Label>
+                <div className="space-y-1">
+                  <Label htmlFor="type" className="text-sm">Leave Type</Label>
                   <Select name="type" value={formData.type} onValueChange={(value) => setFormData(prev => ({ ...prev, type: value as "ANNUAL" | "TOIL" | "SICK" }))}>
                     <SelectTrigger>
                       <SelectValue />
@@ -352,8 +374,8 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
 
               {/* TOIL Hours Input */}
               {formData.type === 'TOIL' && (
-                <div className="space-y-2">
-                  <Label htmlFor="hours">TOIL Hours</Label>
+                <div className="space-y-1">
+                  <Label htmlFor="hours" className="text-sm">TOIL Hours</Label>
                   <Input
                     type="number"
                     name="hours"
@@ -362,13 +384,14 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
                     min="1"
                     max="24"
                     placeholder="Enter hours (1-24)"
+                    className="text-sm"
                   />
                 </div>
               )}
 
               {/* Date Selection */}
-              <div className="space-y-2">
-                <Label>Leave Dates</Label>
+              <div className="space-y-1">
+                <Label className="text-sm">Leave Dates</Label>
                 <DateRangePicker
                   dateRange={formData.dateRange}
                   onDateRangeChange={(dateRange) => 
@@ -382,20 +405,20 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
 
               {/* Balance Display */}
               {leaveBalance && (
-                <div className="bg-muted p-3 rounded-md">
-                  <div className="text-sm text-muted-foreground">
+                <div className="bg-muted p-2 rounded-md">
+                  <div className="text-xs text-muted-foreground">
                     <div className="flex justify-between">
                       <span>Available {formData.type.toLowerCase()} leave:</span>
                       <span className="font-medium text-foreground">{remainingBalance} days</span>
                     </div>
                     {previewDays > 0 && (
-                      <div className="flex justify-between mt-1">
+                      <div className="flex justify-between mt-0.5">
                         <span>Requested:</span>
                         <span className="font-medium text-foreground">{previewDays} days</span>
                       </div>
                     )}
                     {previewDays > 0 && remainingBalance < previewDays && (
-                      <div className="text-destructive text-xs mt-1">
+                      <div className="text-destructive text-xs mt-0.5">
                         ⚠️ Insufficient balance
                       </div>
                     )}
@@ -403,20 +426,41 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
                 </div>
               )}
 
+              {/* Inline Calendar */}
+              <div className="space-y-1">
+                <Label className="text-sm">Select Dates</Label>
+                <div className="w-full">
+                  <Calendar
+                    mode="range"
+                    defaultMonth={formData.dateRange?.from}
+                    selected={formData.dateRange}
+                    onSelect={(range) => 
+                      setFormData(prev => ({ ...prev, dateRange: range }))
+                    }
+                    numberOfMonths={2}
+                    disabled={(date) => 
+                      date < new Date(new Date().setHours(0, 0, 0, 0))
+                    }
+                    className="rounded-md border w-full"
+                  />
+                </div>
+              </div>
+
               {/* Comments */}
-              <div className="space-y-2">
-                <Label htmlFor="comments">Reason</Label>
+              <div className="space-y-1">
+                <Label htmlFor="comments" className="text-sm">Reason</Label>
                 <Textarea
                   name="comments"
                   value={formData.comments}
                   onChange={handleInputChange}
-                  rows={3}
+                  rows={2}
                   placeholder="Please provide a reason for your leave request..."
                   required
+                  className="text-sm"
                 />
               </div>
 
-              <DialogFooter className="pt-4">
+              <DialogFooter className="pt-2">
                 <Button
                   type="button"
                   variant="outline"
