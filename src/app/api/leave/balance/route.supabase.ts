@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { apiSuccess, apiError, TypedApiError } from '@/lib/api/response';
-import { getAuthenticatedUser } from '@/lib/auth-utils';
+import { getAuthenticatedUser } from '@/lib/auth-utils.supabase';
 import { AuthenticationError } from '@/lib/api/errors';
 import { getUserLeaveBalance } from '@/lib/services/leave.service.supabase';
 import { getUserLeaveBalances } from '@/lib/services/leave-balance.service.supabase';
@@ -8,7 +8,7 @@ import { features } from '@/lib/features';
 import { calculateWorkingDays } from '@/lib/date-utils';
 import { userDataCache, createCacheKey } from '@/lib/cache/cache-manager';
 import { logger, generateRequestId } from '@/lib/logger';
-import { withUserAuth } from '@/lib/middleware/auth';
+import { withUserAuth } from '@/lib/middleware/auth.supabase';
 import { withCompleteSecurity } from '@/lib/middleware/security';
 import { withCacheHeaders } from '@/lib/middleware/cache-headers';
 import { calculateUserNotifications } from '@/lib/notifications/notification-policy';

@@ -5,7 +5,7 @@ import { logger } from '@/lib/logger';
 import { ValidationError } from '@/lib/api/errors';
 import { EmailService } from '@/lib/email/service';
 import { format } from 'date-fns';
-import { withUserAuth } from '@/lib/middleware/auth';
+import { withUserAuth } from '@/lib/middleware/auth.supabase';
 import { withCompleteSecurity } from '@/lib/middleware/security';
 
 async function cancelLeaveRequestHandler(

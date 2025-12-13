@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { withAuthRateLimit } from '@/lib/middleware/auth';
+import { withAuthRateLimit } from '@/lib/middleware/auth.supabase';
 import { withCompleteSecurity, validationSchemas } from '@/lib/middleware/security';
 import { apiSuccess, apiError, HttpStatus, HttpStatusCode } from '@/lib/api/response';
 import { logger } from '@/lib/logger';

@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api/response';
 import { supabaseAdmin } from '@/lib/supabase';
-import { getAuthenticatedUser } from '@/lib/auth-utils';
-import { withUserAuth } from '@/lib/middleware/auth';
+import { getAuthenticatedUser } from '@/lib/auth-utils.supabase';
+import { withUserAuth } from '@/lib/middleware/auth.supabase';
 import { withCompleteSecurity, validationSchemas } from '@/lib/middleware/security';
 import { ValidationError, AuthenticationError } from '@/lib/api/errors';
 import { checkUKAgentConflict } from '@/lib/services/leave.service.supabase';

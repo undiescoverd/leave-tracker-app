@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { requireAdmin } from '@/lib/auth-utils';
+import { requireAdmin } from '@/lib/auth-utils.supabase';
 import { apiSuccess, apiError, HttpStatus } from '@/lib/api/response';
 import { logger } from '@/lib/logger';
 import { NotFoundError, ValidationError, AuthenticationError, AuthorizationError } from '@/lib/api/errors';
 import { EmailService } from '@/lib/email/service';
 import { format } from 'date-fns';
-import { withAdminAuth } from '@/lib/middleware/auth';
+import { withAdminAuth } from '@/lib/middleware/auth.supabase';
 import { withCompleteSecurity } from '@/lib/middleware/security';
 import { apiCache } from '@/lib/cache/cache-manager';
 

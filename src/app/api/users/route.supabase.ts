@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { apiSuccess, apiError, TypedApiError } from '@/lib/api/response';
 import { AuthenticationError, AuthorizationError } from '@/lib/api/errors';
 import { supabaseAdmin } from '@/lib/supabase';
-import { requireAdmin } from '@/lib/auth-utils';
+import { requireAdmin } from '@/lib/auth-utils.supabase';
 
 export async function GET(_request: NextRequest) {
   try {

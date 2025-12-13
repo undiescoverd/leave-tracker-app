@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { z } from 'zod';
 import { supabaseAdmin } from '@/lib/supabase';
 import { sendPasswordResetEmail } from '@/lib/email/service';
-import { withAuthRateLimit } from '@/lib/middleware/auth';
+import { withAuthRateLimit } from '@/lib/middleware/auth.supabase';
 import { withCompleteSecurity } from '@/lib/middleware/security';
 import { apiSuccess, apiError } from '@/lib/api/response';
 

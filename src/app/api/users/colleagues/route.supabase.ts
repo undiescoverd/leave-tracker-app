@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api/response';
 import { supabaseAdmin } from '@/lib/supabase';
-import { auth } from '@/lib/auth';
+import { auth } from '@/lib/auth.supabase';
 
 /**
  * GET /api/users/colleagues

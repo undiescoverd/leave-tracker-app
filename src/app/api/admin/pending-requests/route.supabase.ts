@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { apiSuccess, apiError, HttpStatusCode } from '@/lib/api/response';
 import { supabaseAdmin } from '@/lib/supabase';
-import { withAdminAuth } from '@/lib/middleware/auth';
+import { withAdminAuth } from '@/lib/middleware/auth.supabase';
 import { withCompleteSecurity } from '@/lib/middleware/security';
 import { AuthenticationError, AuthorizationError } from '@/lib/api/errors';
 import { apiCache, createCacheKey } from '@/lib/cache/cache-manager';
