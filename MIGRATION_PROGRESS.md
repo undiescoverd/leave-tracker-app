@@ -119,9 +119,18 @@ This document tracks the progress of migrating from Prisma ORM to Supabase.
 
 ---
 
-## 🔄 Phase 4: API Routes Migration (PENDING)
+## 🔄 Phase 4: API Routes Migration (IN PROGRESS)
 
-### Routes to Migrate
+### Migrated Routes (Examples)
+
+#### Leave Routes
+- ✅ `request/route.ts` → `request/route.supabase.ts` - Create/List pattern
+- ✅ `request/[id]/approve/route.ts` → `request/[id]/approve/route.supabase.ts` - Update pattern
+
+#### Admin Routes
+- ✅ `pending-requests/route.ts` → `pending-requests/route.supabase.ts` - Complex query pattern
+
+### Routes to Migrate (16 remaining)
 
 #### Auth Routes (`src/app/api/auth/`)
 - ⏳ `register/route.ts` - User registration
@@ -130,15 +139,12 @@ This document tracks the progress of migrating from Prisma ORM to Supabase.
 
 #### Leave Routes (`src/app/api/leave/`)
 - ⏳ `balance/route.ts` - Get leave balance
-- ⏳ `request/route.ts` - Create leave request
-- ⏳ `request/[id]/approve/route.ts` - Approve request
 - ⏳ `request/[id]/reject/route.ts` - Reject request
 - ⏳ `request/[id]/cancel/route.ts` - Cancel request
 - ⏳ `requests/route.ts` - List requests
 
 #### Admin Routes (`src/app/api/admin/`)
 - ⏳ `all-requests/route.ts` - All requests view
-- ⏳ `pending-requests/route.ts` - Pending requests
 - ⏳ `bulk-approve/route.ts` - Bulk operations
 - ⏳ `bulk-reject/route.ts` - Bulk operations
 - ⏳ `stats/route.ts` - Admin statistics
@@ -148,6 +154,20 @@ This document tracks the progress of migrating from Prisma ORM to Supabase.
 #### User Routes (`src/app/api/users/`)
 - ⏳ `route.ts` - List users
 - ⏳ `colleagues/route.ts` - Get colleagues
+
+### Migration Patterns Established
+
+See **API_MIGRATION_GUIDE.md** for detailed patterns and examples:
+- Create/Insert operations
+- Read/Select operations
+- Update operations
+- Delete operations
+- Transactions (sequential approach)
+- Parallel queries
+- Pagination
+- Joins (foreign keys)
+- Error handling
+- Field name mapping (camelCase ↔ snake_case)
 
 ---
 
