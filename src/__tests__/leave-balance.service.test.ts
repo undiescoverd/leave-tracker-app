@@ -3,9 +3,9 @@ import {
   getUserLeaveBalances, 
   validateLeaveRequest, 
   getLegacyLeaveBalance 
-} from '@/lib/services/leave-balance.service';
+} from '@/lib/services/leave-balance.service.supabase';
 import { calculateWorkingDays } from '@/lib/date-utils';
-import { prisma } from '@/lib/prisma';
+import { supabaseAdmin } from '@/lib/supabase';
 import './setup';
 
 // Mock dependencies

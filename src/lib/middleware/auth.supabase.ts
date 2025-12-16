@@ -10,6 +10,7 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { AuthenticationError, AuthorizationError, RateLimitError } from '@/lib/api/errors';
 import { apiError } from '@/lib/api/response';
 import { logger } from '@/lib/logger';
+import { isAdminRole } from '@/types/next-auth';
 
 // Rate limiting store (in-memory for now, should be Redis in production)
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
@@ -155,12 +156,12 @@ export function withAuth(
           throw new AuthenticationError('Session integrity violation');
         }
 
-        // Check admin requirement
-        if (requireAdmin && user.role !== 'ADMIN') {
+        // Check admin requirement (supports ADMIN, TECH_ADMIN, and OWNER)
+        if (requireAdmin && !isAdminRole(user.role)) {
           logger.securityEvent('authorization_failure', 'medium', user.email, {
             endpoint: req.nextUrl.pathname,
             userRole: user.role,
-            requiredRole: 'ADMIN'
+            requiredRole: 'ADMIN (or TECH_ADMIN/OWNER)'
           });
           throw new AuthorizationError('Administrator access required');
         }

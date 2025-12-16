@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
+import { isAdminRole } from "@/types/next-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -55,7 +56,7 @@ interface SeedResult {
 
   useEffect(() => {
     if (status === "loading") return;
-    if (!session || session.user?.role !== "ADMIN") {
+    if (!session || !isAdminRole(session.user?.role)) {
       router.push("/login");
     }
   }, [session, router, status]);
@@ -68,7 +69,7 @@ interface SeedResult {
     );
   }
 
-  if (!session || session.user?.role !== "ADMIN") {
+  if (!session || !isAdminRole(session.user?.role)) {
     return null;
   }
 

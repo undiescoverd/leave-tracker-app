@@ -4,8 +4,8 @@ import {
   checkUKAgentConflict,
   getBatchUserLeaveBalances,
   getTeamCalendarData
-} from '@/lib/services/leave.service';
-import { prisma } from '@/lib/prisma';
+} from '@/lib/services/leave.service.supabase';
+import { supabaseAdmin } from '@/lib/supabase';
 import { calculateWorkingDays } from '@/lib/date-utils';
 import './setup';
 

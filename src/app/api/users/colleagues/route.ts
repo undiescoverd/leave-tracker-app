@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api/response';
-import { prisma } from '@/lib/prisma';
-import { auth } from '@/lib/auth';
+import { supabaseAdmin } from '@/lib/supabase';
+import { auth } from '@/lib/auth.supabase';
 
 /**
  * GET /api/users/colleagues
@@ -16,23 +16,17 @@ export async function GET(_request: NextRequest) {
       return apiError('Unauthorized', 401);
     }
 
-    const users = await prisma.user.findMany({
-      where: {
-        id: {
-          not: session.user.id
-        }
-      },
-      select: {
-        id: true,
-        name: true,
-      },
-      orderBy: {
-        name: 'asc'
-      }
-    });
+    const { data: users, error } = await supabaseAdmin
+      .from('users')
+      .select('id, name')
+      .neq('id', session.user.id)
+      .order('name', { ascending: true });
 
-    return apiSuccess({ users });
+    if (error) {
+      throw new Error(`Failed to fetch colleagues: ${error.message}`);
+    }
 
+    return apiSuccess({ users: users || [] });
   } catch (error) {
     console.error('Error fetching colleagues:', error);
     return apiError('Internal server error', 500);

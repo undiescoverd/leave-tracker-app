@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { isAdminRole } from "@/types/next-auth";
 
 interface AdminStats {
   pendingRequests: number;
@@ -30,7 +31,8 @@ export default function AdminPage() {
       router.push("/login");
       return;
     }
-    if (session.user?.role !== "ADMIN") {
+    // Allow all admin types (ADMIN, TECH_ADMIN, OWNER) to access admin page
+    if (!isAdminRole(session.user?.role)) {
       router.push("/dashboard");
       return;
     }
@@ -38,7 +40,8 @@ export default function AdminPage() {
   }, [status, session, router]);
 
   useEffect(() => {
-    if (session?.user?.role === "ADMIN") {
+    // Auto-refresh stats for all admin types
+    if (session?.user && isAdminRole(session.user.role)) {
       const interval = setInterval(fetchAdminStats, 30000);
       return () => clearInterval(interval);
     }
@@ -69,12 +72,14 @@ export default function AdminPage() {
     );
   }
 
-  if (!session || session.user?.role !== "ADMIN") {
+  // Ensure user has admin permissions
+  if (!session || !isAdminRole(session.user?.role)) {
     return null;
   }
 
   // Role-specific dashboard rendering
-  if (session.user?.email === "senay@tdhagency.com") {
+  // OWNER gets the business admin dashboard
+  if (session.user?.role === "OWNER") {
     return <BusinessAdminDashboard />;
   }
 

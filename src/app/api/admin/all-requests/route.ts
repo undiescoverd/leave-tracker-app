@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api/response';
-import { prisma } from '@/lib/prisma';
-import { withAdminAuth } from '@/lib/middleware/auth';
+import { supabaseAdmin } from '@/lib/supabase';
+import { withAdminAuth } from '@/lib/middleware/auth.supabase';
 import { withCompleteSecurity } from '@/lib/middleware/security';
 import { apiCache, createCacheKey } from '@/lib/cache/cache-manager';
 import { logger, generateRequestId } from '@/lib/logger';
@@ -33,48 +33,68 @@ async function getAllRequestsHandler(req: NextRequest, context: { user: unknown 
     logger.cacheOperation('miss', cacheKey);
 
     // Execute both queries in parallel for better performance
-    const [allRequests, totalCount] = await Promise.all([
-      prisma.leaveRequest.findMany({
-        orderBy: [
-          { createdAt: 'desc' }, // Newest requests first
-        ],
-        take: limit,
-        skip: offset,
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              role: true,
-            },
-          },
-        },
-      }),
-      prisma.leaveRequest.count()
+    const [requestsResponse, countResponse] = await Promise.all([
+      supabaseAdmin
+        .from('leave_requests')
+        .select(`
+          id,
+          user_id,
+          start_date,
+          end_date,
+          type,
+          status,
+          hours,
+          comments,
+          created_at,
+          user:users!leave_requests_user_id_fkey (
+            id,
+            name,
+            email,
+            role
+          )
+        `)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1),
+      supabaseAdmin
+        .from('leave_requests')
+        .select('*', { count: 'exact', head: true })
     ]);
 
-    // Transform data to match frontend expectations
+    if (requestsResponse.error) {
+      throw new Error(`Failed to fetch leave requests: ${requestsResponse.error.message}`);
+    }
+
+    if (countResponse.error) {
+      throw new Error(`Failed to fetch count: ${countResponse.error.message}`);
+    }
+
+    const allRequests = requestsResponse.data || [];
+    const totalCount = countResponse.count || 0;
+
+    // Transform data to match frontend expectations (convert snake_case to camelCase)
     const enhancedRequests = allRequests.map(request => {
-      const start = new Date(request.startDate);
-      const end = new Date(request.endDate);
+      const start = new Date(request.start_date);
+      const end = new Date(request.end_date);
       const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+      // Handle user data (can be object or array depending on Supabase response)
+      const userData = Array.isArray(request.user) ? request.user[0] : request.user;
 
       return {
         id: request.id,
-        employeeName: request.user?.name || 'Unknown',
-        employeeEmail: request.user?.email || '',
-        employeeRole: request.user?.role || 'Employee',
+        employeeName: userData?.name || 'Unknown',
+        employeeEmail: userData?.email || '',
+        employeeRole: userData?.role || 'Employee',
         type: request.type,
         status: request.status,
-        startDate: request.startDate.toISOString().split('T')[0],
-        endDate: request.endDate.toISOString().split('T')[0],
+        startDate: request.start_date,
+        endDate: request.end_date,
         days,
         hours: request.hours,
         comments: request.comments,
         reason: request.comments || 'No reason provided', // Map comments to reason for consistency with employee view
-        submittedAt: request.createdAt.toISOString(),
-        user: request.user
+        submittedAt: request.created_at,
+        user: userData
       };
     });
 

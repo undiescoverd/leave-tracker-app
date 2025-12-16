@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { apiSuccess } from '@/lib/api/response';
-import { withAdminAuth } from '@/lib/middleware/auth';
+import { withAdminAuth } from '@/lib/middleware/auth.supabase';
 import { withCompleteSecurity } from '@/lib/middleware/security';
 import { AuthorizationError } from '@/lib/api/errors';
 import { withErrorHandler, composeMiddleware, withPerformanceMonitoring } from '@/middleware/error-handler';
@@ -11,7 +11,7 @@ import {
   leaveBalanceCache, 
   statsCache 
 } from '@/lib/cache/cache-manager';
-import { getQueryStats, detectNPlusOneQueries } from '@/lib/prisma-middleware';
+import { getQueryStats, detectNPlusOneQueries } from '@/lib/supabase-analytics';
 import { logger } from '@/lib/logger';
 
 async function getPerformanceMetrics(req: NextRequest, context: { user: { id: string; email: string; name: string; role: string } }) {

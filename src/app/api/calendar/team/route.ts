@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError, TypedApiError } from '@/lib/api/response';
-import { getAuthenticatedUser } from '@/lib/auth-utils';
+import { getAuthenticatedUser } from '@/lib/auth-utils.supabase';
 import { AuthenticationError, ValidationError } from '@/lib/api/errors';
-import { getTeamCalendarData } from '@/lib/services/leave.service';
+import { getTeamCalendarData } from '@/lib/services/leave.service.supabase';
 import { calendarCache, createCacheKey } from '@/lib/cache/cache-manager';
 import { withErrorHandler, composeMiddleware, withPerformanceMonitoring, withQueryOptimization } from '@/middleware/error-handler';
 import { logger } from '@/lib/logger';

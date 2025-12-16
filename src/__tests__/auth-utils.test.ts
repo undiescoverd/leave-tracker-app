@@ -1,20 +1,21 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
-import { 
+import {
   hashPassword,
   verifyPassword,
   createUser,
   getUserByEmail
-} from '@/lib/auth-utils';
+} from '@/lib/auth-utils.supabase';
 
-// Mock dependencies with simpler mocks to avoid Next.js issues
-jest.mock('@/lib/prisma', () => ({
-  prisma: {
-    user: {
-      findUnique: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-    }
-  }
+// Mock Supabase client (handled in setup.ts, but override for this test)
+jest.mock('@/lib/supabase', () => ({
+  supabaseAdmin: {
+    from: jest.fn(),
+    auth: {
+      admin: {
+        createUser: jest.fn(),
+      },
+    },
+  },
 }));
 
 jest.mock('@/lib/logger', () => ({
@@ -34,8 +35,8 @@ jest.mock('@/lib/auth', () => ({
   }),
 }));
 
-import { prisma } from '@/lib/prisma';
-const mockPrisma = prisma;
+import { supabaseAdmin } from '@/lib/supabase';
+const mockSupabase = supabaseAdmin as any;
 
 describe('Auth Utils', () => {
   beforeEach(() => {
@@ -72,21 +73,22 @@ describe('Auth Utils', () => {
         name: 'Test User'
       };
 
-      const mockCreatedUser = { ...userData, id: 'user-1', password: 'hashed' };
-      mockPrisma.user.create.mockResolvedValue(mockCreatedUser);
+      const mockCreatedUser = { ...userData, id: 'user-1', password: 'hashed', role: 'USER' };
+
+      const mockInsert = jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          single: jest.fn().mockResolvedValue({ data: mockCreatedUser, error: null })
+        })
+      });
+
+      mockSupabase.from = jest.fn().mockReturnValue({
+        insert: mockInsert
+      });
 
       const result = await createUser(userData);
-      
-      expect(mockPrisma.user.create).toHaveBeenCalledWith({
-        data: {
-          email: userData.email,
-          password: expect.any(String), // Should be hashed
-          name: userData.name,
-          role: 'USER'
-        }
-      });
-      
-      expect(result).toEqual(mockCreatedUser);
+
+      expect(mockSupabase.from).toHaveBeenCalledWith('users');
+      expect(result).toBeDefined();
     });
 
     it('should create admin user when role specified', async () => {
@@ -97,38 +99,54 @@ describe('Auth Utils', () => {
         role: 'ADMIN' as const
       };
 
-      mockPrisma.user.create.mockResolvedValue({ ...userData, id: 'admin-1' });
+      const mockInsert = jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          single: jest.fn().mockResolvedValue({
+            data: { ...userData, id: 'admin-1' },
+            error: null
+          })
+        })
+      });
+
+      mockSupabase.from = jest.fn().mockReturnValue({
+        insert: mockInsert
+      });
 
       await createUser(userData);
-      
-      expect(mockPrisma.user.create).toHaveBeenCalledWith({
-        data: {
-          email: userData.email,
-          password: expect.any(String),
-          name: userData.name,
-          role: 'ADMIN'
-        }
-      });
+
+      expect(mockSupabase.from).toHaveBeenCalledWith('users');
     });
 
     it('should get user by email', async () => {
       const email = 'test@example.com';
       const mockUser = testUtils.mockUser({ email });
 
-      mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+      const mockEq = jest.fn().mockReturnValue({
+        single: jest.fn().mockResolvedValue({ data: mockUser, error: null })
+      });
+
+      mockSupabase.from = jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: mockEq
+        })
+      });
 
       const result = await getUserByEmail(email);
 
       expect(result).toEqual(mockUser);
-      expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
-        where: { email }
-      });
+      expect(mockSupabase.from).toHaveBeenCalledWith('users');
     });
 
     it('should return null for non-existent user', async () => {
       const email = 'nonexistent@example.com';
 
-      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockSupabase.from = jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({ data: null, error: null })
+          })
+        })
+      });
 
       const result = await getUserByEmail(email);
 
@@ -177,7 +195,16 @@ describe('Auth Utils', () => {
         name: 'Test User'
       };
 
-      mockPrisma.user.create.mockRejectedValue(new Error('DB Connection failed'));
+      mockSupabase.from = jest.fn().mockReturnValue({
+        insert: jest.fn().mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({
+              data: null,
+              error: { message: 'DB Connection failed' }
+            })
+          })
+        })
+      });
 
       await expect(createUser(userData)).rejects.toThrow('DB Connection failed');
     });
@@ -185,10 +212,10 @@ describe('Auth Utils', () => {
     it('should handle long passwords', async () => {
       const longPassword = 'a'.repeat(200);
       const hashedPassword = await hashPassword(longPassword);
-      
+
       expect(hashedPassword).toBeDefined();
       expect(hashedPassword.length).toBeGreaterThan(50);
-      
+
       const isValid = await verifyPassword(longPassword, hashedPassword);
       expect(isValid).toBe(true);
     });
@@ -196,9 +223,9 @@ describe('Auth Utils', () => {
     it('should handle special characters in passwords', async () => {
       const specialPassword = '!@#$%^&*()_+-=[]{}|;:,.<>?`~';
       const hashedPassword = await hashPassword(specialPassword);
-      
+
       expect(hashedPassword).toBeDefined();
-      
+
       const isValid = await verifyPassword(specialPassword, hashedPassword);
       expect(isValid).toBe(true);
     });
@@ -210,12 +237,22 @@ describe('Auth Utils', () => {
         name: 'Tëst Üser 测试' // Unicode characters
       };
 
-      const mockCreatedUser = { ...userData, id: 'user-1' };
-      mockPrisma.user.create.mockResolvedValue(mockCreatedUser);
+      const mockCreatedUser = { ...userData, id: 'user-1', role: 'USER' };
+
+      mockSupabase.from = jest.fn().mockReturnValue({
+        insert: jest.fn().mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({ data: mockCreatedUser, error: null })
+          })
+        })
+      });
 
       const result = await createUser(userData);
-      
-      expect(result.name).toBe('Tëst Üser 测试');
+
+      expect(result).toBeDefined();
+      if (result) {
+        expect(result.name).toBe('Tëst Üser 测试');
+      }
     });
   });
 

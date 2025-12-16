@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { apiSuccess, apiError, HttpStatus } from '@/lib/api/response';
 import { AuthenticationError, AuthorizationError } from '@/lib/api/errors';
-import { requireAdmin, getAuthenticatedUser } from '@/lib/auth-utils';
-import { prisma } from '@/lib/prisma';
+import { requireAdmin, getAuthenticatedUser } from '@/lib/auth-utils.supabase';
+import { supabaseAdmin } from '@/lib/supabase';
 import { z } from 'zod';
 import { features } from '@/lib/features';
-import { 
-  approveToilEntry, 
+import {
+  approveToilEntry,
   rejectToilEntry
-} from '@/lib/services/toil.service';
-import { withAdminAuth } from '@/lib/middleware/auth';
+} from '@/lib/services/toil.service.supabase';
+import { withAdminAuth } from '@/lib/middleware/auth.supabase';
 import { withCompleteSecurity } from '@/lib/middleware/security';
 
 // Schema for TOIL adjustment
@@ -49,34 +49,61 @@ async function createToilHandler(
 
     const { userId, hours, reason, type, date } = validation.data;
 
-    // Create and auto-approve TOIL entry (admin action)
-    const toilEntry = await prisma.$transaction(async (tx) => {
-      // Create TOIL entry
-      const entry = await tx.toilEntry.create({
-        data: {
-          userId,
-          date: new Date(date),
-          type,
-          hours,
-          reason,
-          approved: true,
-          approvedBy: admin.id,
-          approvedAt: new Date()
-        }
-      });
+    // Get current user balance for audit trail
+    const { data: user, error: userError } = await supabaseAdmin
+      .from('users')
+      .select('toil_balance')
+      .eq('id', userId)
+      .single();
 
-      // Update user balance
-      await tx.user.update({
-        where: { id: userId },
-        data: {
-          toilBalance: {
-            increment: hours
-          }
-        }
-      });
+    if (userError || !user) {
+      return apiError('User not found', 404);
+    }
 
-      return entry;
-    });
+    const previousBalance = (user as any).toil_balance;
+    const newBalance = previousBalance + hours;
+
+    // Create TOIL entry (auto-approved for admin actions)
+    const { data: toilEntry, error: createError } = await supabaseAdmin
+      .from('toil_entries')
+      .insert({
+        user_id: userId,
+        date: new Date(date).toISOString(),
+        type,
+        hours,
+        reason,
+        approved: true,
+        approved_by: admin.id,
+        approved_at: new Date().toISOString(),
+        previous_balance: previousBalance,
+        new_balance: newBalance,
+      } as any)
+      .select()
+      .single();
+
+    if (createError) {
+      console.error('TOIL entry creation error:', createError);
+      return apiError('Failed to create TOIL entry', 500);
+    }
+
+    // Update user balance
+    const { error: updateUserError } = await supabaseAdmin
+      .from('users')
+      .update({
+        toil_balance: newBalance,
+      } as any)
+      .eq('id', userId);
+
+    if (updateUserError) {
+      // Rollback: delete the TOIL entry
+      await supabaseAdmin
+        .from('toil_entries')
+        .delete()
+        .eq('id', (toilEntry as any).id);
+
+      console.error('User balance update error:', updateUserError);
+      return apiError('Failed to update user balance', 500);
+    }
 
     return apiSuccess({
       message: 'TOIL balance updated successfully',
@@ -102,22 +129,29 @@ async function getToilHandler(
     const user = context.user;
 
     // Get TOIL entries based on role
-    const where = user.role === 'ADMIN' ? {} : { userId: user.id };
-    
-    const entries = await prisma.toilEntry.findMany({
-      where,
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true
-          }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    });
+    let query = supabaseAdmin
+      .from('toil_entries')
+      .select(`
+        *,
+        user:users!toil_entries_user_id_fkey (
+          name,
+          email
+        )
+      `)
+      .order('created_at', { ascending: false });
 
-    return apiSuccess({ entries });
+    if (user.role !== 'ADMIN') {
+      query = query.eq('user_id', user.id);
+    }
+
+    const { data: entries, error } = await query;
+
+    if (error) {
+      console.error('Get TOIL entries error:', error);
+      return apiError('Failed to fetch TOIL entries', 500);
+    }
+
+    return apiSuccess({ entries: entries || [] });
 
   } catch (error) {
     console.error('Get TOIL error:', error);

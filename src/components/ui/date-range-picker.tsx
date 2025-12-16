@@ -31,9 +31,34 @@ export function DateRangePicker({
   minDate,
   className,
 }: DateRangePickerProps) {
+  const [open, setOpen] = React.useState(false)
+  const [tempRange, setTempRange] = React.useState<DateRange | undefined>(dateRange)
+
+  // Sync tempRange when dateRange prop changes externally
+  React.useEffect(() => {
+    setTempRange(dateRange)
+  }, [dateRange])
+
+  // Reset temp range when popover opens
+  React.useEffect(() => {
+    if (open) {
+      setTempRange(dateRange)
+    }
+  }, [open, dateRange])
+
+  const handleAccept = () => {
+    onDateRangeChange?.(tempRange)
+    setOpen(false)
+  }
+
+  const handleCancel = () => {
+    setTempRange(dateRange) // Reset to original
+    setOpen(false)
+  }
+
   return (
     <div className={className}>
-      <Popover>
+      <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
             id="date"
@@ -63,9 +88,9 @@ export function DateRangePicker({
           <Calendar
             initialFocus
             mode="range"
-            defaultMonth={dateRange?.from}
-            selected={dateRange}
-            onSelect={onDateRangeChange}
+            defaultMonth={tempRange?.from}
+            selected={tempRange}
+            onSelect={setTempRange}
             numberOfMonths={2}
             disabled={(date) => 
               minDate ? date < minDate : false
@@ -89,6 +114,21 @@ export function DateRangePicker({
               day_hidden: "invisible",
             }}
           />
+          <div className="flex justify-end gap-2 p-3 border-t">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCancel}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleAccept}
+            >
+              Accept
+            </Button>
+          </div>
         </PopoverContent>
       </Popover>
     </div>

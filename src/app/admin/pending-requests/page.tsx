@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { isAdminRole } from "@/types/next-auth";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -57,13 +58,13 @@ export default function PendingRequestsPage() {
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login");
-    } else if (status === "authenticated" && session?.user?.role !== "ADMIN") {
+    } else if (status === "authenticated" && session?.user && !isAdminRole(session.user.role)) {
       router.push("/dashboard");
     }
   }, [status, session, router]);
 
   useEffect(() => {
-    if (session?.user?.role === "ADMIN") {
+    if (session?.user && isAdminRole(session.user.role)) {
       fetchLeaveRequests();
       // Poll every 5 seconds for fast updates
       const interval = setInterval(fetchLeaveRequests, 5000);
@@ -168,8 +169,15 @@ export default function PendingRequestsPage() {
   };
 
   const handleReject = async (requestId: string) => {
-    if (!rejectComment.trim()) {
+    const trimmedReason = rejectComment.trim();
+    
+    if (!trimmedReason) {
       showError("Please provide a reason for rejection");
+      return;
+    }
+
+    if (trimmedReason.length < 10) {
+      showError("Rejection reason must be at least 10 characters long");
       return;
     }
 
@@ -182,7 +190,7 @@ export default function PendingRequestsPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          reason: rejectComment.trim()
+          reason: trimmedReason
         }),
       });
 
@@ -194,7 +202,15 @@ export default function PendingRequestsPage() {
         setShowRejectModal(null); // Close modal
       } else {
         const error = await response.json();
-        showError(`Failed to reject: ${error.error?.message || error.error || 'Unknown error'}`);
+        // Extract more detailed error message
+        const errorMessage = error.error?.message || error.error || error.message || 'Unknown error';
+        // If it's a validation error with details, show those
+        if (error.error?.details) {
+          const details = Object.values(error.error.details).flat();
+          showError(`Failed to reject: ${details.join(', ') || errorMessage}`);
+        } else {
+          showError(`Failed to reject: ${errorMessage}`);
+        }
       }
     } catch (error) {
       showError("Error rejecting request");
@@ -230,7 +246,7 @@ export default function PendingRequestsPage() {
     );
   }
 
-  if (!session || session.user.role !== "ADMIN") {
+  if (!session || !isAdminRole(session.user.role)) {
     return null;
   }
 
@@ -448,9 +464,13 @@ export default function PendingRequestsPage() {
                 value={rejectComment}
                 onChange={(e) => setRejectComment(e.target.value)}
                 rows={4}
-                placeholder="Please provide a reason for rejecting this leave request..."
+                placeholder="Please provide a reason for rejecting this leave request (minimum 10 characters)..."
                 required
+                minLength={10}
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                Minimum 10 characters required ({rejectComment.trim().length}/10)
+              </p>
             </div>
           </div>
 
@@ -468,7 +488,7 @@ export default function PendingRequestsPage() {
             <Button
               variant="destructive"
               onClick={() => handleReject(showRejectModal!)}
-              disabled={!rejectComment.trim() || processing === showRejectModal}
+              disabled={!rejectComment.trim() || rejectComment.trim().length < 10 || processing === showRejectModal}
             >
               {processing === showRejectModal ? "Processing..." : "Reject Request"}
             </Button>

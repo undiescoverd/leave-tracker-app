@@ -4,22 +4,9 @@ import {
   getBatchUserLeaveBalances,
   getTeamCalendarData,
   checkUKAgentConflict
-} from '@/lib/services/leave.service';
+} from '@/lib/services/leave.service.supabase';
 
-// Mock dependencies with performance tracking
-jest.mock('@/lib/prisma', () => ({
-  prisma: {
-    user: {
-      findUnique: jest.fn(),
-      findMany: jest.fn(),
-    },
-    leaveRequest: {
-      findMany: jest.fn(),
-      count: jest.fn(),
-    },
-    $transaction: jest.fn(),
-  }
-}));
+// Mock dependencies with performance tracking (Supabase mock in setup.ts)
 
 jest.mock('@/lib/cache/cache-manager', () => {
   const leaveBalanceCache = {

@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { isAdminRole } from "@/types/next-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -66,7 +67,7 @@ export default function EmployeeBalancesPage() {
       router.push("/login");
       return;
     }
-    if (session.user?.role !== "ADMIN") {
+    if (!isAdminRole(session.user?.role)) {
       router.push("/dashboard");
       return;
     }
@@ -113,7 +114,7 @@ export default function EmployeeBalancesPage() {
     );
   }
 
-  if (!session || session.user?.role !== "ADMIN") {
+  if (!session || !isAdminRole(session.user?.role)) {
     return null;
   }
 

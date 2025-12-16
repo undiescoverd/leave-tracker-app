@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { apiError } from '@/lib/api/response';
 
-import { prisma } from '@/lib/prisma';
-import { withAdminAuth } from '@/lib/middleware/auth';
+import { supabaseAdmin } from '@/lib/supabase';
+import { withAdminAuth } from '@/lib/middleware/auth.supabase';
 import { withCompleteSecurity } from '@/lib/middleware/security';
 
 async function exportEmployeeDetailsHandler(
@@ -21,34 +21,80 @@ async function exportEmployeeDetailsHandler(
     // Admin user is available in context if needed
 
     // Get employee data (reuse logic from details endpoint)
-    const employee = await prisma.user.findUnique({
-      where: { 
-        id: employeeId,
-        role: 'USER'
-      },
-      include: {
-        leaveRequests: {
-          orderBy: { createdAt: 'desc' }
-        },
-        toilEntries: {
-          orderBy: { createdAt: 'desc' }
-        }
-      }
-    });
+    const { data: employee, error: employeeError } = await supabaseAdmin
+      .from('users')
+      .select('*')
+      .eq('id', employeeId)
+      .eq('role', 'USER')
+      .single();
 
-    if (!employee) {
+    if (employeeError || !employee) {
       return apiError('Employee not found', 404);
     }
 
+    // Get leave requests for this employee
+    const { data: leaveRequests, error: leaveError } = await supabaseAdmin
+      .from('leave_requests')
+      .select('*')
+      .eq('user_id', employeeId)
+      .order('created_at', { ascending: false });
+
+    if (leaveError) {
+      console.error('Error fetching leave requests:', leaveError);
+      return apiError('Failed to fetch leave requests', 500);
+    }
+
+    // Get TOIL entries for this employee
+    const { data: toilEntries, error: toilError } = await supabaseAdmin
+      .from('toil_entries')
+      .select('*')
+      .eq('user_id', employeeId)
+      .order('created_at', { ascending: false });
+
+    if (toilError) {
+      console.error('Error fetching TOIL entries:', toilError);
+      return apiError('Failed to fetch TOIL entries', 500);
+    }
+
+    // Convert snake_case to camelCase for HTML generation
+    const employeeData = {
+      id: (employee as any).id,
+      name: (employee as any).name,
+      email: (employee as any).email,
+      createdAt: new Date((employee as any).created_at),
+      annualLeaveBalance: (employee as any).annual_leave_balance,
+      toilBalance: (employee as any).toil_balance,
+      leaveRequests: (leaveRequests || []).map((req: any) => ({
+        id: req.id,
+        startDate: new Date(req.start_date),
+        endDate: new Date(req.end_date),
+        type: req.type,
+        status: req.status,
+        hours: req.hours,
+        comments: req.comments,
+        createdAt: new Date(req.created_at),
+        approvedBy: req.approved_by
+      })),
+      toilEntries: (toilEntries || []).map((entry: any) => ({
+        id: entry.id,
+        date: new Date(entry.date),
+        type: entry.type,
+        hours: entry.hours,
+        reason: entry.reason,
+        approved: entry.approved,
+        createdAt: new Date(entry.created_at)
+      }))
+    };
+
     // Generate comprehensive HTML report
-    const html = generateEmployeeReportHTML(employee);
-    
+    const html = generateEmployeeReportHTML(employeeData);
+
     // For now, return HTML that can be printed to PDF by browser
     // In production, you could use puppeteer or similar for server-side PDF generation
     return new NextResponse(html, {
       headers: {
         'Content-Type': 'text/html',
-        'Content-Disposition': `inline; filename="employee-leave-report-${(employee.name || 'unknown').replace(' ', '-')}.html"`
+        'Content-Disposition': `inline; filename="employee-leave-report-${(employeeData.name || 'unknown').replace(' ', '-')}.html"`
       }
     });
 

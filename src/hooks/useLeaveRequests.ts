@@ -1,6 +1,8 @@
 import { useQuery, UseQueryResult, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys, queryOptions, mutationOptions } from '@/lib/react-query';
 import { toast } from 'sonner';
+import { useEffect } from 'react';
+import { subscribeToAllLeaveRequests, subscribeToUserLeaveRequests } from '@/lib/realtime/supabase-realtime';
 
 interface LeaveRequest {
   id: string;
@@ -47,6 +49,27 @@ export function useLeaveRequests(
     enabled = true,
   } = options;
 
+  const queryClient = useQueryClient();
+
+  // Subscribe to real-time updates
+  useEffect(() => {
+    if (!enabled || !userId) return;
+
+    // Subscribe to user's leave requests for real-time updates
+    const subscription = subscribeToUserLeaveRequests(userId, (change) => {
+      // Invalidate queries when any change occurs
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.leaveRequests.byUser(userId, status, page, limit, startDate, endDate)
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.admin.stats });
+      queryClient.invalidateQueries({ queryKey: queryKeys.calendar.all });
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [enabled, userId, queryClient, status, page, limit, startDate, endDate]);
+
   return useQuery({
     queryKey: queryKeys.leaveRequests.byUser(userId, status, page, limit, startDate, endDate),
     queryFn: async (): Promise<LeaveRequestsResponse> => {
@@ -76,7 +99,7 @@ export function useLeaveRequests(
       }
 
       const result = await response.json();
-      
+
       if (!result.success) {
         const error = new Error(
           result.error?.message || 'Failed to fetch leave requests'
@@ -91,7 +114,8 @@ export function useLeaveRequests(
     },
     enabled: enabled && !!userId,
     staleTime: queryOptions.leaveRequests.staleTime,
-    refetchInterval: 10 * 1000, // Refetch every 10 seconds for faster updates
+    // Remove polling since we now have real-time subscriptions
+    // refetchInterval: 10 * 1000,
     retry: (failureCount, error) => {
       // Don't retry on authentication errors
       const status = (error as { status?: number }).status;
@@ -155,9 +179,11 @@ export function useSubmitLeaveRequest() {
       startDate: string;
       endDate: string;
       type: string;
-      comments?: string;
+      reason?: string;
       hours?: number;
     }) => {
+      console.log('Submitting leave request:', requestData);
+
       const response = await fetch('/api/leave/request', {
         method: 'POST',
         headers: {
@@ -168,9 +194,12 @@ export function useSubmitLeaveRequest() {
       });
 
       const result = await response.json();
+      console.log('Leave request response:', { status: response.status, result });
 
       if (!response.ok || result.success === false) {
-        throw new Error(result.error?.message || 'Failed to submit request');
+        const errorMessage = result.error?.message || result.message || 'Failed to submit request';
+        console.error('Leave request failed:', errorMessage, result);
+        throw new Error(errorMessage);
       }
 
       return result;
@@ -200,6 +229,65 @@ export function useSubmitLeaveRequest() {
       toast.error(error instanceof Error ? error.message : 'Failed to submit leave request');
 
       // Invalidate to refetch correct data
+      queryClient.invalidateQueries({ queryKey: queryKeys.leaveRequests.all });
+    },
+  });
+}
+
+/**
+ * Hook for submitting bulk leave requests
+ */
+export function useSubmitBulkLeaveRequest() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (bulkData: {
+      requests: Array<{
+        startDate: string;
+        endDate: string;
+        reason: string;
+        type?: string;
+        hours?: number;
+      }>;
+      type?: string;
+    }) => {
+      const response = await fetch('/api/leave/request/bulk', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(bulkData),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || result.success === false) {
+        throw new Error(result.error?.message || 'Failed to submit bulk requests');
+      }
+
+      return result;
+    },
+    onMutate: async (newRequests) => {
+      toast.success(`Submitting ${newRequests.requests.length} leave requests...`);
+
+      await queryClient.cancelQueries({ queryKey: queryKeys.leaveRequests.all });
+
+      return { newRequests };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.leaveRequests.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.admin.stats });
+      queryClient.invalidateQueries({ queryKey: queryKeys.calendar.all });
+
+      const count = data.data?.requestCount || 0;
+      toast.success(`Successfully submitted ${count} leave request${count > 1 ? 's' : ''}! Admin will be notified.`);
+    },
+    onError: (error) => {
+      console.error('Failed to submit bulk leave requests:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to submit bulk leave requests');
+
       queryClient.invalidateQueries({ queryKey: queryKeys.leaveRequests.all });
     },
   });

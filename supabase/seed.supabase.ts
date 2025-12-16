@@ -28,12 +28,12 @@ const users = [
   {
     email: 'senay@tdhagency.com',
     name: 'Senay Taormina',
-    role: 'ADMIN' as const
+    role: 'OWNER' as const  // Business owner - no leave balance shown
   },
   {
     email: 'ian@tdhagency.com',
     name: 'Ian Vincent',
-    role: 'ADMIN' as const
+    role: 'TECH_ADMIN' as const  // Technical admin - no leave balance shown
   },
   {
     email: 'sup@tdhagency.com',

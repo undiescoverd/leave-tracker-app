@@ -12,9 +12,9 @@ jest.mock('@/lib/services/leave.service');
 jest.mock('@/lib/services/leave-balance.service');
 jest.mock('@/lib/middleware/sanitization');
 
-import * as mockAuthUtils from '@/lib/auth-utils';
-import * as mockLeaveService from '@/lib/services/leave.service';
-import * as mockLeaveBalanceService from '@/lib/services/leave-balance.service';
+import * as mockAuthUtils from '@/lib/auth-utils.supabase';
+import * as mockLeaveService from '@/lib/services/leave.service.supabase';
+import * as mockLeaveBalanceService from '@/lib/services/leave-balance.service.supabase';
 import * as mockSanitization from '@/lib/middleware/sanitization';
 import '../setup';
 

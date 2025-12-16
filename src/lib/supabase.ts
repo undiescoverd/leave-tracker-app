@@ -1,13 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
-import { cookies } from 'next/headers';
 
 // Supabase configuration
 // New API keys (recommended): sb_publishable_... and sb_secret_...
 // Old API keys (still supported): anon and service_role JWT keys
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabasePublishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 // Validate environment variables
 if (!supabaseUrl || !supabasePublishableKey) {
@@ -49,6 +47,8 @@ export const supabaseClient = createClient(supabaseUrl, supabasePublishableKey, 
  * ```
  */
 export async function createServerSupabaseClient() {
+  // Import cookies only when this function is called (server-side only)
+  const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
 
   return createServerClient(supabaseUrl, supabasePublishableKey, {
@@ -84,7 +84,6 @@ export async function createServerSupabaseClient() {
  * NEVER expose the secret key in client-side code, browser, or public repositories.
  *
  * The secret key provides full access to your project's data and bypasses all RLS policies.
- * It will automatically return HTTP 401 if used in browser contexts.
  *
  * Usage:
  * ```ts
@@ -94,10 +93,37 @@ export async function createServerSupabaseClient() {
  * const { data, error } = await supabaseAdmin.from('users').select('*');
  * ```
  */
-export const supabaseAdmin = createClient(supabaseUrl, supabaseSecretKey, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
+
+// Lazy admin client initialization - only created when first accessed on server
+let _adminClient: ReturnType<typeof createClient> | null = null;
+
+function getAdminClient() {
+  if (_adminClient) return _adminClient;
+
+  if (typeof window !== 'undefined') {
+    throw new Error('supabaseAdmin can only be used server-side');
+  }
+
+  const secretKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!secretKey) {
+    throw new Error('Missing SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY');
+  }
+
+  _adminClient = createClient(supabaseUrl, secretKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+
+  return _adminClient;
+}
+
+export const supabaseAdmin = new Proxy({} as ReturnType<typeof createClient>, {
+  get(_target, prop) {
+    const client = getAdminClient();
+    const value = client[prop as keyof typeof client];
+    return typeof value === 'function' ? value.bind(client) : value;
   },
 });
 

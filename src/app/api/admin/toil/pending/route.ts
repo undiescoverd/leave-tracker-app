@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api/response';
 import { features } from '@/lib/features';
-import { getPendingToilEntries } from '@/lib/services/toil.service';
-import { withAdminAuth } from '@/lib/middleware/auth';
+import { getPendingToilEntries } from '@/lib/services/toil.service.supabase';
+import { withAdminAuth } from '@/lib/middleware/auth.supabase';
 import { withCompleteSecurity } from '@/lib/middleware/security';
 
 async function getPendingToilHandler(

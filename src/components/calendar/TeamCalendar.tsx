@@ -38,11 +38,14 @@ const CalendarDay = memo(function CalendarDay({ day, events, isCurrentMonth, isT
   return (
     <div className={`min-h-[100px] p-2 border border-border ${
       isCurrentMonth ? 'bg-background' : 'bg-muted/30'
-    } ${isToday ? 'ring-2 ring-primary' : ''}`}>
-      <div className={`text-sm font-medium mb-1 ${
+    }`}>
+      <div className={`text-sm font-medium mb-1 flex items-center gap-1.5 ${
         isCurrentMonth ? 'text-foreground' : 'text-muted-foreground'
       } ${isToday ? 'text-primary font-bold' : ''}`}>
-        {day}
+        {isToday && (
+          <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0" aria-label="Today" />
+        )}
+        <span>{day}</span>
       </div>
       
       <div className="space-y-1">

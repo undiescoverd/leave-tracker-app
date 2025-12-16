@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { env, envValidation } from '@/lib/env';
 import { EmailService } from '@/lib/email/service';
+import { supabaseAdmin } from '@/lib/supabase';
 
 // Health check levels
 type HealthLevel = 'basic' | 'detailed' | 'deep';
@@ -36,31 +37,35 @@ interface HealthResult {
 }
 
 async function checkDatabaseHealth(): Promise<{ status: 'connected' | 'disconnected' | 'unknown'; details?: any }> {
-  if (!env.DATABASE_URL) {
-    return { status: 'disconnected', details: { error: 'DATABASE_URL not configured' } };
+  if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    return { status: 'disconnected', details: { error: 'Supabase credentials not configured' } };
   }
 
   try {
-    // Import Prisma client dynamically to avoid issues if not configured
-    const { PrismaClient } = await import('@prisma/client');
-    const prisma = new PrismaClient();
-    
-    // Simple connectivity test
-    await prisma.$queryRaw`SELECT 1`;
-    await prisma.$disconnect();
-    
-    return { status: 'connected', details: { provider: 'PostgreSQL' } };
+    // Test Supabase connectivity with a simple query
+    const { data, error } = await supabaseAdmin
+      .from('users')
+      .select('count')
+      .limit(1)
+      .single();
+
+    // PGRST116 is "not found" which is acceptable - means table exists but no data
+    if (error && error.code !== 'PGRST116') {
+      throw new Error(error.message);
+    }
+
+    return { status: 'connected', details: { provider: 'Supabase (PostgreSQL)' } };
   } catch (error: any) {
-    return { 
-      status: 'disconnected', 
-      details: { error: error.message?.substring(0, 100) || 'Database connection failed' } 
+    return {
+      status: 'disconnected',
+      details: { error: error.message?.substring(0, 100) || 'Supabase connection failed' }
     };
   }
 }
 
 async function performHealthCheck(level: HealthLevel = 'basic'): Promise<HealthResult> {
   const startTime = Date.now();
-  
+
   // Basic health data
   const result: HealthResult = {
     status: 'healthy',
@@ -91,7 +96,7 @@ async function performHealthCheck(level: HealthLevel = 'basic'): Promise<HealthR
   if (level !== 'basic') {
     const emailHealth = await EmailService.healthCheck();
     result.services.email = {
-      status: emailHealth.healthy ? 'configured' : 
+      status: emailHealth.healthy ? 'configured' :
               env.ENABLE_EMAIL_NOTIFICATIONS === 'false' ? 'disabled' : 'misconfigured',
       details: emailHealth.details,
     };
@@ -106,7 +111,7 @@ async function performHealthCheck(level: HealthLevel = 'basic'): Promise<HealthR
     result.services.database = await checkDatabaseHealth();
   } else {
     result.services.database = {
-      status: envValidation.hasDatabase ? 'connected' : 'disconnected',
+      status: env.NEXT_PUBLIC_SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY ? 'connected' : 'disconnected',
     };
   }
 
@@ -138,26 +143,26 @@ async function healthCheckHandler(request: NextRequest) {
   // Check for health check token in production
   const authHeader = request.headers.get('authorization');
   const token = authHeader?.replace('Bearer ', '') || request.nextUrl.searchParams.get('token');
-  
+
   if (envValidation.isProduction && env.HEALTH_CHECK_TOKEN && token !== env.HEALTH_CHECK_TOKEN) {
     return NextResponse.json({ error: 'Unauthorized health check' }, { status: 401 });
   }
 
   // Get health check level from query parameter
   const level = (request.nextUrl.searchParams.get('level') as HealthLevel) || 'basic';
-  
+
   const healthResult = await performHealthCheck(level);
-  
+
   // Return appropriate HTTP status based on health
-  const statusCode = healthResult.status === 'healthy' ? 200 : 
+  const statusCode = healthResult.status === 'healthy' ? 200 :
                     healthResult.status === 'degraded' ? 200 : 503;
-  
+
   return NextResponse.json(healthResult, { status: statusCode });
 }
 
 import { withErrorHandler, composeMiddleware, withPerformanceMonitoring } from '@/middleware/error-handler';
 
-// Compose middleware for the GET handler  
+// Compose middleware for the GET handler
 export const GET = composeMiddleware(
   withErrorHandler,
   withPerformanceMonitoring

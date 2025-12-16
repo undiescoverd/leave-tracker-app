@@ -1,5 +1,6 @@
 import { env, envValidation } from '@/lib/env';
 import { emailServiceStatus } from '@/lib/email/service';
+import { supabaseAdmin } from '@/lib/supabase';
 
 interface ProductionCheck {
   name: string;
@@ -29,23 +30,23 @@ export async function performProductionReadinessCheck(): Promise<ProductionReadi
   checks.push({
     name: 'Environment Variables',
     status: envValidation.validationPassed ? 'pass' : 'fail',
-    message: envValidation.validationPassed 
+    message: envValidation.validationPassed
       ? 'All required environment variables are configured'
       : 'Missing or invalid environment variables',
   });
 
   checks.push({
     name: 'Database Connection',
-    status: envValidation.hasDatabase ? 'pass' : 'fail',
-    message: envValidation.hasDatabase 
-      ? 'Database URL is configured' 
-      : 'DATABASE_URL is missing or invalid',
+    status: env.NEXT_PUBLIC_SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY ? 'pass' : 'fail',
+    message: env.NEXT_PUBLIC_SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY
+      ? 'Supabase connection is configured'
+      : 'Supabase URL or Service Role Key is missing',
   });
 
   checks.push({
     name: 'Authentication Secret',
     status: envValidation.hasAuth ? 'pass' : 'fail',
-    message: envValidation.hasAuth 
+    message: envValidation.hasAuth
       ? 'Authentication secret is configured and meets requirements'
       : 'NEXTAUTH_SECRET is missing or too short',
   });
@@ -56,7 +57,7 @@ export async function performProductionReadinessCheck(): Promise<ProductionReadi
     checks.push({
       name: 'Email Service',
       status: emailCheck.isConfigured ? 'pass' : 'fail',
-      message: emailCheck.isConfigured 
+      message: emailCheck.isConfigured
         ? `Email service configured with ${emailCheck.provider}`
         : 'Email notifications enabled but service not properly configured',
       details: {
@@ -77,11 +78,11 @@ export async function performProductionReadinessCheck(): Promise<ProductionReadi
   // Security Checks
   checks.push({
     name: 'HTTPS Configuration',
-    status: env.NEXTAUTH_URL.startsWith('https://') ? 'pass' : 
+    status: env.NEXTAUTH_URL.startsWith('https://') ? 'pass' :
             envValidation.isProduction ? 'fail' : 'warn',
-    message: env.NEXTAUTH_URL.startsWith('https://') 
+    message: env.NEXTAUTH_URL.startsWith('https://')
       ? 'HTTPS is properly configured'
-      : envValidation.isProduction 
+      : envValidation.isProduction
         ? 'Production deployment must use HTTPS'
         : 'Development environment should use HTTPS for testing',
   });
@@ -97,7 +98,7 @@ export async function performProductionReadinessCheck(): Promise<ProductionReadi
     checks.push({
       name: 'Debug Mode',
       status: env.NODE_ENV === 'production' ? 'pass' : 'fail',
-      message: env.NODE_ENV === 'production' 
+      message: env.NODE_ENV === 'production'
         ? 'Debug mode is disabled in production'
         : 'Debug mode should be disabled in production',
     });
@@ -127,30 +128,37 @@ export async function performProductionReadinessCheck(): Promise<ProductionReadi
   checks.push({
     name: 'Metrics Collection',
     status: env.METRICS_ENABLED === 'true' ? 'pass' : 'warn',
-    message: env.METRICS_ENABLED === 'true' 
+    message: env.METRICS_ENABLED === 'true'
       ? 'Metrics collection is enabled'
       : 'Metrics collection is disabled - consider enabling for production monitoring',
   });
 
-  // Database connectivity test
+  // Supabase connectivity test
   try {
-    if (envValidation.hasDatabase) {
-      const { PrismaClient } = await import('@prisma/client');
-      const prisma = new PrismaClient();
-      await prisma.$queryRaw`SELECT 1`;
-      await prisma.$disconnect();
-      
+    if (env.NEXT_PUBLIC_SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
+      // Test database connectivity with a simple query
+      const { data, error } = await supabaseAdmin
+        .from('users')
+        .select('count')
+        .limit(1)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        // PGRST116 is "not found" which is acceptable - means table exists
+        throw new Error(error.message);
+      }
+
       checks.push({
         name: 'Database Connectivity',
         status: 'pass',
-        message: 'Database connection test successful',
+        message: 'Supabase connection test successful',
       });
     }
   } catch (error: any) {
     checks.push({
       name: 'Database Connectivity',
       status: 'fail',
-      message: 'Database connection test failed',
+      message: 'Supabase connection test failed',
       details: { error: error.message?.substring(0, 100) },
     });
   }

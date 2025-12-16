@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { features } from "@/lib/features";
 import { calculateWorkingDays } from "@/lib/date-utils";
 import { useLeaveBalance } from "@/hooks/useLeaveBalance";
-import { useSubmitLeaveRequest } from "@/hooks/useLeaveRequests";
+import { useSubmitLeaveRequest, useSubmitBulkLeaveRequest } from "@/hooks/useLeaveRequests";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,7 @@ import { DateRange } from "react-day-picker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TOILForm } from "@/components/leave/toil/TOILForm";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { Plus, X } from "lucide-react";
 
 interface LeaveRequestFormProps {
   onSuccess?: () => void;
@@ -29,13 +30,19 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { data: leaveBalance, isLoading: isLoadingBalance, error: balanceError } = useLeaveBalance(session?.user?.id || '');
   const submitRequestMutation = useSubmitLeaveRequest();
-  const [leaveType, setLeaveType] = useState<'ANNUAL' | 'TOIL' | 'SICK'>('ANNUAL');
+  const submitBulkRequestMutation = useSubmitBulkLeaveRequest();
+  const [leaveType, setLeaveType] = useState<'ANNUAL' | 'TOIL' | 'BULK'>('ANNUAL');
   const [formData, setFormData] = useState({
     dateRange: undefined as DateRange | undefined,
     comments: "",
     type: "ANNUAL" as "ANNUAL" | "TOIL" | "SICK",
     hours: "" as string | number,
   });
+  const [bulkRequests, setBulkRequests] = useState<Array<{
+    id: string;
+    dateRange: DateRange | undefined;
+    reason: string;
+  }>>([{ id: Date.now().toString(), dateRange: undefined, reason: "" }]);
   const [availableUsers, setAvailableUsers] = useState<Array<{id: string, name: string}>>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -145,6 +152,12 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
       return;
     }
 
+    // Validate comments/reason is not empty
+    if (!formData.comments || formData.comments.trim().length === 0) {
+      showError("Please provide a reason for your leave request");
+      return;
+    }
+
     // Validate TOIL hours if applicable
     if (formData.type === 'TOIL' && formData.hours) {
       const hours = Number(formData.hours);
@@ -157,7 +170,7 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
     const requestData = {
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
-      comments: formData.comments,
+      reason: formData.comments, // API expects 'reason' field
       type: formData.type,
       ...(formData.type === 'TOIL' && formData.hours && { hours: Number(formData.hours) })
     };
@@ -177,6 +190,98 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
       console.error("Error submitting leave request:", error);
       showError(error instanceof Error ? error.message : "An error occurred while submitting your request");
     }
+  };
+
+  // Handle bulk leave request submission
+  const handleBulkSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Filter out empty entries and validate
+    const validRequests = bulkRequests.filter(
+      (req) => req.dateRange?.from && req.dateRange?.to && req.reason.trim()
+    );
+
+    if (validRequests.length === 0) {
+      showError("Please add at least one leave request with dates and reason");
+      return;
+    }
+
+    // Validate all requests
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (let i = 0; i < validRequests.length; i++) {
+      const req = validRequests[i];
+      if (!req.dateRange?.from || !req.dateRange?.to) continue;
+
+      if (req.dateRange.from < today) {
+        showError(`Request ${i + 1}: Start date cannot be in the past`);
+        return;
+      }
+
+      if (req.dateRange.to < req.dateRange.from) {
+        showError(`Request ${i + 1}: End date must be after or equal to start date`);
+        return;
+      }
+    }
+
+    try {
+      const bulkData = {
+        requests: validRequests.map((req) => ({
+          startDate: req.dateRange!.from!.toISOString(),
+          endDate: req.dateRange!.to!.toISOString(),
+          reason: req.reason.trim(),
+          type: formData.type,
+        })),
+        type: formData.type,
+      };
+
+      await submitBulkRequestMutation.mutateAsync(bulkData);
+      
+      // Reset form
+      setBulkRequests([{ id: Date.now().toString(), dateRange: undefined, reason: "" }]);
+      setIsOpen(false);
+      if (onSuccess) onSuccess();
+    } catch (error) {
+      console.error("Error submitting bulk leave requests:", error);
+      showError(error instanceof Error ? error.message : "An error occurred while submitting your requests");
+    }
+  };
+
+  // Add new bulk request entry
+  const addBulkRequest = () => {
+    setBulkRequests([
+      ...bulkRequests,
+      { id: Date.now().toString(), dateRange: undefined, reason: "" },
+    ]);
+  };
+
+  // Remove bulk request entry
+  const removeBulkRequest = (id: string) => {
+    if (bulkRequests.length > 1) {
+      setBulkRequests(bulkRequests.filter((req) => req.id !== id));
+    } else {
+      showError("At least one request entry is required");
+    }
+  };
+
+  // Update bulk request entry
+  const updateBulkRequest = (id: string, field: 'dateRange' | 'reason', value: any) => {
+    setBulkRequests(
+      bulkRequests.map((req) =>
+        req.id === id ? { ...req, [field]: value } : req
+      )
+    );
+  };
+
+  // Calculate total days for bulk requests
+  const calculateBulkTotalDays = () => {
+    return bulkRequests.reduce((total, req) => {
+      if (req.dateRange?.from && req.dateRange?.to) {
+        return total + calculateWorkingDays(req.dateRange.from, req.dateRange.to);
+      }
+      return total;
+    }, 0);
   };
 
   // Handle TOIL form submission
@@ -236,17 +341,28 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
         Request Leave
       </Button>
 
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <Dialog
+        open={isOpen}
+        onOpenChange={(open) => {
+          setIsOpen(open);
+          if (!open) {
+            // Reset bulk requests when dialog closes
+            setBulkRequests([{ id: Date.now().toString(), dateRange: undefined, reason: "" }]);
+            setLeaveType('ANNUAL');
+          }
+        }}
+      >
         <DialogContent className="w-fit max-w-[90vw] max-h-[95vh] overflow-y-auto p-4">
           <DialogHeader>
             <DialogTitle>Request Leave</DialogTitle>
           </DialogHeader>
 
 {features.TOIL_REQUEST_ENABLED ? (
-            <Tabs value={leaveType} onValueChange={(value) => setLeaveType(value as 'ANNUAL' | 'TOIL')}>
-              <TabsList className="grid w-full grid-cols-2">
+            <Tabs value={leaveType} onValueChange={(value) => setLeaveType(value as 'ANNUAL' | 'TOIL' | 'BULK')}>
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="ANNUAL">Annual Leave</TabsTrigger>
                 <TabsTrigger value="TOIL">TOIL</TabsTrigger>
+                <TabsTrigger value="BULK">Bulk Request</TabsTrigger>
               </TabsList>
               
               <TabsContent value="ANNUAL">
@@ -277,6 +393,14 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
                           <div className="flex justify-between mt-0.5">
                             <span>Requested:</span>
                             <span className="font-medium text-foreground">{previewDays} days</span>
+                          </div>
+                        )}
+                        {previewDays > 0 && (
+                          <div className="flex justify-between mt-0.5">
+                            <span>Remaining:</span>
+                            <span className={`font-medium ${(remainingBalance - previewDays) < 0 ? 'text-destructive' : 'text-foreground'}`}>
+                              {Math.max(0, remainingBalance - previewDays)} days
+                            </span>
                           </div>
                         )}
                         {previewDays > 0 && remainingBalance < previewDays && (
@@ -350,6 +474,168 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
                   loading={loadingUsers}
                 />
               </TabsContent>
+
+              <TabsContent value="BULK">
+                <form onSubmit={handleBulkSubmit} className="space-y-4">
+                  <div className="text-sm text-muted-foreground mb-4">
+                    Add multiple leave requests at once. Perfect for planning your leave for the year ahead.
+                  </div>
+
+                  {/* Leave Type Selection for Bulk */}
+                  <div className="space-y-1">
+                    <Label htmlFor="bulkType" className="text-sm">Leave Type</Label>
+                    <Select
+                      value={formData.type}
+                      onValueChange={(value) => setFormData((prev) => ({ ...prev, type: value as "ANNUAL" | "TOIL" | "SICK" }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableLeaveTypes.filter((type) => type && type.trim()).map((type: string) => (
+                          <SelectItem key={type} value={type}>
+                            {type.charAt(0) + type.slice(1).toLowerCase()}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Bulk Requests List */}
+                  <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                    {bulkRequests.map((req, index) => (
+                      <div key={req.id} className="border rounded-md p-3 space-y-2 bg-card">
+                        <div className="flex items-center justify-between mb-2">
+                          <Label className="text-sm font-medium">Request {index + 1}</Label>
+                          {bulkRequests.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeBulkRequest(req.id)}
+                              className="h-6 w-6 p-0"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+
+                        {/* Date Range */}
+                        <div className="space-y-1">
+                          <Label className="text-xs">Leave Dates</Label>
+                          <DateRangePicker
+                            dateRange={req.dateRange}
+                            onDateRangeChange={(dateRange) =>
+                              updateBulkRequest(req.id, "dateRange", dateRange)
+                            }
+                            placeholder="Select start and end dates"
+                            minDate={new Date()}
+                            className="w-full"
+                          />
+                        </div>
+
+                        {/* Reason */}
+                        <div className="space-y-1">
+                          <Label className="text-xs">Reason</Label>
+                          <Textarea
+                            value={req.reason}
+                            onChange={(e) => updateBulkRequest(req.id, "reason", e.target.value)}
+                            placeholder="Enter reason for leave..."
+                            rows={2}
+                            className="text-sm"
+                            required
+                          />
+                        </div>
+
+                        {/* Days Preview */}
+                        {req.dateRange?.from && req.dateRange?.to && (
+                          <div className="text-xs text-muted-foreground">
+                            {calculateWorkingDays(req.dateRange.from, req.dateRange.to)} working day
+                            {calculateWorkingDays(req.dateRange.from, req.dateRange.to) !== 1 ? "s" : ""}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Add Another Button */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={addBulkRequest}
+                    className="w-full"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Another Request
+                  </Button>
+
+                  {/* Summary */}
+                  {bulkRequests.some((req) => req.dateRange?.from && req.dateRange?.to) && (
+                    <div className="bg-muted p-3 rounded-md">
+                      <div className="text-xs text-muted-foreground space-y-1">
+                        <div className="flex justify-between">
+                          <span>Total Requests:</span>
+                          <span className="font-medium text-foreground">
+                            {bulkRequests.filter((req) => req.dateRange?.from && req.dateRange?.to).length}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Total Days:</span>
+                          <span className="font-medium text-foreground">
+                            {calculateBulkTotalDays()} days
+                          </span>
+                        </div>
+                        {leaveBalance && (
+                          <>
+                            <div className="flex justify-between">
+                              <span>Available {formData.type.toLowerCase()} leave:</span>
+                              <span className="font-medium text-foreground">{remainingBalance} days</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Remaining after requests:</span>
+                              <span
+                                className={`font-medium ${
+                                  remainingBalance - calculateBulkTotalDays() < 0
+                                    ? "text-destructive"
+                                    : "text-foreground"
+                                }`}
+                              >
+                                {Math.max(0, remainingBalance - calculateBulkTotalDays())} days
+                              </span>
+                            </div>
+                            {remainingBalance < calculateBulkTotalDays() && (
+                              <div className="text-destructive text-xs mt-1">
+                                ⚠️ Insufficient balance for some requests
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Submit Buttons */}
+                  <div className="flex gap-3 justify-end pt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsOpen(false)}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={submitBulkRequestMutation.isPending || isLoadingBalance}
+                      className="flex-1"
+                    >
+                      {submitBulkRequestMutation.isPending
+                        ? "Submitting..."
+                        : `Submit ${bulkRequests.filter((req) => req.dateRange?.from && req.dateRange?.to).length} Request${bulkRequests.filter((req) => req.dateRange?.from && req.dateRange?.to).length !== 1 ? "s" : ""}`}
+                    </Button>
+                  </div>
+                </form>
+              </TabsContent>
             </Tabs>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-2">
@@ -415,6 +701,14 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
                       <div className="flex justify-between mt-0.5">
                         <span>Requested:</span>
                         <span className="font-medium text-foreground">{previewDays} days</span>
+                      </div>
+                    )}
+                    {previewDays > 0 && (
+                      <div className="flex justify-between mt-0.5">
+                        <span>Remaining:</span>
+                        <span className={`font-medium ${(remainingBalance - previewDays) < 0 ? 'text-destructive' : 'text-foreground'}`}>
+                          {Math.max(0, remainingBalance - previewDays)} days
+                        </span>
                       </div>
                     )}
                     {previewDays > 0 && remainingBalance < previewDays && (

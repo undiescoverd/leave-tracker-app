@@ -6,45 +6,51 @@
  * Only sets values that are explicitly documented
  */
 
-import { PrismaClient } from '@prisma/client';
+import { createClient } from '@supabase/supabase-js';
+import { config } from 'dotenv';
+import { resolve } from 'path';
 
-const prisma = new PrismaClient();
+// Load environment variables
+config({ path: resolve('.env.local') });
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SECRET_KEY!
+);
 
 async function fixDocumentedLeaveBalances() {
   console.log('🔧 Fixing leave balances based on PRD documentation...\n');
 
   try {
     // Get all users
-    const users = await prisma.user.findMany({
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        annualLeaveBalance: true,
-        sickLeaveBalance: true,
-        toilBalance: true,
-      }
-    });
+    const { data: users, error: fetchError } = await supabase
+      .from('users')
+      .select('id, name, email, annual_leave_balance, sick_leave_balance, toil_balance');
+
+    if (fetchError) throw fetchError;
+    if (!users) throw new Error('No users found');
 
     console.log(`📊 Found ${users.length} users to update\n`);
 
     // Update each user
     let updatedCount = 0;
-    
+
     for (const user of users) {
-      const needsUpdate = user.annualLeaveBalance !== 32;
+      const needsUpdate = user.annual_leave_balance !== 32;
 
       if (needsUpdate) {
         console.log(`🔄 Updating ${user.name} (${user.email}):`);
-        console.log(`  - Annual Leave: ${user.annualLeaveBalance} → 32 days (PRD documented)`);
+        console.log(`  - Annual Leave: ${user.annual_leave_balance} → 32 days (PRD documented)`);
 
-        await prisma.user.update({
-          where: { id: user.id },
-          data: {
-            annualLeaveBalance: 32,  // PRD specification: "total annual leave entitlement (32 days)"
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({
+            annual_leave_balance: 32,  // PRD specification: "total annual leave entitlement (32 days)"
             // Only update documented values, leave sick/TOIL as they were
-          }
-        });
+          })
+          .eq('id', user.id);
+
+        if (updateError) throw updateError;
 
         updatedCount++;
       } else {
@@ -54,19 +60,15 @@ async function fixDocumentedLeaveBalances() {
 
     // Verify updates
     console.log('🔍 Verifying updates...\n');
-    const verifyUsers = await prisma.user.findMany({
-      select: {
-        name: true,
-        email: true,
-        annualLeaveBalance: true,
-        sickLeaveBalance: true,
-        toilBalance: true,
-      }
-    });
+    const { data: verifyUsers, error: verifyError } = await supabase
+      .from('users')
+      .select('name, email, annual_leave_balance, sick_leave_balance, toil_balance');
+
+    if (verifyError) throw verifyError;
 
     console.log('📋 Current user balances:');
-    for (const user of verifyUsers) {
-      console.log(`  ${user.name}: Annual=${user.annualLeaveBalance}, Sick=${user.sickLeaveBalance}, TOIL=${user.toilBalance}`);
+    for (const user of verifyUsers || []) {
+      console.log(`  ${user.name}: Annual=${user.annual_leave_balance}, Sick=${user.sick_leave_balance}, TOIL=${user.toil_balance}`);
     }
 
     console.log(`\n✅ Successfully updated ${updatedCount} users`);
@@ -77,8 +79,6 @@ async function fixDocumentedLeaveBalances() {
   } catch (error) {
     console.error('❌ Error fixing leave balances:', error);
     process.exit(1);
-  } finally {
-    await prisma.$disconnect();
   }
 }
 

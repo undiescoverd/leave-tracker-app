@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { apiSuccess, apiError, HttpStatus } from '@/lib/api/response';
-import { prisma } from '@/lib/prisma';
+import { supabaseAdmin } from '@/lib/supabase';
 import { EmailService } from '@/lib/email/service';
-import { withAdminAuth } from '@/lib/middleware/auth';
+import { withAdminAuth } from '@/lib/middleware/auth.supabase';
 import { withCompleteSecurity } from '@/lib/middleware/security';
 import { logger } from '@/lib/logger';
 import { ValidationError } from '@/lib/api/errors';
@@ -67,13 +67,26 @@ async function bulkApproveHandler(req: NextRequest, context: AuthContext): Promi
     });
 
     // Get all pending requests with user details
-    const pendingRequests = await prisma.leaveRequest.findMany({
-      where: { status: 'PENDING' },
-      include: { user: true }
-    });
+    const { data: pendingRequestsData, error: fetchError } = await supabaseAdmin
+      .from('leave_requests')
+      .select(`
+        *,
+        user:users!user_id (
+          id,
+          name,
+          email
+        )
+      `)
+      .eq('status', 'PENDING');
+
+    if (fetchError) {
+      throw new Error(`Failed to fetch pending requests: ${fetchError.message}`);
+    }
+
+    const pendingRequests = pendingRequestsData || [];
 
     if (pendingRequests.length === 0) {
-      return apiSuccess({ 
+      return apiSuccess({
         message: 'No pending requests to approve',
         approved: 0,
         emailsSent: 0
@@ -89,47 +102,64 @@ async function bulkApproveHandler(req: NextRequest, context: AuthContext): Promi
       });
     }
 
-    // Update all requests to approved with transaction safety
-    const updateResult = await prisma.$transaction(async (tx) => {
-      // First, verify all requests are still pending (race condition protection)
-      const currentPending = await tx.leaveRequest.count({
-        where: { status: 'PENDING' }
-      });
+    // Transaction-like safety: Verify count hasn't changed before updating
+    const { count: currentPendingCount, error: countError } = await supabaseAdmin
+      .from('leave_requests')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'PENDING');
 
-      if (currentPending !== pendingRequests.length) {
-        throw new ValidationError('Request state changed during processing. Please refresh and try again.');
-      }
+    if (countError) {
+      throw new Error(`Failed to verify pending count: ${countError.message}`);
+    }
 
-      // Update all requests
-      return await tx.leaveRequest.updateMany({
-        where: { status: 'PENDING' },
-        data: {
-          status: 'APPROVED',
-          approvedBy: admin.name || admin.email,
-          approvedAt: new Date()
-        }
-      });
-    });
+    if (currentPendingCount !== pendingRequests.length) {
+      throw new ValidationError('Request state changed during processing. Please refresh and try again.');
+    }
+
+    // Update all pending requests to approved
+    const { error: updateError } = await supabaseAdmin
+      .from('leave_requests')
+      .update({
+        status: 'APPROVED',
+        approved_by: admin.name || admin.email,
+        approved_at: new Date().toISOString()
+      })
+      .eq('status', 'PENDING');
+
+    if (updateError) {
+      throw new Error(`Failed to update requests: ${updateError.message}`);
+    }
+
+    const updateResult = { count: pendingRequests.length };
 
     // Group requests by user for smart email batching
+    // Convert snake_case to camelCase for processing
     const requestsByUser = pendingRequests.reduce((acc, request) => {
-      const userId = request.userId;
+      const userId = request.user_id;
       if (!acc[userId]) {
         acc[userId] = {
           user: {
-            ...request.user,
-            name: request.user.name || 'Unknown User'
+            id: request.user.id,
+            name: request.user.name || 'Unknown User',
+            email: request.user.email
           },
           requests: []
         };
       }
       acc[userId].requests.push({
-        ...request,
+        id: request.id,
+        userId: request.user_id,
+        type: request.type,
+        startDate: new Date(request.start_date),
+        endDate: new Date(request.end_date),
+        status: request.status,
+        createdAt: new Date(request.created_at),
         user: {
-          ...request.user,
-          name: request.user.name || 'Unknown User'
+          id: request.user.id,
+          name: request.user.name || 'Unknown User',
+          email: request.user.email
         },
-        days: calculateDays(request.startDate, request.endDate)
+        days: calculateDays(new Date(request.start_date), new Date(request.end_date))
       });
       return acc;
     }, {} as Record<string, RequestsByUser>);

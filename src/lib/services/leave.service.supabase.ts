@@ -398,35 +398,40 @@ export const getTeamCalendarData = withPerformanceLogging(
 
     logger.cacheOperation('miss', cacheKey);
 
-    // Build query
-    let query = supabaseAdmin
-      .from('leave_requests')
-      .select(`
-        *,
-        user:users!leave_requests_user_id_fkey (
-          id,
-          name,
-          email
-        )
-      `)
-      .order('start_date', { ascending: true });
+    // Base query builder function to avoid query reuse issues
+    const createBaseQuery = () => {
+      let query = supabaseAdmin
+        .from('leave_requests')
+        .select(`
+          *,
+          user:users!leave_requests_user_id_fkey (
+            id,
+            name,
+            email
+          )
+        `)
+        .neq('status', 'CANCELLED')
+        .order('start_date', { ascending: true });
 
-    // Add user filter if specified
-    if (userIds && userIds.length > 0) {
-      query = query.in('user_id', userIds);
-    }
+      // Add user filter if specified
+      if (userIds && userIds.length > 0) {
+        query = query.in('user_id', userIds);
+      }
+
+      return query;
+    };
 
     // Fetch requests in date ranges (similar to Prisma OR logic)
-    // We'll do three separate queries and combine them
-    const { data: requests1 } = await query
+    // Create separate query instances to avoid filter accumulation bug
+    const { data: requests1 } = await createBaseQuery()
       .gte('start_date', startDate.toISOString())
       .lte('start_date', endDate.toISOString());
 
-    const { data: requests2 } = await query
+    const { data: requests2 } = await createBaseQuery()
       .gte('end_date', startDate.toISOString())
       .lte('end_date', endDate.toISOString());
 
-    const { data: requests3 } = await query
+    const { data: requests3 } = await createBaseQuery()
       .lte('start_date', startDate.toISOString())
       .gte('end_date', endDate.toISOString());
 

@@ -1,6 +1,6 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { prisma } from "./prisma";
+import { supabaseAdmin } from "./supabase";
 import bcrypt from "bcryptjs";
 import { logger } from "./logger";
 
@@ -8,7 +8,8 @@ import { logger } from "./logger";
 const requiredEnvVars = {
   NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
   NEXTAUTH_URL: process.env.NEXTAUTH_URL || "http://localhost:3000",
-  DATABASE_URL: process.env.DATABASE_URL,
+  SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
 };
 
 // Security configuration based on environment
@@ -45,9 +46,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
           logger.warn("Authentication failed: Missing credentials");
-          console.error("🔴 Auth: Missing credentials", { 
-            hasEmail: !!credentials?.email, 
-            hasPassword: !!credentials?.password 
+          console.error("🔴 Auth: Missing credentials", {
+            hasEmail: !!credentials?.email,
+            hasPassword: !!credentials?.password
           });
           return null;
         }
@@ -58,13 +59,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
           console.log("🔍 Auth: Attempting login for", email);
 
-          const user = await prisma.user.findUnique({
-            where: {
-              email: email
-            }
-          });
+          const { data: user, error } = await supabaseAdmin
+            .from('users')
+            .select('*')
+            .eq('email', email)
+            .single();
 
-          if (!user) {
+          if (error || !user) {
             logger.warn("Authentication failed: User not found", { email });
             console.error("🔴 Auth: User not found", { email });
             return null;

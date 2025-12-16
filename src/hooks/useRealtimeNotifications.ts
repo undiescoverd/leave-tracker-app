@@ -8,6 +8,7 @@ import { useRealtimeLeaveRequests } from './useRealtimeLeaveRequests';
 import {
   subscribeToUserToilEntries,
   LeaveRequestChange,
+  ToilEntryChange,
   RealtimeSubscription,
 } from '@/lib/realtime/supabase-realtime';
 
@@ -161,7 +162,7 @@ export function useRealtimeNotifications(options: UseRealtimeNotificationsOption
       return;
     }
 
-    const handleToilChange = (change: LeaveRequestChange) => {
+    const handleToilChange = (change: ToilEntryChange) => {
       if (change.type === 'UPDATE' && change.old && change.data) {
         const wasApproved = !change.old.approved && change.data.approved;
         const wasRejected = change.old.approved && !change.data.approved;

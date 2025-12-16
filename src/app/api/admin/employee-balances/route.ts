@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api/response';
-import { prisma } from '@/lib/prisma';
-import { withAdminAuth } from '@/lib/middleware/auth';
+import { supabaseAdmin } from '@/lib/supabase';
+import { withAdminAuth } from '@/lib/middleware/auth.supabase';
 import { withCompleteSecurity } from '@/lib/middleware/security';
 import { logger } from '@/lib/logger';
 
@@ -9,6 +9,26 @@ interface UserContext {
   id: string;
   email: string;
   role: string;
+}
+
+interface DbUser {
+  id: string;
+  email: string;
+  name: string | null;
+  role: string;
+  annual_leave_balance: number;
+  toil_balance: number;
+  sick_leave_balance: number;
+}
+
+interface DbLeaveRequest {
+  id: string;
+  user_id: string;
+  start_date: string;
+  end_date: string;
+  type: string;
+  status: string;
+  hours: number | null;
 }
 
 async function getEmployeeBalancesHandler(req: NextRequest, context: { user: UserContext }) {
@@ -26,22 +46,81 @@ async function getEmployeeBalancesHandler(req: NextRequest, context: { user: Use
     const yearStart = new Date(currentYear, 0, 1);
     const yearEnd = new Date(currentYear, 11, 31);
 
-    const employees = await prisma.user.findMany({
-      where: {
-        role: 'USER' // Only get regular employees, exclude ADMINs
-      },
-      include: {
-        leaveRequests: {
-          where: {
-            status: 'APPROVED',
-            startDate: {
-              gte: yearStart,
-              lte: yearEnd
-            }
-          }
+    // Fetch all USER role employees
+    const { data: usersData, error: usersError } = await supabaseAdmin
+      .from('users')
+      .select('id, email, name, role, annual_leave_balance, toil_balance, sick_leave_balance')
+      .eq('role', 'USER')
+      .returns<DbUser[]>();
+
+    if (usersError) {
+      logger.error('Failed to fetch users:', { metadata: { error: usersError.message } });
+      return apiError('Failed to fetch employee balances', 500);
+    }
+
+    if (!usersData || usersData.length === 0) {
+      return apiSuccess({
+        employees: [],
+        ukCoverageWarnings: [],
+        summary: {
+          totalEmployees: 0,
+          ukAgents: 0,
+          criticalStatus: 0,
+          warningStatus: 0
         }
+      });
+    }
+
+    // Fetch approved leave requests for the current year
+    const { data: leaveRequestsData, error: leaveRequestsError } = await supabaseAdmin
+      .from('leave_requests')
+      .select('id, user_id, start_date, end_date, type, status, hours')
+      .eq('status', 'APPROVED')
+      .gte('start_date', yearStart.toISOString())
+      .lte('start_date', yearEnd.toISOString())
+      .returns<DbLeaveRequest[]>();
+
+    if (leaveRequestsError) {
+      logger.error('Failed to fetch leave requests:', { metadata: { error: leaveRequestsError.message } });
+      return apiError('Failed to fetch employee balances', 500);
+    }
+
+    // Group leave requests by user_id
+    const leaveRequestsByUser = (leaveRequestsData || []).reduce((acc, req) => {
+      if (!acc[req.user_id]) {
+        acc[req.user_id] = [];
       }
-    });
+      acc[req.user_id].push({
+        id: req.id,
+        userId: req.user_id,
+        startDate: new Date(req.start_date),
+        endDate: new Date(req.end_date),
+        type: req.type,
+        status: req.status,
+        hours: req.hours
+      });
+      return acc;
+    }, {} as Record<string, Array<{
+      id: string;
+      userId: string;
+      startDate: Date;
+      endDate: Date;
+      type: string;
+      status: string;
+      hours: number | null;
+    }>>);
+
+    // Convert users to expected format with camelCase fields
+    const employees = usersData.map(user => ({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      annualLeaveBalance: user.annual_leave_balance,
+      toilBalance: user.toil_balance,
+      sickLeaveBalance: user.sick_leave_balance,
+      leaveRequests: leaveRequestsByUser[user.id] || []
+    }));
 
     const employeeBalances = employees.map(employee => {
       // Calculate annual leave usage

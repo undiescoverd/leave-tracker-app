@@ -10,8 +10,8 @@ jest.mock('@/lib/auth-utils');
 jest.mock('@/lib/email/service');
 jest.mock('@/lib/middleware/sanitization');
 
-import { prisma } from '@/lib/prisma';
-import * as authUtils from '@/lib/auth-utils';
+import { supabaseAdmin } from '@/lib/supabase';
+import * as authUtils from '@/lib/auth-utils.supabase';
 import * as emailService from '@/lib/email/service';
 import * as sanitization from '@/lib/middleware/sanitization';
 

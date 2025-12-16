@@ -1,5 +1,7 @@
 import { useQuery, UseQueryResult, useQueryClient } from '@tanstack/react-query';
 import { queryKeys, queryOptions } from '@/lib/react-query';
+import { useEffect } from 'react';
+import { subscribeToTeamCalendar } from '@/lib/realtime/supabase-realtime';
 
 interface LeaveEvent {
   id: string;
@@ -41,6 +43,23 @@ export function useTeamCalendar(
     refetchInterval,
   } = options;
 
+  const queryClient = useQueryClient();
+
+  // Subscribe to real-time updates for team calendar (approved leave changes)
+  useEffect(() => {
+    if (!enabled) return;
+
+    // Subscribe to approved leave requests for instant team calendar updates
+    const subscription = subscribeToTeamCalendar((change) => {
+      // Invalidate calendar queries when any approved leave changes
+      queryClient.invalidateQueries({ queryKey: queryKeys.calendar.all });
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [enabled, queryClient]);
+
   return useQuery({
     queryKey: queryKeys.calendar.team(year.toString(), month.toString()),
     queryFn: async (): Promise<CalendarData> => {
@@ -57,7 +76,7 @@ export function useTeamCalendar(
       }
 
       const result = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.error?.message || 'Failed to fetch calendar data');
       }
@@ -66,7 +85,8 @@ export function useTeamCalendar(
     },
     enabled,
     staleTime: queryOptions.calendar.staleTime,
-    refetchInterval,
+    // Remove polling since we now have real-time subscriptions
+    // refetchInterval,
     retry: (failureCount, error) => {
       // Don't retry on authentication errors
       if (error.message.includes('401') || error.message.includes('403')) {

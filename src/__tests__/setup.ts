@@ -34,32 +34,42 @@ jest.mock('next-auth', () => ({
   })),
 }));
 
-// Mock Prisma for isolated unit tests
-jest.mock('@/lib/prisma', () => ({
-  prisma: {
-    user: {
-      findUnique: jest.fn(),
-      findMany: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-      count: jest.fn(),
+// Mock Supabase for isolated unit tests
+const mockSupabaseQuery = () => ({
+  select: jest.fn().mockReturnThis(),
+  insert: jest.fn().mockReturnThis(),
+  update: jest.fn().mockReturnThis(),
+  delete: jest.fn().mockReturnThis(),
+  eq: jest.fn().mockReturnThis(),
+  neq: jest.fn().mockReturnThis(),
+  gt: jest.fn().mockReturnThis(),
+  gte: jest.fn().mockReturnThis(),
+  lt: jest.fn().mockReturnThis(),
+  lte: jest.fn().mockReturnThis(),
+  in: jest.fn().mockReturnThis(),
+  is: jest.fn().mockReturnThis(),
+  order: jest.fn().mockReturnThis(),
+  limit: jest.fn().mockReturnThis(),
+  range: jest.fn().mockReturnThis(),
+  single: jest.fn().mockResolvedValue({ data: null, error: null }),
+  maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+  then: jest.fn((resolve) => resolve({ data: null, error: null })),
+});
+
+jest.mock('@/lib/supabase', () => ({
+  supabaseAdmin: {
+    from: jest.fn(() => mockSupabaseQuery()),
+    auth: {
+      admin: {
+        createUser: jest.fn(),
+        deleteUser: jest.fn(),
+        getUserById: jest.fn(),
+      },
     },
-    leaveRequest: {
-      findMany: jest.fn(),
-      findUnique: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-      count: jest.fn(),
-    },
-    toilEntry: {
-      findMany: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-    },
-    $transaction: jest.fn(),
-  }
+  },
+  createClient: jest.fn(() => ({
+    from: jest.fn(() => mockSupabaseQuery()),
+  })),
 }));
 
 // Global test utilities
@@ -125,4 +135,6 @@ global.testUtils = {
   }),
 
   mockPrismaResponse: <T>(data: T) => Promise.resolve(data),
+  mockSupabaseResponse: <T>(data: T) => ({ data, error: null }),
+  mockSupabaseError: (message: string) => ({ data: null, error: { message, code: 'test_error' } }),
 };

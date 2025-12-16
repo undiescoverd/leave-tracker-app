@@ -1,6 +1,8 @@
 import { useQuery, UseQueryResult, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys, queryOptions, mutationOptions } from '@/lib/react-query';
 import { toast } from 'sonner';
+import { useEffect } from 'react';
+import { subscribeToAllLeaveRequests, subscribeToPendingRequests } from '@/lib/realtime/supabase-realtime';
 
 interface AdminStats {
   pendingRequests: number;
@@ -46,6 +48,21 @@ interface PendingRequestsResponse {
  * Hook for fetching admin statistics
  */
 export function useAdminStats(): UseQueryResult<AdminStats, Error> {
+  const queryClient = useQueryClient();
+
+  // Subscribe to real-time updates for admin stats
+  useEffect(() => {
+    // Subscribe to all leave request changes to update stats in real-time
+    const subscription = subscribeToAllLeaveRequests((change) => {
+      // Invalidate admin stats when any leave request changes
+      queryClient.invalidateQueries({ queryKey: queryKeys.admin.stats });
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [queryClient]);
+
   return useQuery({
     queryKey: queryKeys.admin.stats,
     queryFn: async (): Promise<AdminStats> => {
@@ -58,7 +75,7 @@ export function useAdminStats(): UseQueryResult<AdminStats, Error> {
       }
 
       const result = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.error?.message || 'Failed to fetch admin stats');
       }
@@ -66,7 +83,8 @@ export function useAdminStats(): UseQueryResult<AdminStats, Error> {
       return result.data;
     },
     staleTime: queryOptions.admin.staleTime,
-    refetchInterval: 5 * 1000, // Refetch every 5 seconds for small team
+    // Remove polling since we now have real-time subscriptions
+    // refetchInterval: 5 * 1000,
     retry: (failureCount, error) => {
       // Don't retry on authentication errors
       if (error.message.includes('401') || error.message.includes('403')) {
@@ -85,6 +103,21 @@ export function usePendingRequests(
   limit: number = 50
 ): UseQueryResult<PendingRequestsResponse, Error> {
   const offset = (page - 1) * limit;
+  const queryClient = useQueryClient();
+
+  // Subscribe to real-time updates for pending requests
+  useEffect(() => {
+    // Subscribe to pending leave request changes for instant admin notifications
+    const subscription = subscribeToPendingRequests((change) => {
+      // Invalidate pending requests query when any change occurs
+      queryClient.invalidateQueries({ queryKey: queryKeys.admin.pendingRequests(page, limit) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.admin.stats });
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [queryClient, page, limit]);
 
   return useQuery({
     queryKey: queryKeys.admin.pendingRequests(page, limit),
@@ -102,7 +135,7 @@ export function usePendingRequests(
       }
 
       const result = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.error?.message || 'Failed to fetch pending requests');
       }
@@ -110,7 +143,8 @@ export function usePendingRequests(
       return result.data;
     },
     staleTime: queryOptions.admin.staleTime,
-    refetchInterval: 5 * 1000, // Refetch every 5 seconds for instant updates
+    // Remove polling since we now have real-time subscriptions
+    // refetchInterval: 5 * 1000,
     retry: (failureCount, error) => {
       // Don't retry on authentication errors
       if (error.message.includes('401') || error.message.includes('403')) {
@@ -179,14 +213,14 @@ export function useRejectLeaveRequest() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ requestId, adminComment }: { requestId: string; adminComment?: string }) => {
+    mutationFn: async ({ requestId, reason }: { requestId: string; reason: string }) => {
       const response = await fetch(`/api/leave/request/${requestId}/reject`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        body: JSON.stringify({ adminComment }),
+        body: JSON.stringify({ reason }),
       });
 
       if (!response.ok) {

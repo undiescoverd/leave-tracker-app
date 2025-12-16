@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api/response';
-import { withAdminAuth } from '@/lib/middleware/auth';
+import { withAdminAuth } from '@/lib/middleware/auth.supabase';
 import { withCompleteSecurity } from '@/lib/middleware/security';
-import { prisma } from '@/lib/prisma';
+import { supabaseAdmin } from '@/lib/supabase';
 import { logger, generateRequestId } from '@/lib/logger';
 import { AuthenticationError, AuthorizationError } from '@/lib/api/errors';
 import { statsCache, createCacheKey } from '@/lib/cache/cache-manager';
@@ -38,42 +38,71 @@ async function getAdminStatsHandler(req: NextRequest, context: { user: { id: str
       adminEmail: admin.email
     });
 
+    // Calculate the start of the current month
+    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+
     const [
-      allLeaveRequests,
-      allToilEntries,
-      totalUsers,
-      activeEmployees,
-      approvedThisMonth
+      allLeaveRequestsResult,
+      allToilEntriesResult,
+      totalUsersResult,
+      activeEmployeesResult,
+      approvedThisMonthResult
     ] = await Promise.all([
-      prisma.leaveRequest.findMany({
-        select: {
-          status: true,
-          userId: true
-        }
-      }),
-      
-      prisma.toilEntry.findMany({
-        select: {
-          approved: true,
-          userId: true
-        }
-      }),
-      
-      prisma.user.count(),
-      
-      prisma.user.count({
-        where: { role: 'USER' }
-      }),
-      
-      prisma.leaveRequest.count({
-        where: {
-          status: 'APPROVED',
-          updatedAt: {
-            gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-          }
-        }
-      })
+      supabaseAdmin
+        .from('leave_requests')
+        .select('status, user_id'),
+
+      supabaseAdmin
+        .from('toil_entries')
+        .select('approved, user_id'),
+
+      supabaseAdmin
+        .from('users')
+        .select('*', { count: 'exact', head: true }),
+
+      supabaseAdmin
+        .from('users')
+        .select('*', { count: 'exact', head: true })
+        .eq('role', 'USER'),
+
+      supabaseAdmin
+        .from('leave_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'APPROVED')
+        .gte('updated_at', startOfMonth)
     ]);
+
+    // Check for errors in the queries
+    if (allLeaveRequestsResult.error) {
+      throw new Error(`Failed to fetch leave requests: ${allLeaveRequestsResult.error.message}`);
+    }
+    if (allToilEntriesResult.error) {
+      throw new Error(`Failed to fetch toil entries: ${allToilEntriesResult.error.message}`);
+    }
+    if (totalUsersResult.error) {
+      throw new Error(`Failed to count total users: ${totalUsersResult.error.message}`);
+    }
+    if (activeEmployeesResult.error) {
+      throw new Error(`Failed to count active employees: ${activeEmployeesResult.error.message}`);
+    }
+    if (approvedThisMonthResult.error) {
+      throw new Error(`Failed to count approved requests: ${approvedThisMonthResult.error.message}`);
+    }
+
+    // Extract data and counts
+    const allLeaveRequests = allLeaveRequestsResult.data?.map(lr => ({
+      status: lr.status,
+      userId: lr.user_id
+    })) || [];
+
+    const allToilEntries = allToilEntriesResult.data?.map(te => ({
+      approved: te.approved,
+      userId: te.user_id
+    })) || [];
+
+    const totalUsers = totalUsersResult.count || 0;
+    const activeEmployees = activeEmployeesResult.count || 0;
+    const approvedThisMonth = approvedThisMonthResult.count || 0;
 
     // Calculate actionable notifications using the notification policy
     const notifications = calculateAdminNotifications({

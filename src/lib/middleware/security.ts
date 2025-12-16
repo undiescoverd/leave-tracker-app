@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { sanitizeObject, sanitizationRules } from './sanitization';
 import { ValidationError, BadRequestError } from '@/lib/api/errors';
 import { logger } from '@/lib/logger';
+import { apiError } from '@/lib/api/response';
 
 /**
  * Request validation schemas for different endpoint types
@@ -61,6 +62,26 @@ export const validationSchemas = {
   adminAction: z.object({
     action: z.enum(['approve', 'reject', 'delete']),
     reason: z.string().max(500).optional(),
+  }),
+
+  bulkLeaveRequest: z.object({
+    requests: z.array(
+      z.object({
+        startDate: z.string().datetime(),
+        endDate: z.string().datetime(),
+        reason: z.string().min(1, 'Reason is required').max(500),
+        type: z.enum(['ANNUAL', 'TOIL', 'SICK', 'UNPAID']).optional().default('ANNUAL'),
+        hours: z.number().min(0).max(168).optional(),
+      }).refine((data) => {
+        const start = new Date(data.startDate);
+        const end = new Date(data.endDate);
+        return end >= start;
+      }, {
+        message: "End date must be after or equal to start date",
+        path: ["endDate"],
+      })
+    ).min(1, 'At least one request required').max(50, 'Maximum 50 requests allowed'),
+    type: z.enum(['ANNUAL', 'TOIL', 'SICK', 'UNPAID']).optional().default('ANNUAL'),
   }),
 } as const;
 
@@ -144,14 +165,22 @@ export async function validateAndSanitizeRequest<T extends z.ZodSchema>(
     const validationResult = schema.safeParse(sanitizedBody);
     
     if (!validationResult.success) {
+      const fieldErrors = validationResult.error.flatten().fieldErrors;
+      const errorMessages = Object.entries(fieldErrors)
+        .flatMap(([field, errors]) => 
+          errors?.map(err => `${field}: ${err}`) || []
+        );
+      
       logger.securityEvent('input_validation_failure', 'low', undefined, {
         endpoint: req.nextUrl.pathname,
-        errors: validationResult.error.flatten().fieldErrors
+        errors: fieldErrors
       });
       
       throw new ValidationError(
-        'Invalid request data',
-        validationResult.error.flatten().fieldErrors
+        errorMessages.length > 0 
+          ? errorMessages.join('; ')
+          : 'Invalid request data',
+        fieldErrors
       );
     }
     
@@ -231,9 +260,13 @@ export function withSecurity<T extends any[]>(
       });
       
       if (error instanceof ValidationError || error instanceof BadRequestError) {
-        const response = NextResponse.json(
-          { error: error.message, code: error.code, details: error.details },
-          { status: error.statusCode }
+        const response = apiError(
+          {
+            message: error.message,
+            code: error.code,
+            details: error.details,
+          },
+          error.statusCode as any
         );
         return applySecurityHeaders(response);
       }

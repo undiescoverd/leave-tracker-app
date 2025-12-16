@@ -163,8 +163,8 @@ export const adminApi = {
     
   approveRequest: (requestId: string) =>
     apiClient.post(`/leave/request/${requestId}/approve`),
-    
-  rejectRequest: (requestId: string, reason?: string) =>
+
+  rejectRequest: (requestId: string, reason: string) =>
     apiClient.post(`/leave/request/${requestId}/reject`, { reason }),
     
   getEmployeeBalances: () =>

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { apiSuccess, apiError } from '@/lib/api/response';
-import { prisma } from '@/lib/prisma';
+import { supabaseAdmin } from '@/lib/supabase';
 import { features } from '@/lib/features';
-import { withAdminAuth } from '@/lib/middleware/auth';
+import { withAdminAuth } from '@/lib/middleware/auth.supabase';
 import { withCompleteSecurity } from '@/lib/middleware/security';
 
 const toilApproveSchema = z.object({
@@ -26,54 +26,101 @@ async function toilApproveHandler(req: NextRequest, context: { user: { id: strin
     }
     
     const { requestId } = validatedData;
-    
-    // Get the TOIL request
-    const request = await prisma.leaveRequest.findUnique({
-      where: { id: requestId },
-      include: { user: true }
-    });
 
-    if (!request || request.type !== 'TOIL') {
+    // Get the TOIL request
+    const { data: request, error: requestError } = await supabaseAdmin
+      .from('leave_requests')
+      .select('*, user:users!leave_requests_user_id_fkey(*)')
+      .eq('id', requestId)
+      .single();
+
+    if (requestError || !request || (request as any).type !== 'TOIL') {
       return apiError('Invalid TOIL request', 400);
     }
 
-    if (request.status !== 'PENDING') {
+    if ((request as any).status !== 'PENDING') {
       return apiError('Request has already been processed', 400);
     }
 
-    const result = await prisma.$transaction(async (tx) => {
-      // Update request status
-      await tx.leaveRequest.update({
-        where: { id: requestId },
-        data: { status: 'APPROVED' }
-      });
+    // Get current user balance for audit trail
+    const { data: user, error: userError } = await supabaseAdmin
+      .from('users')
+      .select('toil_balance')
+      .eq('id', (request as any).user_id)
+      .single();
 
-      // Credit TOIL hours to user balance
-      await tx.user.update({
-        where: { id: request.userId },
-        data: {
-          toilBalance: {
-            increment: request.hours || 0
-          }
-        }
-      });
+    if (userError || !user) {
+      return apiError('User not found', 404);
+    }
 
-      // Create TOIL entry for audit trail
-      const toilEntry = await tx.toilEntry.create({
-        data: {
-          userId: request.userId,
-          date: request.startDate,
-          type: 'OVERTIME', // Default type for approved requests
-          hours: request.hours || 0,
-          reason: request.comments || '',
-          approved: true,
-          approvedBy: admin.id,
-          approvedAt: new Date()
-        }
-      });
+    const previousBalance = (user as any).toil_balance;
+    const newBalance = previousBalance + ((request as any).hours || 0);
 
-      return toilEntry;
-    });
+    // Update request status
+    const { error: updateRequestError } = await supabaseAdmin
+      .from('leave_requests')
+      .update({ status: 'APPROVED' } as any)
+      .eq('id', requestId);
+
+    if (updateRequestError) {
+      console.error('Request update error:', updateRequestError);
+      return apiError('Failed to approve request', 500);
+    }
+
+    // Create TOIL entry for audit trail
+    const { data: toilEntry, error: createEntryError } = await supabaseAdmin
+      .from('toil_entries')
+      .insert({
+        user_id: (request as any).user_id,
+        date: (request as any).start_date,
+        type: 'OVERTIME', // Default type for approved requests
+        hours: (request as any).hours || 0,
+        reason: (request as any).comments || '',
+        approved: true,
+        approved_by: admin.id,
+        approved_at: new Date().toISOString(),
+        previous_balance: previousBalance,
+        new_balance: newBalance,
+      } as any)
+      .select()
+      .single();
+
+    if (createEntryError) {
+      // Rollback: revert request status
+      await supabaseAdmin
+        .from('leave_requests')
+        .update({ status: 'PENDING' } as any)
+        .eq('id', requestId);
+
+      console.error('TOIL entry creation error:', createEntryError);
+      return apiError('Failed to create TOIL entry', 500);
+    }
+
+    // Credit TOIL hours to user balance
+    const { error: updateUserError } = await supabaseAdmin
+      .from('users')
+      .update({
+        toil_balance: newBalance,
+      } as any)
+      .eq('id', (request as any).user_id);
+
+    if (updateUserError) {
+      // Rollback: delete TOIL entry and revert request status
+      await supabaseAdmin
+        .from('toil_entries')
+        .delete()
+        .eq('id', (toilEntry as any).id);
+
+      await supabaseAdmin
+        .from('leave_requests')
+        .update({ status: 'PENDING' } as any)
+        .eq('id', requestId);
+
+      console.error('User balance update error:', updateUserError);
+      return apiError('Failed to update user balance', 500);
+    }
+
+    const result = toilEntry;
 
     return apiSuccess({
       message: 'TOIL request approved and hours credited',
