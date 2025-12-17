@@ -107,8 +107,10 @@ export function usePendingRequests(
 
   // Subscribe to real-time updates for pending requests
   useEffect(() => {
-    // Subscribe to pending leave request changes for instant admin notifications
-    const subscription = subscribeToPendingRequests((change) => {
+    // Subscribe to ALL leave request changes (not just pending) because:
+    // 1. When a PENDING request becomes APPROVED/REJECTED, the filter won't catch it
+    // 2. We need to know when records are updated OUT of the PENDING status
+    const subscription = subscribeToAllLeaveRequests((change) => {
       // Invalidate pending requests query when any change occurs
       queryClient.invalidateQueries({ queryKey: queryKeys.admin.pendingRequests(page, limit) });
       queryClient.invalidateQueries({ queryKey: queryKeys.admin.stats });
@@ -189,6 +191,8 @@ export function useApproveLeaveRequest() {
     onSuccess: () => {
       // Invalidate related queries for instant updates across all dashboards
       queryClient.invalidateQueries({ queryKey: queryKeys.admin.all });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'pendingRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'all-requests'] });
       queryClient.invalidateQueries({ queryKey: queryKeys.leaveRequests.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.calendar.all });
@@ -240,6 +244,8 @@ export function useRejectLeaveRequest() {
     onSuccess: () => {
       // Invalidate related queries for instant updates
       queryClient.invalidateQueries({ queryKey: queryKeys.admin.all });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'pendingRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'all-requests'] });
       queryClient.invalidateQueries({ queryKey: queryKeys.leaveRequests.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.user.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.calendar.all });

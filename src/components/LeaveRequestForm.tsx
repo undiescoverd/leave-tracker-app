@@ -31,7 +31,7 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
   const { data: leaveBalance, isLoading: isLoadingBalance, error: balanceError } = useLeaveBalance(session?.user?.id || '');
   const submitRequestMutation = useSubmitLeaveRequest();
   const submitBulkRequestMutation = useSubmitBulkLeaveRequest();
-  const [leaveType, setLeaveType] = useState<'ANNUAL' | 'TOIL' | 'BULK'>('ANNUAL');
+  const [leaveType, setLeaveType] = useState<'ANNUAL' | 'TOIL' | 'SICK' | 'BULK'>('ANNUAL');
   const [formData, setFormData] = useState({
     dateRange: undefined as DateRange | undefined,
     comments: "",
@@ -107,8 +107,11 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
   const getRemainingBalance = () => {
     if (!leaveBalance) return 0;
     
+    // Determine the current leave type based on tab or formData
+    const currentLeaveType = leaveType === 'SICK' ? 'SICK' : (leaveType === 'ANNUAL' ? 'ANNUAL' : (leaveType === 'TOIL' ? 'TOIL' : formData.type));
+    
     if (features.isMultiLeaveTypeEnabled() && leaveBalance.balances) {
-      switch (formData.type) {
+      switch (currentLeaveType) {
         case 'TOIL':
           return leaveBalance.balances.toil?.remaining ?? 0;
         case 'SICK':
@@ -125,6 +128,9 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Determine the leave type based on current tab or formData
+    const leaveTypeForSubmit = leaveType === 'SICK' ? 'SICK' : (leaveType === 'ANNUAL' ? 'ANNUAL' : formData.type);
+    
     // Enhanced client-side validation
     if (!formData.dateRange?.from || !formData.dateRange?.to) {
       showError("Please select your leave dates");
@@ -159,7 +165,7 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
     }
 
     // Validate TOIL hours if applicable
-    if (formData.type === 'TOIL' && formData.hours) {
+    if (leaveTypeForSubmit === 'TOIL' && formData.hours) {
       const hours = Number(formData.hours);
       if (hours <= 0 || hours > 24) {
         showError("TOIL hours must be between 1 and 24");
@@ -171,17 +177,17 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
       reason: formData.comments, // API expects 'reason' field
-      type: formData.type,
-      ...(formData.type === 'TOIL' && formData.hours && { hours: Number(formData.hours) })
+      type: leaveTypeForSubmit,
+      ...(leaveTypeForSubmit === 'TOIL' && formData.hours && { hours: Number(formData.hours) })
     };
 
     try {
       await submitRequestMutation.mutateAsync(requestData);
-      showSuccess(`${formData.type} leave request submitted successfully!`);
+      showSuccess(`${leaveTypeForSubmit} leave request submitted successfully!`);
       setFormData({
         dateRange: undefined,
         comments: "",
-        type: "ANNUAL",
+        type: leaveTypeForSubmit,
         hours: "",
       });
       setIsOpen(false);
@@ -357,23 +363,33 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
             <DialogTitle>Request Leave</DialogTitle>
           </DialogHeader>
 
-{features.TOIL_REQUEST_ENABLED ? (
-            <Tabs value={leaveType} onValueChange={(value) => setLeaveType(value as 'ANNUAL' | 'TOIL' | 'BULK')}>
-              <TabsList className="grid w-full grid-cols-3">
+{features.TOIL_REQUEST_ENABLED || features.SICK_LEAVE_ENABLED ? (
+            <Tabs value={leaveType} onValueChange={(value) => setLeaveType(value as 'ANNUAL' | 'TOIL' | 'SICK' | 'BULK')}>
+              <TabsList className={`grid w-full ${
+                features.TOIL_REQUEST_ENABLED && features.SICK_LEAVE_ENABLED 
+                  ? 'grid-cols-4' 
+                  : (features.TOIL_REQUEST_ENABLED || features.SICK_LEAVE_ENABLED) 
+                    ? 'grid-cols-3' 
+                    : 'grid-cols-2'
+              }`}>
                 <TabsTrigger value="ANNUAL">Annual Leave</TabsTrigger>
-                <TabsTrigger value="TOIL">TOIL</TabsTrigger>
+                {features.TOIL_REQUEST_ENABLED && <TabsTrigger value="TOIL">TOIL</TabsTrigger>}
+                {features.SICK_LEAVE_ENABLED && <TabsTrigger value="SICK">Sick Leave</TabsTrigger>}
                 <TabsTrigger value="BULK">Bulk Request</TabsTrigger>
               </TabsList>
               
               <TabsContent value="ANNUAL">
                 <form onSubmit={handleSubmit} className="space-y-2">
+                  {/* Set form type to ANNUAL */}
+                  <input type="hidden" name="type" value="ANNUAL" />
+                  
                   {/* Date Selection */}
                   <div className="space-y-1">
                     <Label className="text-sm">Leave Dates</Label>
                     <DateRangePicker
                       dateRange={formData.dateRange}
                       onDateRangeChange={(dateRange) => 
-                        setFormData(prev => ({ ...prev, dateRange }))
+                        setFormData(prev => ({ ...prev, dateRange, type: 'ANNUAL' }))
                       }
                       placeholder="Select start and end dates"
                       minDate={new Date()}
@@ -421,7 +437,7 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
                         defaultMonth={formData.dateRange?.from}
                         selected={formData.dateRange}
                         onSelect={(range) => 
-                          setFormData(prev => ({ ...prev, dateRange: range }))
+                          setFormData(prev => ({ ...prev, dateRange: range, type: 'ANNUAL' }))
                         }
                         numberOfMonths={2}
                         disabled={(date) => 
@@ -466,14 +482,117 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
                 </form>
               </TabsContent>
               
-              <TabsContent value="TOIL">
-                <TOILForm
-                  onSubmit={handleTOILSubmit}
-                  onCancel={() => setIsOpen(false)}
-                  availableUsers={availableUsers}
-                  loading={loadingUsers}
-                />
+              {features.TOIL_REQUEST_ENABLED && (
+                <TabsContent value="TOIL">
+                  <TOILForm
+                    onSubmit={handleTOILSubmit}
+                    onCancel={() => setIsOpen(false)}
+                    availableUsers={availableUsers}
+                    loading={loadingUsers}
+                  />
+                </TabsContent>
+              )}
+
+              {features.SICK_LEAVE_ENABLED && (
+              <TabsContent value="SICK">
+                <form onSubmit={handleSubmit} className="space-y-2">
+                  {/* Set form type to SICK */}
+                  <input type="hidden" name="type" value="SICK" />
+                  
+                  {/* Date Selection */}
+                  <div className="space-y-1">
+                    <Label className="text-sm">Leave Dates</Label>
+                    <DateRangePicker
+                      dateRange={formData.dateRange}
+                      onDateRangeChange={(dateRange) => {
+                        setFormData(prev => ({ ...prev, dateRange, type: 'SICK' }))
+                      }}
+                      placeholder="Select start and end dates"
+                      minDate={new Date()}
+                      className="w-full"
+                    />
+                  </div>
+
+                  {/* Balance Display */}
+                  {leaveBalance && (
+                    <div className="bg-muted p-2 rounded-md">
+                      <div className="text-xs text-muted-foreground">
+                        <div className="flex justify-between">
+                          <span>Available sick leave:</span>
+                          <span className="font-medium text-foreground">{getRemainingBalance()} days</span>
+                        </div>
+                        {previewDays > 0 && (
+                          <div className="flex justify-between mt-0.5">
+                            <span>Requested:</span>
+                            <span className="font-medium text-foreground">{previewDays} days</span>
+                          </div>
+                        )}
+                        {previewDays > 0 && (
+                          <div className="flex justify-between mt-0.5">
+                            <span>Remaining:</span>
+                            <span className="font-medium text-foreground">
+                              {Math.max(0, getRemainingBalance() - previewDays)} days
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Inline Calendar */}
+                  <div className="space-y-1">
+                    <Label className="text-sm">Select Dates</Label>
+                    <div className="w-full">
+                      <Calendar
+                        mode="range"
+                        defaultMonth={formData.dateRange?.from}
+                        selected={formData.dateRange}
+                        onSelect={(range) => {
+                          setFormData(prev => ({ ...prev, dateRange: range, type: 'SICK' }))
+                        }}
+                        numberOfMonths={2}
+                        disabled={(date) => 
+                          date < new Date(new Date().setHours(0, 0, 0, 0))
+                        }
+                        className="rounded-md border w-full"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Comments */}
+                  <div className="space-y-1">
+                    <Label htmlFor="comments" className="text-sm">Reason</Label>
+                    <Textarea
+                      name="comments"
+                      value={formData.comments}
+                      onChange={handleInputChange}
+                      rows={2}
+                      placeholder="Please provide a reason for your sick leave request..."
+                      required
+                      className="text-sm"
+                    />
+                  </div>
+
+                  <div className="flex gap-3 justify-end pt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsOpen(false)}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={submitRequestMutation.isPending || isLoadingBalance}
+                      className="flex-1"
+                    >
+                      {submitRequestMutation.isPending ? "Submitting..." : "Submit Request"}
+                    </Button>
+                  </div>
+                </form>
               </TabsContent>
+              )}
 
               <TabsContent value="BULK">
                 <form onSubmit={handleBulkSubmit} className="space-y-4">

@@ -2,28 +2,23 @@
 
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { isAdminRole } from "@/types/next-auth";
-
-interface AdminStats {
-  pendingRequests: number;
-  totalUsers: number;
-  activeEmployees: number;
-  toilPending: number;
-  systemStatus: string;
-  allSystemsOperational: boolean;
-}
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, Clock, FileCheck, Settings } from "lucide-react";
 import BusinessAdminDashboard from "@/components/admin/BusinessAdminDashboard";
 
+// ✅ Import React Query hook with realtime subscriptions
+import { useAdminStats } from "@/hooks/useAdminData";
+
 export default function AdminPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [stats, setStats] = useState<AdminStats | null>(null);
-  const [loading, setLoading] = useState(true);
+
+  // ✅ Use React Query hook with realtime subscriptions instead of manual fetching
+  const { data: stats, isLoading: loading } = useAdminStats();
 
   useEffect(() => {
     if (status === "loading") return;
@@ -36,30 +31,7 @@ export default function AdminPage() {
       router.push("/dashboard");
       return;
     }
-    fetchAdminStats();
   }, [status, session, router]);
-
-  useEffect(() => {
-    // Auto-refresh stats for all admin types
-    if (session?.user && isAdminRole(session.user.role)) {
-      const interval = setInterval(fetchAdminStats, 30000);
-      return () => clearInterval(interval);
-    }
-  }, [session]);
-
-  const fetchAdminStats = async () => {
-    try {
-      const response = await fetch('/api/admin/stats');
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data.data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch admin stats:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (status === "loading") {
     return (
@@ -95,9 +67,14 @@ export default function AdminPage() {
               </h1>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-muted-foreground">
-                Welcome, {session.user?.name || session.user?.email}
-              </span>
+              <div className="flex flex-col items-end">
+                <span className="text-sm text-muted-foreground">
+                  Welcome, {session.user?.name || session.user?.email}
+                </span>
+                <span className="text-xs text-green-600 font-medium">
+                  ● Live Updates
+                </span>
+              </div>
               <Button
                 variant="outline"
                 onClick={() => router.push("/dashboard")}
@@ -202,7 +179,7 @@ export default function AdminPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Button 
+                <Button
                   className="w-full"
                   onClick={() => router.push("/admin/pending-requests")}
                 >
@@ -220,7 +197,7 @@ export default function AdminPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Button 
+                <Button
                   className="w-full"
                   onClick={() => router.push("/admin/toil")}
                 >
@@ -238,7 +215,7 @@ export default function AdminPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Button 
+                <Button
                   className="w-full"
                   onClick={() => router.push("/admin/employee-balances")}
                 >
@@ -256,7 +233,7 @@ export default function AdminPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Button 
+                <Button
                   className="w-full"
                   variant="secondary"
                   disabled
@@ -298,8 +275,8 @@ export default function AdminPage() {
                 <div>
                   <h4 className="text-sm font-medium text-foreground mb-2">Quick Actions</h4>
                   <div className="space-y-2">
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
                       onClick={() => router.push("/dashboard")}
                     >

@@ -20,8 +20,8 @@ async function cancelLeaveRequestHandler(
     const pathParts = url.pathname.split('/');
     const requestId = pathParts[pathParts.length - 2]; // Get the ID before '/cancel'
 
-    // Validate CUID format
-    const cuidRegex = /^c[a-z0-9]{24}$/i;
+    // Validate CUID format (c followed by 24-32 alphanumeric characters)
+    const cuidRegex = /^c[a-z0-9]{24,32}$/i;
     if (!requestId || !cuidRegex.test(requestId)) {
       return apiError('Invalid request ID format', 400);
     }

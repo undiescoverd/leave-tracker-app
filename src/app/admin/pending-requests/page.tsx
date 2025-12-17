@@ -17,13 +17,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { clearAllCaches } from "@/lib/cache/clear-all-caches";
 
+// ✅ Import React Query hooks with realtime subscriptions
+import { usePendingRequests, useApproveLeaveRequest, useRejectLeaveRequest } from "@/hooks/useAdminData";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { subscribeToAllLeaveRequests } from "@/lib/realtime/supabase-realtime";
+
 interface LeaveRequest {
   id: string;
   startDate: string;
   endDate: string;
   status: string;
   comments?: string;
-  reason?: string; // Mapped from comments for consistency with employee view
+  reason?: string;
   createdAt: string;
   type?: string;
   hours?: number;
@@ -32,7 +37,6 @@ interface LeaveRequest {
     name: string;
     email: string;
   };
-  // Admin API format
   employeeName?: string;
   employeeEmail?: string;
   employeeRole?: string;
@@ -43,17 +47,30 @@ interface LeaveRequest {
 export default function PendingRequestsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
-  const [allRequests, setAllRequests] = useState<LeaveRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const queryClient = useQueryClient();
+
+  // ✅ Use React Query hooks with realtime subscriptions
+  const { data: pendingData, isLoading: pendingLoading, refetch: refetchPending } = usePendingRequests(1, 50);
+  const approveMutation = useApproveLeaveRequest();
+  const rejectMutation = useRejectLeaveRequest();
+
+  // ✅ Fetch all requests (not just pending) for the "All Requests" table
+  const { data: allRequestsData, isLoading: allLoading } = useQuery({
+    queryKey: ['admin', 'all-requests'],
+    queryFn: async () => {
+      const response = await fetch('/api/admin/all-requests', {
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Failed to fetch all requests');
+      const result = await response.json();
+      return result.data;
+    },
+    enabled: !!session?.user && isAdminRole(session.user.role),
+  });
+
   const [processing, setProcessing] = useState<string | null>(null);
   const [rejectComment, setRejectComment] = useState("");
   const [showRejectModal, setShowRejectModal] = useState<string | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [, setTick] = useState(0);
-  const showSuccess = (message: string) => toast.success(message);
-  const showError = (message: string) => toast.error(message);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -63,105 +80,33 @@ export default function PendingRequestsPage() {
     }
   }, [status, session, router]);
 
+  // ✅ Subscribe to realtime updates for all requests
   useEffect(() => {
-    if (session?.user && isAdminRole(session.user.role)) {
-      fetchLeaveRequests();
-      // Poll every 5 seconds for fast updates
-      const interval = setInterval(fetchLeaveRequests, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [session]);
+    if (!session?.user || !isAdminRole(session.user.role)) return;
 
-  // Update "time ago" every second
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTick(prev => prev + 1);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
+    const subscription = subscribeToAllLeaveRequests(() => {
+      // Invalidate both all-requests AND pending requests queries when any leave request changes
+      queryClient.invalidateQueries({ queryKey: ['admin', 'all-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'pendingRequests'] });
+    });
 
-  const fetchLeaveRequests = async (manual = false, bustCache = false) => {
-    if (manual) setRefreshing(true);
-    try {
-      // Add cache busting parameter to force fresh data
-      const cacheBuster = bustCache ? `?_t=${Date.now()}` : '';
-
-      // Fetch both pending and all requests in parallel
-      const [pendingResponse, allResponse] = await Promise.all([
-        fetch(`/api/admin/pending-requests${cacheBuster}`, {
-          credentials: "include",
-          cache: bustCache ? "no-store" : "default"
-        }),
-        fetch(`/api/admin/all-requests${cacheBuster}`, {
-          credentials: "include",
-          cache: bustCache ? "no-store" : "default"
-        })
-      ]);
-
-      const [pendingData, allData] = await Promise.all([
-        pendingResponse.json(),
-        allResponse.json()
-      ]);
-
-      if (pendingResponse.ok) {
-        setLeaveRequests(pendingData.data?.requests || []);
-      } else {
-        console.error("Failed to fetch pending requests:", pendingData.error);
-      }
-
-      if (allResponse.ok) {
-        // Map comments to reason for consistency with employee view
-        const requestsWithReason = (allData.data?.requests || []).map((req: LeaveRequest) => ({
-          ...req,
-          reason: req.comments || req.reason || 'No reason provided'
-        }));
-        setAllRequests(requestsWithReason);
-      } else {
-        console.error("Failed to fetch all requests:", allData.error);
-      }
-
-      setLastUpdated(new Date());
-    } catch (error) {
-      console.error("Error fetching leave requests:", error);
-    } finally {
-      setLoading(false);
-      if (manual) setRefreshing(false);
-    }
-  };
-
-  const getTimeAgo = (date: Date | null) => {
-    if (!date) return '';
-    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
-    if (seconds < 5) return 'just now';
-    if (seconds < 60) return `${seconds} seconds ago`;
-    const minutes = Math.floor(seconds / 60);
-    if (minutes === 1) return '1 minute ago';
-    return `${minutes} minutes ago`;
-  };
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [session, queryClient]);
 
   const handleManualRefresh = () => {
-    fetchLeaveRequests(true);
+    refetchPending();
+    queryClient.invalidateQueries({ queryKey: ['admin', 'all-requests'] });
   };
 
   const handleApprove = async (requestId: string) => {
     setProcessing(requestId);
     try {
-      const response = await fetch(`/api/leave/request/${requestId}/approve`, {
-        method: "POST",
-        credentials: "include",
-      });
-
-      if (response.ok) {
-        showSuccess("Leave request approved successfully!");
-        // Bust cache and refresh the list
-        await fetchLeaveRequests(false, true);
-      } else {
-        const error = await response.json();
-        console.error("Approval error response:", error);
-        showError(`Failed to approve: ${error.error?.message || error.error || 'Unknown error'}`);
-      }
+      await approveMutation.mutateAsync({ requestId });
+      // Queries will auto-invalidate via the mutation's onSuccess
     } catch (error) {
-      showError("Error approving request");
+      // Error toast already shown by mutation
       console.error("Error:", error);
     } finally {
       setProcessing(null);
@@ -170,50 +115,25 @@ export default function PendingRequestsPage() {
 
   const handleReject = async (requestId: string) => {
     const trimmedReason = rejectComment.trim();
-    
+
     if (!trimmedReason) {
-      showError("Please provide a reason for rejection");
+      toast.error("Please provide a reason for rejection");
       return;
     }
 
     if (trimmedReason.length < 10) {
-      showError("Rejection reason must be at least 10 characters long");
+      toast.error("Rejection reason must be at least 10 characters long");
       return;
     }
 
     setProcessing(requestId);
     try {
-      const response = await fetch(`/api/leave/request/${requestId}/reject`, {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          reason: trimmedReason
-        }),
-      });
-
-      if (response.ok) {
-        showSuccess("Leave request rejected successfully!");
-        // Bust cache and refresh the list
-        await fetchLeaveRequests(false, true);
-        setRejectComment(""); // Clear comment
-        setShowRejectModal(null); // Close modal
-      } else {
-        const error = await response.json();
-        // Extract more detailed error message
-        const errorMessage = error.error?.message || error.error || error.message || 'Unknown error';
-        // If it's a validation error with details, show those
-        if (error.error?.details) {
-          const details = Object.values(error.error.details).flat();
-          showError(`Failed to reject: ${details.join(', ') || errorMessage}`);
-        } else {
-          showError(`Failed to reject: ${errorMessage}`);
-        }
-      }
+      await rejectMutation.mutateAsync({ requestId, reason: trimmedReason });
+      setRejectComment("");
+      setShowRejectModal(null);
+      // Queries will auto-invalidate via the mutation's onSuccess
     } catch (error) {
-      showError("Error rejecting request");
+      // Error toast already shown by mutation
       console.error("Error:", error);
     } finally {
       setProcessing(null);
@@ -234,8 +154,7 @@ export default function PendingRequestsPage() {
     }
   };
 
-
-  if (status === "loading" || loading) {
+  if (status === "loading" || pendingLoading || allLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -250,9 +169,8 @@ export default function PendingRequestsPage() {
     return null;
   }
 
-  // Ensure leaveRequests is always an array
-  const pendingRequests = leaveRequests || [];
-  const allRequestsList = allRequests || [];
+  const pendingRequests = pendingData?.requests || [];
+  const allRequestsList = allRequestsData?.requests || [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -276,20 +194,18 @@ export default function PendingRequestsPage() {
                 <span className="text-sm text-muted-foreground">
                   Welcome, {session.user?.name || session.user?.email}
                 </span>
-                {lastUpdated && (
-                  <span className="text-xs text-muted-foreground/70">
-                    Updated {getTimeAgo(lastUpdated)}
-                  </span>
-                )}
+                <span className="text-xs text-green-600 font-medium">
+                  ● Live Updates
+                </span>
               </div>
               <div className="flex space-x-2">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={handleManualRefresh}
-                  disabled={refreshing}
+                  disabled={pendingLoading}
                 >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`h-4 w-4 mr-2 ${pendingLoading ? 'animate-spin' : ''}`} />
                   Refresh
                 </Button>
                 <Button
@@ -354,26 +270,25 @@ export default function PendingRequestsPage() {
                                 </p>
                               )}
                               <p className="text-sm text-muted-foreground">
-                                Submitted: {formatDate(request.createdAt || request.submittedAt || new Date().toISOString())}
+                                <span className="font-semibold">Submitted:</span> {formatDate(request.submittedAt || request.createdAt)}
                               </p>
                             </div>
                           </div>
                           <div className="flex space-x-2 ml-4">
                             <Button
-                              variant="success"
+                              size="sm"
                               onClick={() => handleApprove(request.id)}
                               disabled={processing === request.id}
-                              size="sm"
                             >
-                              {processing === request.id ? "Processing..." : "Approve"}
+                              Approve
                             </Button>
                             <Button
-                              variant="error"
                               size="sm"
+                              variant="destructive"
                               onClick={() => setShowRejectModal(request.id)}
                               disabled={processing === request.id}
                             >
-                              {processing === request.id ? "Processing..." : "Reject"}
+                              Reject
                             </Button>
                           </div>
                         </div>
@@ -385,7 +300,7 @@ export default function PendingRequestsPage() {
             </CardContent>
           </Card>
 
-          {/* All Other Requests Section */}
+          {/* All Requests Section */}
           <Card>
             <CardHeader>
               <CardTitle>All Requests ({allRequestsList.length})</CardTitle>
@@ -393,7 +308,7 @@ export default function PendingRequestsPage() {
             </CardHeader>
             <CardContent>
               {allRequestsList.length === 0 ? (
-                <p className="text-muted-foreground">No leave requests found.</p>
+                <p className="text-muted-foreground">No requests found.</p>
               ) : (
                 <Table>
                   <TableHeader>
@@ -410,29 +325,37 @@ export default function PendingRequestsPage() {
                     {allRequestsList.map((request) => (
                       <TableRow key={request.id}>
                         <TableCell>
-                          <div>
-                            <div className="font-medium">
+                          <div className="flex flex-col">
+                            <span className="font-medium text-foreground">
                               {request.user?.name || request.employeeName}
-                            </div>
-                            <div className="text-sm text-muted-foreground">
+                            </span>
+                            <span className="text-xs text-muted-foreground">
                               {request.user?.email || request.employeeEmail}
-                            </div>
+                            </span>
                           </div>
                         </TableCell>
-                        <TableCell className="font-medium">
-                          {formatDate(request.startDate)} - {formatDate(request.endDate)}
-                        </TableCell>
-                        <TableCell>{request.days}</TableCell>
                         <TableCell>
-                          <div>{request.reason || request.comments || 'No reason provided'}</div>
+                          <div className="text-sm">
+                            {formatDate(request.startDate)} - {formatDate(request.endDate)}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {request.days || 'N/A'}
+                        </TableCell>
+                        <TableCell>
+                          <div className="max-w-xs truncate text-sm">
+                            {request.comments || request.reason || 'No reason provided'}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Badge variant={getStatusVariant(request.status)}>
                             {request.status}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {formatDate(request.createdAt || request.submittedAt || new Date().toISOString())}
+                        <TableCell>
+                          <div className="text-sm text-muted-foreground">
+                            {formatDate(request.submittedAt || request.createdAt)}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -443,60 +366,50 @@ export default function PendingRequestsPage() {
           </Card>
         </div>
       </main>
-      
-      {/* Rejection Modal */}
-      <Dialog open={!!showRejectModal} onOpenChange={(open) => {
-        if (!open) {
-          setShowRejectModal(null);
-          setRejectComment("");
-        }
-      }}>
-        <DialogContent className="max-w-md">
+
+      {/* Reject Modal */}
+      <Dialog open={!!showRejectModal} onOpenChange={(open) => !open && setShowRejectModal(null)}>
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Reject Leave Request</DialogTitle>
           </DialogHeader>
-          
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="rejectComment">Reason for Rejection *</Label>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="reject-reason">
+                Reason for Rejection <span className="text-red-500">*</span>
+              </Label>
               <Textarea
-                id="rejectComment"
+                id="reject-reason"
+                placeholder="Please provide a detailed reason for rejecting this request (minimum 10 characters)"
                 value={rejectComment}
                 onChange={(e) => setRejectComment(e.target.value)}
-                rows={4}
-                placeholder="Please provide a reason for rejecting this leave request (minimum 10 characters)..."
-                required
-                minLength={10}
+                className="min-h-[100px]"
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                Minimum 10 characters required ({rejectComment.trim().length}/10)
+              <p className="text-xs text-muted-foreground">
+                This reason will be sent to the employee. Please be clear and professional.
               </p>
             </div>
           </div>
-
-          <DialogFooter className="space-x-3">
+          <DialogFooter>
             <Button
               variant="outline"
               onClick={() => {
                 setShowRejectModal(null);
                 setRejectComment("");
               }}
-              disabled={processing === showRejectModal}
             >
               Cancel
             </Button>
             <Button
               variant="destructive"
-              onClick={() => handleReject(showRejectModal!)}
+              onClick={() => showRejectModal && handleReject(showRejectModal)}
               disabled={!rejectComment.trim() || rejectComment.trim().length < 10 || processing === showRejectModal}
             >
-              {processing === showRejectModal ? "Processing..." : "Reject Request"}
+              {processing === showRejectModal ? "Rejecting..." : "Confirm Rejection"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
-      {/* Toast Notifications */}
     </div>
   );
 }

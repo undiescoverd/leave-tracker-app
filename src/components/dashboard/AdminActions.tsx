@@ -20,6 +20,54 @@ const AdminActions = memo(function AdminActions() {
 
   return (
     <div className="space-y-4">
+      {/* Admin Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Admin Actions</CardTitle>
+          <CardDescription>
+            Manage leave requests and system administration
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 sm:grid-cols-4">
+            <Button 
+              variant="default"
+              onClick={navigateToAdmin}
+            >
+              Admin Dashboard
+            </Button>
+            <Button 
+              variant={shouldShowNotificationBadge(stats?.pendingRequests || 0) ? "destructive" : "outline"}
+              onClick={navigateToPending}
+            >
+              Pending Requests
+              {shouldShowNotificationBadge(stats?.pendingRequests || 0) && (
+                <Badge variant={getNotificationBadgeVariant(stats?.pendingRequests || 0)} className="ml-2">
+                  {stats?.pendingRequests}
+                </Badge>
+              )}
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={navigateToToil}
+            >
+              Manage TOIL
+              {shouldShowNotificationBadge(stats?.toilPending || 0) && (
+                <Badge variant={getNotificationBadgeVariant(stats?.toilPending || 0)} className="ml-2">
+                  {stats?.toilPending}
+                </Badge>
+              )}
+            </Button>
+            <Button 
+              variant="outline"
+              disabled
+            >
+              User Management
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Admin Statistics */}
       <Card>
         <CardHeader>
@@ -85,54 +133,6 @@ const AdminActions = memo(function AdminActions() {
               </div>
             </div>
           ) : null}
-        </CardContent>
-      </Card>
-
-      {/* Admin Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Admin Actions</CardTitle>
-          <CardDescription>
-            Manage leave requests and system administration
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3 sm:grid-cols-4">
-            <Button 
-              variant="default"
-              onClick={navigateToAdmin}
-            >
-              Admin Dashboard
-            </Button>
-            <Button 
-              variant={shouldShowNotificationBadge(stats?.pendingRequests || 0) ? "destructive" : "outline"}
-              onClick={navigateToPending}
-            >
-              Pending Requests
-              {shouldShowNotificationBadge(stats?.pendingRequests || 0) && (
-                <Badge variant={getNotificationBadgeVariant(stats?.pendingRequests || 0)} className="ml-2">
-                  {stats?.pendingRequests}
-                </Badge>
-              )}
-            </Button>
-            <Button 
-              variant="outline"
-              onClick={navigateToToil}
-            >
-              Manage TOIL
-              {shouldShowNotificationBadge(stats?.toilPending || 0) && (
-                <Badge variant={getNotificationBadgeVariant(stats?.toilPending || 0)} className="ml-2">
-                  {stats?.toilPending}
-                </Badge>
-              )}
-            </Button>
-            <Button 
-              variant="outline"
-              disabled
-            >
-              User Management
-            </Button>
-          </div>
         </CardContent>
       </Card>
     </div>

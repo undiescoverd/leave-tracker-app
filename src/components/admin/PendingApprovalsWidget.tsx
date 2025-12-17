@@ -14,6 +14,9 @@ import { toast } from "sonner";
 import { adminApi, ApiError } from "@/lib/api-client";
 import { useApiError } from "@/hooks/use-api-error";
 
+// ✅ Import React Query hooks with realtime subscriptions
+import { usePendingRequests, useApproveLeaveRequest, useRejectLeaveRequest } from "@/hooks/useAdminData";
+
 interface PendingRequest {
   id: string;
   employeeName: string;
@@ -37,32 +40,15 @@ interface PendingApprovalsWidgetProps {
 
 function PendingApprovalsWidgetComponent({ limit = 5, showFullTable = false }: PendingApprovalsWidgetProps) {
   const router = useRouter();
-  const [requests, setRequests] = useState<PendingRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [actionsLoading, setActionsLoading] = useState<Set<string>>(new Set());
-  const { handleAsyncOperation } = useApiError();
 
-  const fetchPendingRequests = useCallback(async () => {
-    const result = await handleAsyncOperation(
-      () => adminApi.getPendingRequests(limit),
-      {
-        errorMessage: 'Failed to load pending requests',
-        onError: (error) => setError(error.message)
-      }
-    );
+  // ✅ Use React Query hooks with realtime subscriptions
+  const { data: pendingData, isLoading: loading, error: queryError } = usePendingRequests(1, limit);
+  const approveMutation = useApproveLeaveRequest();
+  const rejectMutation = useRejectLeaveRequest();
 
-    if (result.success && result.data) {
-      setRequests((result.data as any)?.requests || []);
-      setError(null);
-    }
-    
-    setLoading(false);
-  }, [limit, handleAsyncOperation]);
-
-  useEffect(() => {
-    fetchPendingRequests();
-  }, [fetchPendingRequests]);
+  const requests = pendingData?.requests || [];
+  const error = queryError ? queryError.message : null;
 
   const calculateBusinessImpact = (request: any): 'LOW' | 'MEDIUM' | 'HIGH' => {
     const days = Math.ceil((new Date(request.endDate).getTime() - new Date(request.startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1;
@@ -72,32 +58,13 @@ function PendingApprovalsWidgetComponent({ limit = 5, showFullTable = false }: P
   };
 
   const handleApprove = async (requestId: string) => {
-    // Optimistic update
-    const originalRequests = [...requests];
-    setRequests(prev => prev.filter(req => req.id !== requestId));
-    
-    // Track loading state
     setActionsLoading(prev => new Set([...prev, requestId]));
-    
-    try {
-      const result = await handleAsyncOperation(
-        () => adminApi.approveRequest(requestId),
-        {
-          successMessage: 'Leave request approved successfully',
-          errorMessage: 'Failed to approve request',
-        }
-      );
 
-      if (result.success) {
-        // Refresh to get latest data
-        await fetchPendingRequests();
-      } else {
-        // Revert optimistic update
-        setRequests(originalRequests);
-      }
+    try {
+      await approveMutation.mutateAsync({ requestId });
+      // Query auto-invalidates, so data will refresh automatically via realtime
     } catch (error) {
-      // Revert optimistic update on unexpected error
-      setRequests(originalRequests);
+      console.error('Failed to approve request:', error);
     } finally {
       setActionsLoading(prev => {
         const newSet = new Set(prev);
@@ -108,32 +75,16 @@ function PendingApprovalsWidgetComponent({ limit = 5, showFullTable = false }: P
   };
 
   const handleReject = async (requestId: string) => {
-    // Optimistic update
-    const originalRequests = [...requests];
-    setRequests(prev => prev.filter(req => req.id !== requestId));
-    
-    // Track loading state
     setActionsLoading(prev => new Set([...prev, requestId]));
-    
-    try {
-      const result = await handleAsyncOperation(
-        () => adminApi.rejectRequest(requestId, 'Requires further discussion'),
-        {
-          successMessage: 'Leave request rejected',
-          errorMessage: 'Failed to reject request',
-        }
-      );
 
-      if (result.success) {
-        // Refresh to get latest data
-        await fetchPendingRequests();
-      } else {
-        // Revert optimistic update
-        setRequests(originalRequests);
-      }
+    try {
+      await rejectMutation.mutateAsync({
+        requestId,
+        reason: 'Requires further discussion'
+      });
+      // Query auto-invalidates, so data will refresh automatically via realtime
     } catch (error) {
-      // Revert optimistic update on unexpected error
-      setRequests(originalRequests);
+      console.error('Failed to reject request:', error);
     } finally {
       setActionsLoading(prev => {
         const newSet = new Set(prev);

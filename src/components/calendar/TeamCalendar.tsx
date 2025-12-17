@@ -174,6 +174,29 @@ const CalendarStats = memo(function CalendarStats({ data }: CalendarStatsProps) 
   );
 });
 
+const CalendarLegend = memo(function CalendarLegend() {
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+      <div className="flex items-center gap-1.5">
+        <span className="h-3 w-3 rounded bg-primary" />
+        <span>Today</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className="h-3 w-3 rounded bg-green-100 border border-green-500 dark:bg-green-900 dark:border-green-400" />
+        <span>Approved</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className="h-3 w-3 rounded bg-yellow-100 border border-yellow-500 dark:bg-yellow-900 dark:border-yellow-400" />
+        <span>Pending</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className="h-3 w-3 rounded bg-red-100 border border-red-500 dark:bg-red-900 dark:border-red-400" />
+        <span>Rejected / Cancelled</span>
+      </div>
+    </div>
+  );
+});
+
 const TeamCalendarOptimized = memo(function TeamCalendarOptimized() {
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1);
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
@@ -320,6 +343,8 @@ const TeamCalendarOptimized = memo(function TeamCalendarOptimized() {
               />
             ))}
           </div>
+
+          <CalendarLegend />
         </CardContent>
       </Card>
     </ErrorBoundary>

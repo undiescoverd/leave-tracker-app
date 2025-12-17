@@ -11,6 +11,10 @@ import { Progress } from "@/components/ui/progress";
 import { Users, Calendar, Clock, TrendingUp, AlertCircle, FileCheck, Settings, RefreshCw } from "lucide-react";
 import TeamCalendar from "@/components/calendar/TeamCalendar";
 
+// ✅ Import React Query hooks with realtime subscriptions
+import { useAdminStats } from "@/hooks/useAdminData";
+import { useQuery } from "@tanstack/react-query";
+
 interface BusinessStats {
   pendingRequests: number;
   totalUsers: number;
@@ -29,74 +33,28 @@ interface BusinessStats {
 export default function BusinessAdminDashboard() {
   const { data: session } = useSession();
   const router = useRouter();
-  const [stats, setStats] = useState<BusinessStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [, setTick] = useState(0); // Force re-render for time updates
 
-  useEffect(() => {
-    fetchBusinessStats();
-    const interval = setInterval(fetchBusinessStats, 5000); // 5 seconds for fast updates
-    return () => clearInterval(interval);
-  }, []);
+  // ✅ Use React Query hooks with realtime subscriptions
+  const { data: adminStats, isLoading: statsLoading } = useAdminStats();
+  const { data: upcomingLeaveData, isLoading: leaveLoading, refetch: refetchLeave } = useQuery({
+    queryKey: ['admin', 'upcoming-leave'],
+    queryFn: async () => {
+      const response = await fetch('/api/admin/upcoming-leave');
+      if (!response.ok) throw new Error('Failed to fetch upcoming leave');
+      const result = await response.json();
+      return result.upcomingLeave || [];
+    },
+  });
 
-  // Update "time ago" every second
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTick(prev => prev + 1);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
+  const loading = statsLoading || leaveLoading;
 
-  const fetchBusinessStats = async (manual = false) => {
-    if (manual) setRefreshing(true);
-    try {
-      const [statsResponse, leaveResponse] = await Promise.all([
-        fetch('/api/admin/stats'),
-        fetch('/api/admin/upcoming-leave')
-      ]);
-      
-      if (statsResponse.ok) {
-        const statsData = await statsResponse.json();
-        let upcomingLeave = [];
-        
-        if (leaveResponse.ok) {
-          const leaveData = await leaveResponse.json();
-          upcomingLeave = leaveData.upcomingLeave || [];
-        }
-        
-        setStats({
-          ...statsData.data,
-          teamOnLeave: upcomingLeave.filter((leave: any) => new Date(leave.startDate) <= new Date()).length,
-          coverageLevel: Math.max(60, 100 - (upcomingLeave.length * 15)),
-          upcomingLeave
-        });
-        setLastUpdated(new Date());
-      }
-    } catch (error) {
-      console.error('Failed to fetch business stats:', error);
-    } finally {
-      setLoading(false);
-      if (manual) {
-        setRefreshing(false);
-      }
-    }
-  };
-
-  const getTimeAgo = (date: Date | null) => {
-    if (!date) return '';
-    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
-    if (seconds < 5) return 'just now';
-    if (seconds < 60) return `${seconds} seconds ago`;
-    const minutes = Math.floor(seconds / 60);
-    if (minutes === 1) return '1 minute ago';
-    return `${minutes} minutes ago`;
-  };
-
-  const handleManualRefresh = () => {
-    fetchBusinessStats(true);
-  };
+  // Compute business stats from adminStats + upcomingLeave
+  const stats: BusinessStats | null = adminStats && upcomingLeaveData ? {
+    ...adminStats,
+    teamOnLeave: upcomingLeaveData.filter((leave: any) => new Date(leave.startDate) <= new Date()).length,
+    coverageLevel: Math.max(60, 100 - (upcomingLeaveData.length * 15)),
+    upcomingLeave: upcomingLeaveData
+  } : null;
 
   if (loading) {
     return (
@@ -131,19 +89,17 @@ export default function BusinessAdminDashboard() {
                 <span className="text-sm text-muted-foreground">
                   Welcome, {session?.user?.name || session?.user?.email}
                 </span>
-                {lastUpdated && (
-                  <span className="text-xs text-muted-foreground/70">
-                    Updated {getTimeAgo(lastUpdated)}
-                  </span>
-                )}
+                <span className="text-xs text-green-600 font-medium">
+                  ● Live Updates
+                </span>
               </div>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleManualRefresh}
-                disabled={refreshing}
+                onClick={() => refetchLeave()}
+                disabled={loading}
               >
-                <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                 Refresh
               </Button>
               <Button

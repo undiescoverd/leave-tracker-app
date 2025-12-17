@@ -14,3 +14,5 @@ DELETE FROM leave_requests;
 -- Verify deletion
 SELECT COUNT(*) as remaining_requests FROM leave_requests;
 
+
+
