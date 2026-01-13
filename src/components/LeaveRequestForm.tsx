@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { features } from "@/lib/features";
 import { calculateWorkingDays } from "@/lib/date-utils";
 import { useLeaveBalance } from "@/hooks/useLeaveBalance";
 import { useSubmitLeaveRequest, useSubmitBulkLeaveRequest } from "@/hooks/useLeaveRequests";
+import { useTeamCalendarForDateRange } from "@/hooks/useTeamCalendarForDateRange";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TOILForm } from "@/components/leave/toil/TOILForm";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { Plus, X } from "lucide-react";
+import { format, startOfMonth, endOfMonth, addMonths } from "date-fns";
 
 interface LeaveRequestFormProps {
   onSuccess?: () => void;
@@ -51,6 +53,56 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
 
   // Get available leave types based on feature flags
   const availableLeaveTypes = features.getAvailableLeaveTypes();
+
+  // Calculate date range for team calendar data fetch
+  const calendarStartDate = useMemo(() => {
+    const baseMonth = formData.dateRange?.from || new Date();
+    return startOfMonth(baseMonth);
+  }, [formData.dateRange?.from]);
+
+  const calendarEndDate = useMemo(() => {
+    return endOfMonth(addMonths(calendarStartDate, 1)); // 2 months displayed
+  }, [calendarStartDate]);
+
+  // Fetch team calendar data
+  const { eventsByDate } = useTeamCalendarForDateRange({
+    startDate: calendarStartDate,
+    endDate: calendarEndDate,
+    enabled: isOpen, // Only fetch when dialog is open
+    bufferDays: 7,
+  });
+
+  // Create modifiers for team calendar indicators
+  const calendarModifiers = useMemo(() => {
+    return {
+      hasTeamLeave: (date: Date) => {
+        const dateKey = format(date, 'yyyy-MM-dd');
+        return !!eventsByDate[dateKey]?.length;
+      },
+      hasPendingLeave: (date: Date) => {
+        const dateKey = format(date, 'yyyy-MM-dd');
+        return eventsByDate[dateKey]?.some(e => e.status === 'PENDING') || false;
+      },
+      hasApprovedLeave: (date: Date) => {
+        const dateKey = format(date, 'yyyy-MM-dd');
+        return eventsByDate[dateKey]?.some(e => e.status === 'APPROVED') || false;
+      },
+      hasMultipleLeave: (date: Date) => {
+        const dateKey = format(date, 'yyyy-MM-dd');
+        return (eventsByDate[dateKey]?.length || 0) >= 2;
+      },
+    };
+  }, [eventsByDate]);
+
+  // Apply visual styling for team calendar indicators
+  const calendarModifiersClassNames = useMemo(() => {
+    return {
+      hasTeamLeave: 'relative',
+      hasPendingLeave: 'after:content-[""] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:bg-yellow-500 after:rounded-full',
+      hasApprovedLeave: 'after:content-[""] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:bg-blue-500 after:rounded-full',
+      hasMultipleLeave: 'after:w-2 after:h-2', // Larger dot for multiple people
+    };
+  }, []);
 
   // Fetch available users for TOIL form (excluding current user)
   useEffect(() => {
@@ -388,12 +440,13 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
                     <Label className="text-sm">Leave Dates</Label>
                     <DateRangePicker
                       dateRange={formData.dateRange}
-                      onDateRangeChange={(dateRange) => 
+                      onDateRangeChange={(dateRange) =>
                         setFormData(prev => ({ ...prev, dateRange, type: 'ANNUAL' }))
                       }
                       placeholder="Select start and end dates"
                       minDate={new Date()}
                       className="w-full"
+                      defaultMonth={formData.dateRange?.from || new Date()}
                     />
                   </div>
 
@@ -436,15 +489,32 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
                         mode="range"
                         defaultMonth={formData.dateRange?.from}
                         selected={formData.dateRange}
-                        onSelect={(range) => 
+                        onSelect={(range) =>
                           setFormData(prev => ({ ...prev, dateRange: range, type: 'ANNUAL' }))
                         }
                         numberOfMonths={2}
-                        disabled={(date) => 
+                        disabled={(date) =>
                           date < new Date(new Date().setHours(0, 0, 0, 0))
                         }
+                        modifiers={calendarModifiers}
+                        modifiersClassNames={calendarModifiersClassNames}
                         className="rounded-md border w-full"
                       />
+                    </div>
+                    {/* Legend for team calendar indicators */}
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2">
+                      <div className="flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                        <span>Approved</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full"></div>
+                        <span>Pending</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <span>Multiple</span>
+                      </div>
                     </div>
                   </div>
 
@@ -510,6 +580,7 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
                       placeholder="Select start and end dates"
                       minDate={new Date()}
                       className="w-full"
+                      defaultMonth={formData.dateRange?.from || new Date()}
                     />
                   </div>
 
@@ -551,11 +622,28 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
                           setFormData(prev => ({ ...prev, dateRange: range, type: 'SICK' }))
                         }}
                         numberOfMonths={2}
-                        disabled={(date) => 
+                        disabled={(date) =>
                           date < new Date(new Date().setHours(0, 0, 0, 0))
                         }
+                        modifiers={calendarModifiers}
+                        modifiersClassNames={calendarModifiersClassNames}
                         className="rounded-md border w-full"
                       />
+                    </div>
+                    {/* Legend for team calendar indicators */}
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2">
+                      <div className="flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                        <span>Approved</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full"></div>
+                        <span>Pending</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <span>Multiple</span>
+                      </div>
                     </div>
                   </div>
 
@@ -650,6 +738,7 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
                             placeholder="Select start and end dates"
                             minDate={new Date()}
                             className="w-full"
+                            defaultMonth={req.dateRange?.from || new Date()}
                           />
                         </div>
 
@@ -799,12 +888,13 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
                 <Label className="text-sm">Leave Dates</Label>
                 <DateRangePicker
                   dateRange={formData.dateRange}
-                  onDateRangeChange={(dateRange) => 
+                  onDateRangeChange={(dateRange) =>
                     setFormData(prev => ({ ...prev, dateRange }))
                   }
                   placeholder="Select start and end dates"
                   minDate={new Date()}
                   className="w-full"
+                  defaultMonth={formData.dateRange?.from || new Date()}
                 />
               </div>
 
@@ -847,15 +937,32 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
                     mode="range"
                     defaultMonth={formData.dateRange?.from}
                     selected={formData.dateRange}
-                    onSelect={(range) => 
+                    onSelect={(range) =>
                       setFormData(prev => ({ ...prev, dateRange: range }))
                     }
                     numberOfMonths={2}
-                    disabled={(date) => 
+                    disabled={(date) =>
                       date < new Date(new Date().setHours(0, 0, 0, 0))
                     }
+                    modifiers={calendarModifiers}
+                    modifiersClassNames={calendarModifiersClassNames}
                     className="rounded-md border w-full"
                   />
+                </div>
+                {/* Legend for team calendar indicators */}
+                <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2">
+                  <div className="flex items-center gap-1">
+                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                    <span>Approved</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full"></div>
+                    <span>Pending</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <span>Multiple</span>
+                  </div>
                 </div>
               </div>
 
