@@ -79,17 +79,27 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
         const dateKey = format(date, 'yyyy-MM-dd');
         return !!eventsByDate[dateKey]?.length;
       },
-      hasPendingLeave: (date: Date) => {
+      // Luis (user needs to not be current user)
+      hasLuisApproved: (date: Date) => {
         const dateKey = format(date, 'yyyy-MM-dd');
-        return eventsByDate[dateKey]?.some(e => e.status === 'PENDING') || false;
+        const events = eventsByDate[dateKey] || [];
+        return events.some(e => e.status === 'APPROVED' && e.user.name.toLowerCase().includes('luis'));
       },
-      hasApprovedLeave: (date: Date) => {
+      hasLuisPending: (date: Date) => {
         const dateKey = format(date, 'yyyy-MM-dd');
-        return eventsByDate[dateKey]?.some(e => e.status === 'APPROVED') || false;
+        const events = eventsByDate[dateKey] || [];
+        return events.some(e => e.status === 'PENDING' && e.user.name.toLowerCase().includes('luis'));
       },
-      hasMultipleLeave: (date: Date) => {
+      // Sup
+      hasSupApproved: (date: Date) => {
         const dateKey = format(date, 'yyyy-MM-dd');
-        return (eventsByDate[dateKey]?.length || 0) >= 2;
+        const events = eventsByDate[dateKey] || [];
+        return events.some(e => e.status === 'APPROVED' && e.user.name.toLowerCase().includes('sup'));
+      },
+      hasSupPending: (date: Date) => {
+        const dateKey = format(date, 'yyyy-MM-dd');
+        const events = eventsByDate[dateKey] || [];
+        return events.some(e => e.status === 'PENDING' && e.user.name.toLowerCase().includes('sup'));
       },
     };
   }, [eventsByDate]);
@@ -98,9 +108,10 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
   const calendarModifiersClassNames = useMemo(() => {
     return {
       hasTeamLeave: 'relative',
-      hasPendingLeave: 'after:content-[""] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:bg-yellow-500 after:rounded-full',
-      hasApprovedLeave: 'after:content-[""] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:bg-blue-500 after:rounded-full',
-      hasMultipleLeave: 'after:w-2 after:h-2', // Larger dot for multiple people
+      hasLuisApproved: 'after:content-[""] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:bg-blue-500 after:rounded-full',
+      hasLuisPending: 'after:content-[""] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:bg-green-500 after:rounded-full',
+      hasSupApproved: 'after:content-[""] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:bg-purple-500 after:rounded-full',
+      hasSupPending: 'after:content-[""] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:bg-orange-500 after:rounded-full',
     };
   }, []);
 
@@ -502,18 +513,22 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
                       />
                     </div>
                     {/* Legend for team calendar indicators */}
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2">
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-2">
                       <div className="flex items-center gap-1">
                         <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-                        <span>Approved</span>
+                        <span>Luis Approved</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full"></div>
-                        <span>Pending</span>
+                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                        <span>Luis Pending</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                        <span>Multiple</span>
+                        <div className="w-1.5 h-1.5 bg-purple-500 rounded-full"></div>
+                        <span>Sup Approved</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 bg-orange-500 rounded-full"></div>
+                        <span>Sup Pending</span>
                       </div>
                     </div>
                   </div>
@@ -631,18 +646,22 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
                       />
                     </div>
                     {/* Legend for team calendar indicators */}
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2">
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-2">
                       <div className="flex items-center gap-1">
                         <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-                        <span>Approved</span>
+                        <span>Luis Approved</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full"></div>
-                        <span>Pending</span>
+                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                        <span>Luis Pending</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                        <span>Multiple</span>
+                        <div className="w-1.5 h-1.5 bg-purple-500 rounded-full"></div>
+                        <span>Sup Approved</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 bg-orange-500 rounded-full"></div>
+                        <span>Sup Pending</span>
                       </div>
                     </div>
                   </div>
