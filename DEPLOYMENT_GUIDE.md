@@ -1,6 +1,19 @@
 # Deployment Guide - Supabase Migration
 
-## Overview
+## ⚠️ IMPORTANT: Multi-Project Supabase Setup (December 2024)
+
+**The application now uses separate Supabase projects for dev and prod environments.**
+
+For the latest deployment instructions with dev/prod project separation, please refer to:
+- **Primary Guide**: [`MIGRATION_EXECUTION_GUIDE.md`](./MIGRATION_EXECUTION_GUIDE.md) - Complete step-by-step migration process
+- **Vercel Setup**: [`VERCEL_ENVIRONMENT_SETUP.md`](./VERCEL_ENVIRONMENT_SETUP.md) - Environment variable configuration
+- **Schema Setup**: [`SCHEMA_APPLICATION_GUIDE.md`](./SCHEMA_APPLICATION_GUIDE.md) - Database schema application
+
+The guide below covers the original single-project setup. For new deployments, use the guides listed above.
+
+---
+
+## Overview (Legacy Single-Project Setup)
 
 This guide covers deploying the Leave Tracker App after the successful migration from Prisma to Supabase. The application now uses Supabase for database, authentication, and realtime features.
 

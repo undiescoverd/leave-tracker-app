@@ -170,7 +170,7 @@ export default function PendingRequestsPage() {
   }
 
   const pendingRequests = pendingData?.requests || [];
-  const allRequestsList = allRequestsData?.requests || [];
+  const allRequestsList: LeaveRequest[] = allRequestsData?.requests || [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -270,7 +270,7 @@ export default function PendingRequestsPage() {
                                 </p>
                               )}
                               <p className="text-sm text-muted-foreground">
-                                <span className="font-semibold">Submitted:</span> {formatDate(request.submittedAt || request.createdAt)}
+                                <span className="font-semibold">Submitted:</span> {formatDate(request.submittedAt)}
                               </p>
                             </div>
                           </div>

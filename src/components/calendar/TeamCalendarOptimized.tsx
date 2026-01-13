@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback, memo } from "react";
 import { ChevronLeft, ChevronRight, Calendar, Users, Clock, RefreshCw } from "lucide-react";
+import { toLocalDateKey } from "@/lib/date-utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -251,7 +252,8 @@ const TeamCalendarOptimized = memo(function TeamCalendarOptimized() {
 
     // Generate 42 days (6 weeks)
     for (let i = 0; i < 42; i++) {
-      const dateStr = currentDate.toISOString().split('T')[0];
+      // Use local date components for lookup to match API key generation
+      const dateStr = toLocalDateKey(currentDate);
       const dayEvents = calendarData.eventsByDate?.[dateStr] || [];
       
       days.push({

@@ -13,10 +13,28 @@ import { apiError } from '@/lib/api/response';
 /**
  * Request validation schemas for different endpoint types
  */
+// Date string regex for yyyy-MM-dd format (also accepts ISO datetime)
+const dateStringSchema = z.string().refine(
+  (val) => {
+    // Accept yyyy-MM-dd format
+    if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+      const date = new Date(val);
+      return !isNaN(date.getTime());
+    }
+    // Accept ISO datetime format
+    if (/^\d{4}-\d{2}-\d{2}T/.test(val)) {
+      const date = new Date(val);
+      return !isNaN(date.getTime());
+    }
+    return false;
+  },
+  { message: 'Invalid date format. Expected yyyy-MM-dd or ISO datetime' }
+);
+
 export const validationSchemas = {
   leaveRequest: z.object({
-    startDate: z.string().datetime(),
-    endDate: z.string().datetime(),
+    startDate: dateStringSchema,
+    endDate: dateStringSchema,
     reason: z.string().min(1, 'Reason is required').max(500),
     type: z.enum(['ANNUAL', 'TOIL', 'SICK', 'UNPAID']).optional().default('ANNUAL'),
     hours: z.number().min(0).max(168).optional(), // Max 1 week in hours
@@ -67,8 +85,8 @@ export const validationSchemas = {
   bulkLeaveRequest: z.object({
     requests: z.array(
       z.object({
-        startDate: z.string().datetime(),
-        endDate: z.string().datetime(),
+        startDate: dateStringSchema,
+        endDate: dateStringSchema,
         reason: z.string().min(1, 'Reason is required').max(500),
         type: z.enum(['ANNUAL', 'TOIL', 'SICK', 'UNPAID']).optional().default('ANNUAL'),
         hours: z.number().min(0).max(168).optional(),

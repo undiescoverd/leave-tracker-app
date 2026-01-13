@@ -66,8 +66,23 @@ export class CacheInvalidationService {
     // Invalidate calendar data for affected months
     this.invalidateCalendarData(startDate, endDate);
     
-    // Clear admin pending requests cache
-    apiCache.delete('admin-pending-requests');
+    // Clear all admin pending requests cache entries (with any limit/offset combination)
+    // The cache keys are formatted as 'admin-pending-requests:limit:offset'
+    const keys = Array.from((apiCache as any).cache.keys());
+    keys.forEach((key) => {
+      const keyStr = key as string;
+      if (keyStr.startsWith('admin-pending-requests:')) {
+        apiCache.delete(keyStr);
+      }
+    });
+    
+    // Also clear admin all-requests cache entries
+    keys.forEach((key) => {
+      const keyStr = key as string;
+      if (keyStr.startsWith('admin-all-requests:')) {
+        apiCache.delete(keyStr);
+      }
+    });
   }
 
   /**

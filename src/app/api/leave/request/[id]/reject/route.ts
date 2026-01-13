@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { withAdminAuth } from '@/lib/middleware/auth.supabase';
 import { withCompleteSecurity } from '@/lib/middleware/security';
 import { apiCache } from '@/lib/cache/cache-manager';
+import { invalidateOnLeaveRequestChange } from '@/lib/cache/cache-invalidation';
 
 // Validation schema for rejection
 const rejectRequestSchema = z.object({
@@ -176,7 +177,19 @@ async function rejectLeaveRequestHandler(
     });
 
     // Invalidate relevant caches
-    apiCache.clear(); // Clear all admin caches to ensure fresh data
+    // This clears the user's balance cache so their dashboard updates immediately (pending count changes)
+    try {
+      invalidateOnLeaveRequestChange(
+        leaveRequest.user_id,
+        new Date(leaveRequest.start_date),
+        new Date(leaveRequest.end_date)
+      );
+    } catch (cacheError) {
+      logger.warn('Cache invalidation failed during rejection:', undefined, cacheError as Error);
+    }
+    
+    // Also clear all admin caches to ensure fresh data
+    apiCache.clear();
 
     return apiSuccess({
       message: 'Leave request rejected successfully',

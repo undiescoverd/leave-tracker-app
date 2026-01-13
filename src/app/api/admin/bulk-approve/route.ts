@@ -6,6 +6,8 @@ import { withAdminAuth } from '@/lib/middleware/auth.supabase';
 import { withCompleteSecurity } from '@/lib/middleware/security';
 import { logger } from '@/lib/logger';
 import { ValidationError } from '@/lib/api/errors';
+import { invalidateOnLeaveRequestChange } from '@/lib/cache/cache-invalidation';
+import { apiCache } from '@/lib/cache/cache-manager';
 
 // Helper function to calculate days between dates
 function calculateDays(startDate: Date, endDate: Date): number {
@@ -117,17 +119,76 @@ async function bulkApproveHandler(req: NextRequest, context: AuthContext): Promi
     }
 
     // Update all pending requests to approved
+    const updateData = {
+      status: 'APPROVED' as const,
+      approved_by: admin.name || admin.email,
+      approved_at: new Date().toISOString()
+    };
     const { error: updateError } = await supabaseAdmin
       .from('leave_requests')
-      .update({
-        status: 'APPROVED',
-        approved_by: admin.name || admin.email,
-        approved_at: new Date().toISOString()
-      })
+      // @ts-expect-error - Supabase type inference issue with update
+      .update(updateData)
       .eq('status', 'PENDING');
 
     if (updateError) {
       throw new Error(`Failed to update requests: ${updateError.message}`);
+    }
+
+    // Create TOIL entries for any TOIL requests that were approved
+    const toilRequests = pendingRequests.filter((req: any) => req.type === 'TOIL');
+    for (const toilRequest of toilRequests) {
+      try {
+        // Get current user balance for audit trail
+        const { data: user, error: userError } = await supabaseAdmin
+          .from('users')
+          .select('toil_balance')
+          .eq('id', toilRequest.user_id)
+          .single();
+
+        if (!userError && user) {
+          const previousBalance = (user as any).toil_balance || 0;
+          const hours = toilRequest.hours || 0;
+          const newBalance = previousBalance + hours;
+
+          // Create TOIL entry for audit trail
+          const { error: createEntryError } = await supabaseAdmin
+            .from('toil_entries')
+            .insert({
+              user_id: toilRequest.user_id,
+              date: toilRequest.start_date,
+              type: 'OVERTIME', // Default type for approved requests
+              hours: hours,
+              reason: toilRequest.comments || '',
+              approved: true,
+              approved_by: admin.id,
+              approved_at: new Date().toISOString(),
+              previous_balance: previousBalance,
+              new_balance: newBalance,
+            } as any);
+
+          if (!createEntryError) {
+            // Update user's TOIL balance
+            await supabaseAdmin
+              .from('users')
+              .update({
+                toil_balance: newBalance,
+              } as any)
+              .eq('id', toilRequest.user_id);
+          } else {
+            logger.error('Failed to create TOIL entry during bulk approval', {
+              requestId: toilRequest.id,
+              userId: toilRequest.user_id,
+              error: createEntryError,
+            });
+          }
+        }
+      } catch (toilError) {
+        logger.error('Error processing TOIL entry during bulk approval', {
+          requestId: toilRequest.id,
+          userId: toilRequest.user_id,
+        }, toilError instanceof Error ? toilError : new Error(String(toilError)));
+        // Continue processing other requests even if TOIL entry creation fails
+      }
     }
 
     const updateResult = { count: pendingRequests.length };
@@ -187,6 +248,25 @@ async function bulkApproveHandler(req: NextRequest, context: AuthContext): Promi
         emailErrors.push(errorMsg);
       }
     }
+
+    // Invalidate caches for all affected users
+    // This ensures all users' dashboards update immediately with their new balances
+    const affectedUserIds = new Set<string>();
+    for (const request of pendingRequests) {
+      affectedUserIds.add(request.user_id);
+      try {
+        invalidateOnLeaveRequestChange(
+          request.user_id,
+          new Date(request.start_date),
+          new Date(request.end_date)
+        );
+      } catch (cacheError) {
+        logger.warn(`Cache invalidation failed for user ${request.user_id} during bulk approval:`, undefined, cacheError as Error);
+      }
+    }
+    
+    // Also clear all admin caches
+    apiCache.clear();
 
     // Log the completion of bulk operation
     logger.info('Bulk approval completed', {

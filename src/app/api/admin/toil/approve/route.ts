@@ -92,8 +92,26 @@ async function toilApproveHandler(req: NextRequest, context: { user: { id: strin
         .update({ status: 'PENDING' } as any)
         .eq('id', requestId);
 
-      console.error('TOIL entry creation error:', createEntryError);
-      return apiError('Failed to create TOIL entry', 500);
+      console.error('TOIL entry creation error:', {
+        error: createEntryError,
+        message: createEntryError.message,
+        details: createEntryError.details,
+        hint: createEntryError.hint,
+        code: createEntryError.code,
+        insertData: {
+          user_id: (request as any).user_id,
+          date: (request as any).start_date,
+          type: 'OVERTIME',
+          hours: (request as any).hours || 0,
+          reason: (request as any).comments || '',
+          approved: true,
+          approved_by: admin.id,
+          approved_at: new Date().toISOString(),
+          previous_balance: previousBalance,
+          new_balance: newBalance,
+        }
+      });
+      return apiError(`Failed to create TOIL entry: ${createEntryError.message}`, 500);
     }
 
     // Credit TOIL hours to user balance

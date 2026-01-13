@@ -72,7 +72,7 @@ async function getAllRequestsHandler(req: NextRequest, context: { user: unknown 
     const totalCount = countResponse.count || 0;
 
     // Transform data to match frontend expectations (convert snake_case to camelCase)
-    const enhancedRequests = allRequests.map(request => {
+    const enhancedRequests = allRequests.map((request: any) => {
       const start = new Date(request.start_date);
       const end = new Date(request.end_date);
       const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;

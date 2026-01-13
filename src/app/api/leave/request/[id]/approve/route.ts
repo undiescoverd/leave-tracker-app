@@ -9,6 +9,7 @@ import { format } from 'date-fns';
 import { withAdminAuth } from '@/lib/middleware/auth.supabase';
 import { withCompleteSecurity } from '@/lib/middleware/security';
 import { apiCache } from '@/lib/cache/cache-manager';
+import { invalidateOnLeaveRequestChange } from '@/lib/cache/cache-invalidation';
 
 async function approveLeaveRequestHandler(
   req: NextRequest,
@@ -96,6 +97,69 @@ async function approveLeaveRequestHandler(
       throw new Error(`Failed to update leave request: ${updateError.message}`);
     }
 
+    // If this is a TOIL request, create a TOIL entry
+    if (leaveRequest.type === 'TOIL') {
+      // Get current user balance for audit trail
+      const { data: user, error: userError } = await supabaseAdmin
+        .from('users')
+        .select('toil_balance')
+        .eq('id', leaveRequest.user_id)
+        .single();
+
+      if (!userError && user) {
+        const previousBalance = (user as any).toil_balance || 0;
+        const hours = leaveRequest.hours || 0;
+        const newBalance = previousBalance + hours;
+
+        // Create TOIL entry for audit trail
+        const { data: toilEntry, error: createEntryError } = await supabaseAdmin
+          .from('toil_entries')
+          .insert({
+            user_id: leaveRequest.user_id,
+            date: leaveRequest.start_date,
+            type: 'OVERTIME', // Default type for approved requests
+            hours: hours,
+            reason: leaveRequest.comments || '',
+            approved: true,
+            approved_by: admin.id,
+            approved_at: new Date().toISOString(),
+            previous_balance: previousBalance,
+            new_balance: newBalance,
+          } as any)
+          .select()
+          .single();
+
+        if (createEntryError) {
+          logger.error('Failed to create TOIL entry after approval', {
+            requestId,
+            error: createEntryError,
+            message: createEntryError.message,
+            details: createEntryError.details,
+            hint: createEntryError.hint,
+            code: createEntryError.code,
+          });
+          // Don't fail the approval if TOIL entry creation fails, but log it
+        } else {
+          // Update user's TOIL balance
+          const { error: updateUserError } = await supabaseAdmin
+            .from('users')
+            .update({
+              toil_balance: newBalance,
+            } as any)
+            .eq('id', leaveRequest.user_id);
+
+          if (updateUserError) {
+            logger.error('Failed to update user TOIL balance after approval', {
+              requestId,
+              userId: leaveRequest.user_id,
+              error: updateUserError,
+            });
+            // Don't fail the approval if balance update fails, but log it
+          }
+        }
+      }
+    }
+
     // Convert to camelCase for frontend compatibility
     const updatedRequest = {
       id: updatedRequestData.id,
@@ -142,7 +206,19 @@ async function approveLeaveRequestHandler(
     });
 
     // Invalidate relevant caches
-    apiCache.clear(); // Clear all admin caches to ensure fresh data
+    // This clears the user's balance cache so their dashboard updates immediately
+    try {
+      invalidateOnLeaveRequestChange(
+        leaveRequest.user_id,
+        new Date(leaveRequest.start_date),
+        new Date(leaveRequest.end_date)
+      );
+    } catch (cacheError) {
+      logger.warn('Cache invalidation failed during approval:', undefined, cacheError as Error);
+    }
+    
+    // Also clear all admin caches to ensure fresh data
+    apiCache.clear();
 
     return apiSuccess({
       message: 'Leave request approved successfully',

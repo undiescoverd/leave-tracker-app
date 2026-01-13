@@ -236,9 +236,11 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
       }
     }
 
+    // Send dates as YYYY-MM-DD strings to avoid timezone shifting
+    // Using format() ensures we send the user's intended local date, not a UTC-shifted time
     const requestData = {
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString(),
+      startDate: format(startDate, 'yyyy-MM-dd'),
+      endDate: format(endDate, 'yyyy-MM-dd'),
       reason: formData.comments, // API expects 'reason' field
       type: leaveTypeForSubmit,
       ...(leaveTypeForSubmit === 'TOIL' && formData.hours && { hours: Number(formData.hours) })
@@ -295,10 +297,11 @@ function LeaveRequestFormInternal({ onSuccess }: LeaveRequestFormProps) {
     }
 
     try {
+      // Send dates as YYYY-MM-DD strings to avoid timezone shifting
       const bulkData = {
         requests: validRequests.map((req) => ({
-          startDate: req.dateRange!.from!.toISOString(),
-          endDate: req.dateRange!.to!.toISOString(),
+          startDate: format(req.dateRange!.from!, 'yyyy-MM-dd'),
+          endDate: format(req.dateRange!.to!, 'yyyy-MM-dd'),
           reason: req.reason.trim(),
           type: formData.type,
         })),

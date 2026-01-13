@@ -38,9 +38,12 @@ const baseSchema = z.object({
   EMAIL_TIMEOUT_MS: z.string().regex(/^\d+$/).default("30000").transform(Number),
   
   // Supabase configuration (optional)
+  // Support both new and legacy naming conventions
   NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
-  SUPABASE_SECRET_KEY: z.string().optional(),
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().optional(), // New naming
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().optional(), // Legacy naming (deprecated)
+  SUPABASE_SECRET_KEY: z.string().optional(), // New naming (recommended)
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(), // Legacy naming (deprecated)
 });
 
 // Conditional schema based on environment
@@ -75,8 +78,10 @@ try {
     EMAIL_RETRY_ATTEMPTS: process.env.EMAIL_RETRY_ATTEMPTS,
     EMAIL_TIMEOUT_MS: process.env.EMAIL_TIMEOUT_MS,
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY,
+    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
   });
 } catch (error) {
   if (error instanceof z.ZodError) {
@@ -107,8 +112,10 @@ try {
         EMAIL_RETRY_ATTEMPTS: process.env.EMAIL_RETRY_ATTEMPTS || "3",
         EMAIL_TIMEOUT_MS: process.env.EMAIL_TIMEOUT_MS || "30000",
         NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-        SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
         SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY,
+        SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
       });
     }
   } else {

@@ -96,6 +96,7 @@ export function TOILForm({ onSubmit, onCancel, availableUsers = [], loading = fa
             placeholder="Select travel start and end dates"
             minDate={new Date()}
             className="w-full"
+            defaultMonth={dateRange?.from || new Date()}
           />
           {form.formState.errors.travelDate && (
             <p className="text-sm text-red-500">

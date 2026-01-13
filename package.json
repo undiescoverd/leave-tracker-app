@@ -10,6 +10,8 @@
     "generate-secret": "node scripts/generate-secret.js",
     "db:seed": "tsx supabase/seed.supabase.ts",
     "db:reset": "tsx scripts/reset-all-leave-data.ts",
+    "migrate:data": "tsx scripts/migrate-supabase-data.ts",
+    "validate:migration": "tsx scripts/validate-supabase-migration.ts",
     "test:auth": "npx tsx test-scripts/test-authentication.ts",
     "test:setup": "npm run db:seed && npm run test:auth",
     "diagnose": "tsx scripts/diagnose-api.ts",

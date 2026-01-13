@@ -6,7 +6,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
 } from "lucide-react"
-import { DayButton, DayPicker, getDefaultClassNames } from "react-day-picker"
+import { DayButton, DayPicker, getDefaultClassNames, useDayPicker } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -180,10 +180,28 @@ function CalendarDayButton({
 }: React.ComponentProps<typeof DayButton>) {
   const defaultClassNames = getDefaultClassNames()
 
+  // Access modifiersClassNames from DayPicker context
+  const { dayPickerProps } = useDayPicker()
+  const modifiersClassNames = dayPickerProps.modifiersClassNames
+
   const ref = React.useRef<HTMLButtonElement>(null)
   React.useEffect(() => {
     if (modifiers.focused) ref.current?.focus()
   }, [modifiers.focused])
+
+  // Collect CSS classes for active custom modifiers
+  const customModifierClasses = React.useMemo(() => {
+    if (!modifiersClassNames) return []
+
+    return Object.keys(modifiers)
+      .filter(modifierName => {
+        // Only include custom modifiers (not built-in ones)
+        const isBuiltIn = ['selected', 'range_start', 'range_end', 'range_middle', 'focused', 'today', 'outside', 'disabled', 'hidden'].includes(modifierName)
+        return !isBuiltIn && modifiers[modifierName as keyof typeof modifiers]
+      })
+      .map(modifierName => modifiersClassNames[modifierName])
+      .filter(Boolean)
+  }, [modifiers, modifiersClassNames])
 
   return (
     <Button
@@ -203,6 +221,7 @@ function CalendarDayButton({
       className={cn(
         "data-[selected-single=true]:bg-primary data-[selected-single=true]:text-primary-foreground data-[range-middle=true]:bg-accent data-[range-middle=true]:text-accent-foreground data-[range-start=true]:bg-primary data-[range-start=true]:text-primary-foreground data-[range-end=true]:bg-primary data-[range-end=true]:text-primary-foreground group-data-[focused=true]/day:border-ring group-data-[focused=true]/day:ring-ring/50 flex aspect-square h-auto w-full min-w-[--cell-size] flex-col gap-1 font-normal leading-none data-[range-end=true]:rounded-md data-[range-middle=true]:rounded-none data-[range-start=true]:rounded-md group-data-[focused=true]/day:relative group-data-[focused=true]/day:z-10 group-data-[focused=true]/day:ring-[3px] [&>span]:text-xs [&>span]:opacity-70",
         defaultClassNames.day,
+        ...customModifierClasses, // Apply custom modifier classes for indicators
         className
       )}
       {...props}

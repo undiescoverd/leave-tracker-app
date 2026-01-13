@@ -23,12 +23,33 @@ export async function GET(_request: NextRequest) {
       .order('name', { ascending: true });
 
     if (error) {
-      throw new Error(`Failed to fetch colleagues: ${error.message}`);
+      console.error('Supabase error fetching colleagues:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
+      return apiError(
+        `Failed to fetch colleagues: ${error.message}`,
+        500,
+        { supabaseError: error }
+      );
     }
 
     return apiSuccess({ users: users || [] });
   } catch (error) {
-    console.error('Error fetching colleagues:', error);
-    return apiError('Internal server error', 500);
+    console.error('Error fetching colleagues:', {
+      error,
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    
+    const errorMessage = error instanceof Error 
+      ? error.message 
+      : 'Internal server error';
+    
+    return apiError(errorMessage, 500, {
+      originalError: error instanceof Error ? error.message : String(error)
+    });
   }
 }

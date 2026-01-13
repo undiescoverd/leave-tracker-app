@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { toLocalDateKey } from "@/lib/date-utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -51,7 +52,8 @@ export default function TeamCoverageWidget({ daysToShow = 14 }: TeamCoverageWidg
       for (let i = 0; i < daysToShow; i++) {
         const date = new Date(today);
         date.setDate(today.getDate() + i);
-        const dateStr = date.toISOString().split('T')[0];
+        // Use local date components for consistent date comparisons
+        const dateStr = toLocalDateKey(date);
         
         const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'short' });
         const isWeekend = dayOfWeek === 'Sat' || dayOfWeek === 'Sun';

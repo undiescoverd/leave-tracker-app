@@ -6,6 +6,7 @@ import { getTeamCalendarData } from '@/lib/services/leave.service.supabase';
 import { calendarCache, createCacheKey } from '@/lib/cache/cache-manager';
 import { withErrorHandler, composeMiddleware, withPerformanceMonitoring, withQueryOptimization } from '@/middleware/error-handler';
 import { logger } from '@/lib/logger';
+import { parseUTCDateString, toLocalDateKey } from '@/lib/date-utils';
 
 async function getTeamLeaveCalendar(req: NextRequest) {
   const user = await getAuthenticatedUser();
@@ -74,18 +75,26 @@ async function getTeamLeaveCalendar(req: NextRequest) {
 
   // Group events by date for easier calendar rendering
   const eventsByDate: Record<string, typeof calendarEvents> = {};
-  
+
   calendarEvents.forEach((event: any) => {
-    const start = new Date(event.startDate);
-    const end = new Date(event.endDate);
-    
+    // startDate and endDate are YYYY-MM-DD strings extracted from UTC timestamps in the database
+    const startDateStr = event.startDate; // e.g., "2025-01-19"
+    const endDateStr = event.endDate; // e.g., "2025-01-20"
+
+    // Parse dates for iteration using explicit UTC (noon to avoid DST edge cases)
+    const start = parseUTCDateString(startDateStr);
+    const end = parseUTCDateString(endDateStr);
+
     // Create entry for each day of the leave period
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      const dateKey = d.toISOString().split('T')[0];
+    const current = new Date(start);
+    while (current <= end) {
+      // Format date as YYYY-MM-DD using local date components for consistency with client lookups
+      const dateKey = toLocalDateKey(current);
       if (!eventsByDate[dateKey]) {
         eventsByDate[dateKey] = [];
       }
       eventsByDate[dateKey].push(event);
+      current.setDate(current.getDate() + 1);
     }
   });
 
